@@ -144,7 +144,7 @@
     Eric:'cjVigY5qzO86Huf0OWal', Brian:'nPczCjzI2devNBz1zQrb', Daniel:'onwK4e9ZLuTAKqWW03F9',
     Lily:'pFZP5JQG7iQjIQuC4Bku', Bill:'pqHfZKP75CvOlQylNhV4'
   };
-  const FEM = ['Elena','Laura','Matilda','Jessica','Lily'];
+  const FEM = [ 'Elena','Laura','Matilda','Jessica','Lily'];
 
   const $ = id => document.getElementById(id);
   const log = (m, cls) => {
@@ -231,7 +231,11 @@
       })
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+    if (!r.ok) {
+      const err = new Error(data.error || ('HTTP ' + r.status));
+      err.details = data.details;
+      throw err;
+    }
     return data;
   }
 
@@ -243,7 +247,7 @@
       const bytes = Uint8Array.from(atob(d.audio), c => c.charCodeAt(0));
       new Audio(URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }))).play();
       log('проба: ' + (lang === 'de' ? a.de : a.ru) + ' · ' + $('voice').value, 'ok');
-    } catch (e) { log('проба не вышла: ' + e.message, 'err'); }
+    } catch (e) { log('проба не вышла: ' + e.message + (e.details ? ' — ' + e.details : ''), 'err'); }
     $('btnTest').disabled = false;
   });
 
@@ -260,7 +264,7 @@
         ok++;
       } catch (e) {
         bad++;
-        log('✗ ' + (lang === 'de' ? a.de : a.ru) + ' — ' + e.message, 'err');
+        log('✗ ' + (lang === 'de' ? a.de : a.ru) + ' — ' + e.message + (e.details ? ' — ' + e.details : ''), 'err');
       }
       n++;
       $('fill').style.width = (n / uniq.length * 100).toFixed(1) + '%';
