@@ -16,7 +16,7 @@
     color:#1E3D57;min-height:100vh;line-height:1.5;
     padding:calc(env(safe-area-inset-top,0px) + 16px) 14px calc(env(safe-area-inset-bottom,0px) + 30px);
   }
-  .wrap{max-width:660px;margin:0 auto}
+  .wrap{max-width:680px;margin:0 auto}
   .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
   h1{font-size:21px;font-weight:600}
   .back{font-size:14px;color:#2F8FC4;text-decoration:none}
@@ -30,30 +30,48 @@
   .row{display:flex;gap:10px;margin-top:11px}
   .row>*{flex:1;min-width:0}
   button{
-    width:100%;padding:13px;font-size:15px;font-weight:600;font-family:inherit;
-    border:0;border-radius:12px;background:#2F8FC4;color:#fff;cursor:pointer;margin-top:11px;
+    width:100%;padding:12px;font-size:15px;font-weight:600;font-family:inherit;
+    border:0;border-radius:12px;background:#2F8FC4;color:#fff;cursor:pointer;margin-top:10px;
   }
   button:disabled{background:#BCCDDA;cursor:default}
   button.ghost{background:#E9F2F9;color:#2C6E96}
   button.go{background:#1F9B6E}
+  button.slim{padding:9px;font-size:13.5px;margin-top:8px}
+
+  /* три рода */
+  .gen{border-radius:14px;padding:13px;margin-top:11px;border:1.5px solid}
+  .gen:first-of-type{margin-top:0}
+  .gen h3{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .gen .cnt{font-size:12px;font-weight:500;color:#7A8FA3;margin-left:auto}
+  .der{background:#EEF4FF;border-color:#C7D9F5}
+  .der h3{color:#2B5DA8}
+  .die{background:#FFF0F4;border-color:#F6CBD8}
+  .die h3{color:#B03A63}
+  .das{background:#EFFAF3;border-color:#C4E8D3}
+  .das h3{color:#1F7A50}
+
   .bar{height:9px;border-radius:999px;background:#E6EEF6;overflow:hidden;margin-top:12px}
   .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#5BC8A8,#F0B429);transition:width .2s}
   .note{font-size:12.5px;color:#5B7A93;margin-top:9px}
   code{background:#EDF3FA;padding:1px 5px;border-radius:5px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
-  .list{margin-top:12px;max-height:280px;overflow:auto;border-top:1px solid #EFF4F9}
-  .item{
-    display:flex;align-items:center;gap:9px;padding:7px 2px;border-bottom:1px solid #F2F6FA;font-size:14px;
-  }
+  .chk{display:flex;align-items:center;gap:9px;margin-top:11px;font-size:14px}
+  .chk input{width:19px;height:19px;flex:none}
+
+  .list{margin-top:10px;max-height:340px;overflow:auto;border-top:1px solid #EFF4F9}
+  .grp{font-size:12px;font-weight:600;color:#7A8FA3;padding:9px 2px 4px}
+  .item{display:flex;align-items:center;gap:9px;padding:6px 2px;border-bottom:1px solid #F2F6FA;font-size:14px}
   .item .w{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .item .st{font-size:12px;width:66px;text-align:right;flex:none}
+  .item .st{font-size:11.5px;width:74px;text-align:right;flex:none}
   .item .play{
-    width:32px;height:32px;flex:none;border-radius:50%;background:#EAF3F9;color:#2C6E96;
-    display:grid;place-items:center;font-size:14px;margin:0;padding:0;
+    width:31px;height:31px;flex:none;border-radius:50%;background:#EAF3F9;color:#2C6E96;
+    display:grid;place-items:center;font-size:13px;margin:0;padding:0;
   }
-  .ok{color:#1F8A5F}
+  .item .play:disabled{background:#F3F6F9;color:#C3D0DA}
+  .have{color:#1F8A5F}
+  .fresh{color:#B77B0B}
+  .miss{color:#B9C6D2}
   .err{color:#C0392B}
-  .wait{color:#9AAEBE}
-  .log{margin-top:10px;font-size:12.5px;color:#5B7A93;max-height:130px;overflow:auto}
+  .log{margin-top:10px;font-size:12.5px;color:#5B7A93;max-height:120px;overflow:auto}
   .log div{padding:2px 0}
 </style>
 </head>
@@ -67,18 +85,12 @@
   <div class="card">
     <div class="row" style="margin-top:0">
       <div>
-        <label for="voice">Голос</label>
-        <select id="voice"></select>
-      </div>
-      <div>
         <label for="lang">Язык</label>
         <select id="lang">
           <option value="de" selected>Немецкий</option>
           <option value="ru">Русский</option>
         </select>
       </div>
-    </div>
-    <div class="row">
       <div>
         <label for="repo">Репозиторий</label>
         <input id="repo" value="Kesik80/yeva" autocomplete="off">
@@ -90,14 +102,36 @@
         <input id="admin" type="password" autocomplete="off" placeholder="если задан в Vercel">
       </div>
     </div>
-    <button class="ghost" id="btnTest">Послушать пробу этим голосом</button>
-    <div class="note" id="est"></div>
   </div>
 
   <div class="card">
-    <button id="btnGen">1 · Озвучить все слова</button>
-    <button class="go" id="btnPub" disabled>2 · Записать в репозиторий одним коммитом</button>
-    <button class="ghost" id="btnZip" disabled>Или скачать ZIP на телефон</button>
+    <div class="gen der">
+      <h3>der · мужской <span class="cnt" id="cnt-der"></span></h3>
+      <select id="v-der"></select>
+      <button class="ghost slim" data-sample="der">Послушать пробу</button>
+    </div>
+    <div class="gen die">
+      <h3>die · женский <span class="cnt" id="cnt-die"></span></h3>
+      <select id="v-die"></select>
+      <button class="ghost slim" data-sample="die">Послушать пробу</button>
+    </div>
+    <div class="gen das">
+      <h3>das · средний <span class="cnt" id="cnt-das"></span></h3>
+      <select id="v-das"></select>
+      <button class="ghost slim" data-sample="das">Послушать пробу</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <button class="ghost" id="btnCheck">1 · Проверить, каких слов не хватает</button>
+    <div class="chk">
+      <input type="checkbox" id="redo">
+      <label for="redo" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
+        перезаписать и те, что уже есть
+      </label>
+    </div>
+    <button id="btnGen">2 · Озвучить недостающие</button>
+    <button class="go" id="btnPub" disabled>3 · Записать одним коммитом</button>
     <div class="bar"><i id="fill"></i></div>
     <div class="log" id="log"></div>
     <div class="list" id="list"></div>
@@ -105,8 +139,8 @@
 
   <div class="card">
     <div class="note" style="margin:0">
-      Файлы лягут в <code>voice/de/</code> под именами вида <code>katze.mp3</code> — игра ищет их именно там.
-      Ключ ElevenLabs живёт только в переменных Vercel, в браузер он не попадает.
+      Проверка стучится по адресу <code>voice/de/katze.mp3</code> на этом же сайте, так что видно ровно то, что видит игра.
+      Уже записанные слова повторно не тратят кредиты.
     </div>
   </div>
 </div>
@@ -116,7 +150,6 @@
 (() => {
   'use strict';
 
-  // Тот же список, что в игре. de — с артиклем, имя файла строится из него.
   const A = (ru, de) => ({ ru: ru, de: de });
   const WORDS = [
     A('кошка','die Katze'), A('собака','der Hund'), A('корова','die Kuh'), A('овечка','das Schaf'),
@@ -136,15 +169,15 @@
     A('робот','der Roboter'), A('земля','die Erde')
   ];
 
-  // те же голоса, что в tts-widget.js
   const VOICES = {
-    Elena:'h8PCn0HukMaFj1sJwcjY',   
     Roger:'CwhRBWXzGAHq8TQ4Fs17', Laura:'FGY2WhTYpPnrIDTdsKH5', Liam:'TX3LPaxmHKxFdv7VOQHJ',
     Matilda:'XrExE9yKIg1WjnnlVkGX', Will:'bIHbv24MWmeRgasZH58o', Jessica:'cgSgspJ2msm6clMCkdW9',
     Eric:'cjVigY5qzO86Huf0OWal', Brian:'nPczCjzI2devNBz1zQrb', Daniel:'onwK4e9ZLuTAKqWW03F9',
     Lily:'pFZP5JQG7iQjIQuC4Bku', Bill:'pqHfZKP75CvOlQylNhV4'
   };
-  const FEM = [ 'Elena','Laura','Matilda','Jessica','Lily'];
+  const FEM = ['Laura','Matilda','Jessica','Lily'];
+  const GENDERS = ['der', 'die', 'das'];
+  const DEFAULTS = { der: 'Roger', die: 'Matilda', das: 'Daniel' };
 
   const $ = id => document.getElementById(id);
   const log = (m, cls) => {
@@ -154,6 +187,7 @@
     $('log').prepend(d);
   };
 
+  const gender = a => (a.de.match(/^(der|die|das)\b/i) || ['', 'der'])[1].toLowerCase();
   const slug = a => a.de.replace(/^(der|die|das)\s+/i, '')
     .toLowerCase()
     .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
@@ -164,124 +198,148 @@
   const seen = {};
   WORDS.forEach(a => { const s = slug(a); if (!seen[s]) { seen[s] = 1; uniq.push(a); } });
 
-  const done = {};   // slug -> base64
+  const fresh = {};    // slug -> base64, только что озвученное
+  const onSite = {};   // slug -> true, уже лежит в репозитории
 
-  // голоса в выпадашку
-  $('voice').innerHTML = Object.keys(VOICES)
-    .map(n => `<option value="${n}"${n === 'Matilda' ? ' selected' : ''}>${n} · ${FEM.includes(n) ? 'ж' : 'м'}</option>`)
+  const urlFor = a => 'voice/' + $('lang').value + '/' + slug(a) + '.mp3';
+
+  // ── голоса в три списка ─────────────────────────────────────
+  const opts = sel => Object.keys(VOICES)
+    .map(n => `<option value="${n}"${n === sel ? ' selected' : ''}>${n} · ${FEM.includes(n) ? 'ж' : 'м'}</option>`)
     .join('');
+  GENDERS.forEach(g => { $('v-' + g).innerHTML = opts(DEFAULTS[g]); });
 
-  // сохраняем настройки между заходами, кроме пароля
   try {
-    const saved = JSON.parse(localStorage.getItem('voicegen') || '{}');
-    if (saved.voice) $('voice').value = saved.voice;
-    if (saved.lang) $('lang').value = saved.lang;
-    if (saved.repo) $('repo').value = saved.repo;
+    const sv = JSON.parse(localStorage.getItem('voicegen2') || '{}');
+    GENDERS.forEach(g => { if (sv[g] && VOICES[sv[g]]) $('v-' + g).value = sv[g]; });
+    if (sv.lang) $('lang').value = sv.lang;
+    if (sv.repo) $('repo').value = sv.repo;
   } catch (e) {}
   const remember = () => {
     try {
-      localStorage.setItem('voicegen', JSON.stringify({
-        voice: $('voice').value, lang: $('lang').value, repo: $('repo').value
-      }));
+      const o = { lang: $('lang').value, repo: $('repo').value };
+      GENDERS.forEach(g => { o[g] = $('v-' + g).value; });
+      localStorage.setItem('voicegen2', JSON.stringify(o));
     } catch (e) {}
   };
-  ['voice','lang','repo'].forEach(id => $(id).addEventListener('change', () => { remember(); estimate(); render(); }));
-
-  function estimate() {
-    const lang = $('lang').value;
-    const chars = uniq.reduce((n, a) => n + (lang === 'de' ? a.de : a.ru).length, 0);
-    $('est').textContent = uniq.length + ' слов, около ' + chars +
-      ' символов за прогон. Бесплатный тариф ElevenLabs — 10 000 кредитов в месяц, 1 символ ≈ 1 кредит.';
-  }
-
-  function render() {
-    const lang = $('lang').value;
-    $('list').innerHTML = uniq.map(a => {
-      const s = slug(a);
-      const has = !!done[s];
-      return `<div class="item">
-        <button class="play" data-slug="${s}" ${has ? '' : 'disabled'}>▶</button>
-        <span class="w">${lang === 'de' ? a.de : a.ru}</span>
-        <span class="st ${has ? 'ok' : 'wait'}">${has ? s + '.mp3' : '—'}</span>
-      </div>`;
-    }).join('');
-  }
-
-  $('list').addEventListener('click', e => {
-    const b = e.target.closest('.play');
-    if (!b || b.disabled) return;
-    const b64 = done[b.dataset.slug];
-    if (!b64) return;
-    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-    new Audio(URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }))).play();
+  GENDERS.forEach(g => $('v-' + g).addEventListener('change', remember));
+  $('repo').addEventListener('change', remember);
+  $('lang').addEventListener('change', () => {
+    remember();
+    for (const k in onSite) delete onSite[k];
+    render();
+    log('язык переключён — проверь заново, какие файлы есть');
   });
 
-  async function speak(text, save, path) {
+  GENDERS.forEach(g => {
+    const n = uniq.filter(a => gender(a) === g).length;
+    $('cnt-' + g).textContent = n + ' слов';
+  });
+
+  // ── запрос к твоей функции ──────────────────────────────────
+  async function speak(text, voiceName) {
     const r = await fetch('/api/speak', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text: text,
-        voiceId: VOICES[$('voice').value],
+        voiceId: VOICES[voiceName],
         lang: $('lang').value,
-        save: !!save,
-        path: path,
+        save: false,
         repo: $('repo').value.trim(),
         adminToken: $('admin').value
       })
     });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      const err = new Error(data.error || ('HTTP ' + r.status));
-      err.details = data.details;
-      throw err;
-    }
-    return data;
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    return d.audio;
   }
 
-  $('btnTest').addEventListener('click', async () => {
-    const a = uniq[0], lang = $('lang').value;
-    $('btnTest').disabled = true;
-    try {
-      const d = await speak(lang === 'de' ? a.de : a.ru, false);
-      const bytes = Uint8Array.from(atob(d.audio), c => c.charCodeAt(0));
-      new Audio(URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }))).play();
-      log('проба: ' + (lang === 'de' ? a.de : a.ru) + ' · ' + $('voice').value, 'ok');
-    } catch (e) { log('проба не вышла: ' + e.message + (e.details ? ' — ' + e.details : ''), 'err'); }
-    $('btnTest').disabled = false;
+  const playB64 = b64 => {
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    new Audio(URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }))).play();
+  };
+
+  // ── проба голоса на слове нужного рода ──────────────────────
+  document.querySelectorAll('[data-sample]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const g = btn.dataset.sample;
+      const a = uniq.find(x => gender(x) === g);
+      const lang = $('lang').value;
+      btn.disabled = true;
+      try {
+        const b64 = await speak(lang === 'de' ? a.de : a.ru, $('v-' + g).value);
+        playB64(b64);
+        log('проба ' + g + ': ' + (lang === 'de' ? a.de : a.ru) + ' · ' + $('v-' + g).value, 'have');
+      } catch (e) { log('проба ' + g + ' не вышла: ' + e.message, 'err'); }
+      btn.disabled = false;
+    });
   });
 
+  // ── что уже лежит на сайте ──────────────────────────────────
+  async function exists(a) {
+    try {
+      const r = await fetch(urlFor(a), { method: 'HEAD', cache: 'no-store' });
+      const ct = r.headers.get('content-type') || '';
+      return r.ok && (ct.indexOf('audio') >= 0 || ct.indexOf('octet-stream') >= 0);
+    } catch (e) { return false; }
+  }
+
+  $('btnCheck').addEventListener('click', async () => {
+    $('btnCheck').disabled = true;
+    let n = 0, have = 0;
+    const queue = uniq.slice();
+    async function worker() {
+      while (queue.length) {
+        const a = queue.shift();
+        const ok = await exists(a);
+        if (ok) { onSite[slug(a)] = true; have++; } else { delete onSite[slug(a)]; }
+        n++;
+        $('fill').style.width = (n / uniq.length * 100).toFixed(1) + '%';
+        if (n % 5 === 0) render();
+      }
+    }
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    render();
+    log('на сайте есть ' + have + ' из ' + uniq.length + ', не хватает ' + (uniq.length - have),
+        have === uniq.length ? 'have' : 'fresh');
+    $('btnCheck').disabled = false;
+  });
+
+  // ── озвучка ─────────────────────────────────────────────────
   $('btnGen').addEventListener('click', async () => {
     const lang = $('lang').value;
+    const redo = $('redo').checked;
+    const todo = uniq.filter(a => redo || (!onSite[slug(a)] && !fresh[slug(a)]));
+    if (!todo.length) { log('нечего озвучивать — всё уже есть', 'have'); return; }
+
     $('btnGen').disabled = true;
     let ok = 0, bad = 0, n = 0;
-    for (const a of uniq) {
-      const s = slug(a);
-      if (done[s]) { ok++; n++; continue; }
+    for (const a of todo) {
+      const g = gender(a);
       try {
-        const d = await speak(lang === 'de' ? a.de : a.ru, false);
-        done[s] = d.audio;
+        fresh[slug(a)] = await speak(lang === 'de' ? a.de : a.ru, $('v-' + g).value);
         ok++;
       } catch (e) {
         bad++;
-        log('✗ ' + (lang === 'de' ? a.de : a.ru) + ' — ' + e.message + (e.details ? ' — ' + e.details : ''), 'err');
+        log('✗ ' + a.de + ' — ' + e.message, 'err');
       }
       n++;
-      $('fill').style.width = (n / uniq.length * 100).toFixed(1) + '%';
+      $('fill').style.width = (n / todo.length * 100).toFixed(1) + '%';
       render();
       await new Promise(r => setTimeout(r, 250));
     }
-    log('озвучено ' + ok + ', ошибок ' + bad, bad ? 'err' : 'ok');
+    log('озвучено ' + ok + ', ошибок ' + bad, bad ? 'err' : 'have');
     $('btnPub').disabled = ok === 0;
-    $('btnZip').disabled = ok === 0;
     $('btnGen').disabled = false;
   });
 
+  // ── публикация ──────────────────────────────────────────────
   $('btnPub').addEventListener('click', async () => {
     const lang = $('lang').value;
-    const files = Object.keys(done).map(s => ({
+    const files = Object.keys(fresh).map(s => ({
       path: 'voice/' + lang + '/' + s + '.mp3',
-      content: done[s]
+      content: fresh[s]
     }));
     if (!files.length) return;
     $('btnPub').disabled = true;
@@ -291,34 +349,53 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           repo: $('repo').value.trim(),
-          message: 'Голоса для игры: ' + files.length + ' слов, ' + $('voice').value + ', ' + lang,
+          message: 'Голоса: ' + files.length + ' слов · ' +
+                   GENDERS.map(g => g + '=' + $('v-' + g).value).join(' '),
           files: files,
           adminToken: $('admin').value
         })
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
-      log('записано ' + d.count + ' файлов одним коммитом ' + String(d.commit).slice(0, 7), 'ok');
-    } catch (e) {
-      log('коммит не прошёл: ' + e.message, 'err');
-    }
+      log('коммит ' + String(d.commit).slice(0, 7) + ' · файлов ' + d.count +
+          ' · появятся на сайте после пересборки', 'have');
+      Object.keys(fresh).forEach(s => { onSite[s] = true; });
+      render();
+    } catch (e) { log('коммит не прошёл: ' + e.message, 'err'); }
     $('btnPub').disabled = false;
   });
 
-  $('btnZip').addEventListener('click', async () => {
+  // ── список ──────────────────────────────────────────────────
+  function render() {
     const lang = $('lang').value;
-    const zip = new JSZip();
-    const dir = zip.folder('voice').folder(lang);
-    Object.keys(done).forEach(s => dir.file(s + '.mp3', done[s], { base64: true }));
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'voice_' + lang + '.zip';
-    a.click();
-    log('ZIP собран', 'ok');
+    let html = '';
+    GENDERS.forEach(g => {
+      const list = uniq.filter(a => gender(a) === g);
+      const missing = list.filter(a => !onSite[slug(a)] && !fresh[slug(a)]).length;
+      html += `<div class="grp">${g} · ${$('v-' + g).value} · нет ${missing} из ${list.length}</div>`;
+      html += list.map(a => {
+        const s = slug(a);
+        const isFresh = !!fresh[s], isOn = !!onSite[s];
+        const cls = isFresh ? 'fresh' : (isOn ? 'have' : 'miss');
+        const txt = isFresh ? 'новое' : (isOn ? 'есть' : 'нет');
+        return `<div class="item">
+          <button class="play" data-slug="${s}" ${(isFresh || isOn) ? '' : 'disabled'}>▶</button>
+          <span class="w">${lang === 'de' ? a.de : a.ru}</span>
+          <span class="st ${cls}">${txt}</span>
+        </div>`;
+      }).join('');
+    });
+    $('list').innerHTML = html;
+  }
+
+  $('list').addEventListener('click', e => {
+    const b = e.target.closest('.play');
+    if (!b || b.disabled) return;
+    const s = b.dataset.slug;
+    if (fresh[s]) { playB64(fresh[s]); return; }
+    new Audio('voice/' + $('lang').value + '/' + s + '.mp3').play();
   });
 
-  estimate();
   render();
 })();
 </script>
