@@ -248,7 +248,9 @@
     bonusEvery: 7,       // радужный шар каждые N лопнутых
     animalChance: 0.3,   // доля обычных шаров со зверушкой
     speakNames: true,    // произносить название вслух
-    voice: 'de'          // 'de' — немецкий, 'ru' — русский
+    voice: 'de',         // 'de' — немецкий, 'ru' — русский
+    voiceFiles: true,    // сначала пробовать записанные файлы
+    voicePath: 'voice/'  // voice/de/katze.mp3, voice/ru/katze.mp3
   };
 
   const PRIZES = [
@@ -539,6 +541,62 @@
     else if (kind === 'chirp')  { tone('sine', 1700, 0, 0.05, 0.22, 2400); tone('sine', 1900, 0.08, 0.05, 0.2, 2600); }
   }
 
+  // ---- записанные голоса ----
+  const vBuf = {}, vBad = {}, vLoad = {};
+
+  function vSlug(a) {
+    return a.de.replace(/^(der|die|das)\s+/i, '')
+      .toLowerCase()
+      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+  function vUrl(a) { return CFG.voicePath + CFG.voice + '/' + vSlug(a) + '.mp3'; }
+
+  function loadVoice(a) {
+    if (!CFG.voiceFiles || !actx) return;
+    const u = vUrl(a);
+    if (vBuf[u] || vBad[u] || vLoad[u]) return;
+    vLoad[u] = true;
+    fetch(u)
+      .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const ct = r.headers.get('content-type') || '';
+        if (ct.indexOf('audio') < 0 && ct.indexOf('octet-stream') < 0) {
+          throw new Error('не аудио, а ' + ct);   // Vercel вернул HTML вместо mp3
+        }
+        return r.arrayBuffer();
+      })
+      .then(ab => actx.decodeAudioData(ab))
+      .then(b => { vBuf[u] = b; delete vLoad[u]; console.log('[voice] ok ' + u); })
+      .catch(e => { vBad[u] = true; delete vLoad[u]; console.warn('[voice] нет ' + u + ' — ' + e.message); });
+  }
+
+  function warmVoices() {
+    if (!CFG.voiceFiles || !actx) return;
+    world().animals.forEach(loadVoice);
+  }
+
+  let probed = false;
+  function probeVoices() {
+    if (probed || !CFG.voiceFiles) return;
+    probed = true;
+    const a = world().animals[0];
+    const u = vUrl(a);
+    console.log('[voice] проверяю ' + new URL(u, location.href).href);
+    fetch(u)
+      .then(r => console.log('[voice] ответ ' + r.status + ' · ' + (r.headers.get('content-type') || '?')))
+      .catch(e => console.warn('[voice] запрос не прошёл: ' + e.message));
+  }
+
+  function playBuf(buf) {
+    const src = actx.createBufferSource();
+    const g = actx.createGain();
+    g.gain.value = 1.2;
+    src.buffer = buf;
+    src.connect(g); g.connect(master);
+    src.start();
+  }
+
   function say(a) {
     if (!CFG.speakNames || muted) return;
     if (nowSec - lastSpeak < 1.1) return;
@@ -546,8 +604,11 @@
     const de = CFG.voice === 'de';
     const text = de ? a.de : a.ru;
     const lang = de ? 'de-DE' : 'ru-RU';
+    const url = vUrl(a);
+    if (CFG.voiceFiles && actx && !vBuf[url] && !vBad[url]) loadVoice(a);
     setTimeout(() => {
       try {
+        if (CFG.voiceFiles && actx && vBuf[url]) { playBuf(vBuf[url]); return; }
         if (typeof speechSynthesis === 'undefined') return;
         speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
@@ -653,6 +714,7 @@
     isNight = w.night;
     if (document.body) document.body.className = w.css;
     buildSky();
+    warmVoices();
   }
 
   function pickAnimal() {
@@ -1621,7 +1683,7 @@
     }
   }
 
-  btnPlay.addEventListener('click', () => { initAudio(); setMode('play'); });
+  btnPlay.addEventListener('click', () => { initAudio(); probeVoices(); warmVoices(); setMode('play'); });
 
   btnRestart.addEventListener('click', () => {
     initAudio();
