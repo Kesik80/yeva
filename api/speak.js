@@ -10,6 +10,7 @@
 // Env vars: ELEVENLABS_API_KEY, GITHUB_TOKEN, GITHUB_REPO_DEFAULT, ADMIN_TOKEN (опц.)
 
 const ALLOWED_VOICES = {
+  'h8PCn0HukMaFj1sJwcjY': 'Elena',
   'CwhRBWXzGAHq8TQ4Fs17': 'Roger',
   'FGY2WhTYpPnrIDTdsKH5': 'Laura',
   'TX3LPaxmHKxFdv7VOQHJ': 'Liam',
@@ -23,7 +24,7 @@ const ALLOWED_VOICES = {
   'pqHfZKP75CvOlQylNhV4': 'Bill',
 };
 
-const DEFAULT_VOICE = 'CwhRBWXzGAHq8TQ4Fs17'; // Roger
+const DEFAULT_VOICE = 'h8PCn0HukMaFj1sJwcjY'; // Roger
 
 // Путь из запроса нельзя пускать в GitHub как есть
 function safePath(p) {
