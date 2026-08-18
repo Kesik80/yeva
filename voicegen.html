@@ -52,6 +52,11 @@
 
   .bar{height:9px;border-radius:999px;background:#E6EEF6;overflow:hidden;margin-top:12px}
   .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#5BC8A8,#F0B429);transition:width .2s}
+  .bar.busy i{
+    width:100%;background:linear-gradient(90deg,rgba(91,200,168,0) 0%,#5BC8A8 45%,#F0B429 55%,rgba(240,180,41,0) 100%);
+    background-size:45% 100%;background-repeat:no-repeat;animation:slide 1.05s linear infinite;transition:none;
+  }
+  @keyframes slide{from{background-position:-45% 0}to{background-position:145% 0}}
   .note{font-size:12.5px;color:#5B7A93;margin-top:9px}
   code{background:#EDF3FA;padding:1px 5px;border-radius:5px;font-size:12px;font-family:ui-monospace,Menlo,monospace}
   .chk{display:flex;align-items:center;gap:9px;margin-top:11px;font-size:14px}
@@ -132,7 +137,7 @@
     </div>
     <button id="btnGen">2 · Озвучить недостающие</button>
     <button class="go" id="btnPub" disabled>3 · Записать одним коммитом</button>
-    <div class="bar"><i id="fill"></i></div>
+    <div class="bar" id="bar"><i id="fill"></i></div>
     <div class="log" id="log"></div>
     <div class="list" id="list"></div>
   </div>
@@ -145,29 +150,20 @@
   </div>
 </div>
 
+<script src="words.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 (() => {
   'use strict';
 
-  const A = (ru, de) => ({ ru: ru, de: de });
-  const WORDS = [
-    A('кошка','die Katze'), A('собака','der Hund'), A('корова','die Kuh'), A('овечка','das Schaf'),
-    A('козочка','die Ziege'), A('поросёнок','das Schwein'), A('курочка','das Huhn'), A('утка','die Ente'),
-    A('лошадка','das Pferd'), A('мышка','die Maus'), A('пчела','die Biene'), A('лягушка','der Frosch'),
-    A('птичка','der Vogel'),
-    A('зайчик','der Hase'), A('лисичка','der Fuchs'), A('белочка','das Eichhörnchen'), A('олень','das Reh'),
-    A('мишка','der Bär'), A('ёжик','der Igel'), A('бабочка','der Schmetterling'), A('улитка','die Schnecke'),
-    A('божья коровка','der Marienkäfer'), A('кабанчик','das Wildschwein'),
-    A('сова','die Eule'), A('летучая мышь','die Fledermaus'), A('волк','der Wolf'), A('енот','der Waschbär'),
-    A('рыбка','der Fisch'), A('рыба-шар','der Kugelfisch'), A('осьминог','der Krake'), A('крабик','die Krabbe'),
-    A('черепаха','die Schildkröte'), A('дельфин','der Delfin'), A('кит','der Wal'), A('кальмар','der Tintenfisch'),
-    A('омар','der Hummer'), A('креветка','die Garnele'), A('тюлень','die Robbe'), A('акула','der Hai'),
-    A('пингвин','der Pinguin'),
-    A('ракета','die Rakete'), A('инопланетянин','das Alien'), A('планета','der Planet'), A('звёздочка','der Stern'),
-    A('тарелка','das Ufo'), A('комета','der Komet'), A('луна','der Mond'), A('солнышко','die Sonne'),
-    A('робот','der Roboter'), A('земля','die Erde')
-  ];
+  // словарь общий с игрой, лежит в words.js
+  const YW = window.YEVA_WORDS;
+  if (!YW) {
+    document.body.innerHTML =
+      '<div style="padding:40px;text-align:center">Не загрузился <b>words.js</b>. ' +
+      'Положи его в корень рядом с этой страницей.</div>';
+    return;
+  }
 
   const VOICES = {
     Roger:'CwhRBWXzGAHq8TQ4Fs17', Laura:'FGY2WhTYpPnrIDTdsKH5', Liam:'TX3LPaxmHKxFdv7VOQHJ',
@@ -187,16 +183,9 @@
     $('log').prepend(d);
   };
 
-  const gender = a => (a.de.match(/^(der|die|das)\b/i) || ['', 'der'])[1].toLowerCase();
-  const slug = a => a.de.replace(/^(der|die|das)\s+/i, '')
-    .toLowerCase()
-    .replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss')
-    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-
-  // одно животное встречается в нескольких мирах — озвучиваем один раз
-  const uniq = [];
-  const seen = {};
-  WORDS.forEach(a => { const s = slug(a); if (!seen[s]) { seen[s] = 1; uniq.push(a); } });
+  const gender = YW.gender;
+  const slug = YW.slug;
+  const uniq = YW.unique;   // уже без повторов
 
   const fresh = {};    // slug -> base64, только что озвученное
   const onSite = {};   // slug -> true, уже лежит в репозитории
@@ -255,6 +244,19 @@
     return d.audio;
   }
 
+  // единый индикатор: кнопка меняет надпись и блокируется, полоса бежит
+  function busy(btn, text) {
+    if (btn.dataset.label === undefined) btn.dataset.label = btn.textContent;
+    btn.textContent = text;
+    btn.disabled = true;
+    $('bar').classList.add('busy');
+  }
+  function idle(btn) {
+    if (btn.dataset.label !== undefined) btn.textContent = btn.dataset.label;
+    btn.disabled = false;
+    $('bar').classList.remove('busy');
+  }
+
   const playB64 = b64 => {
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
     new Audio(URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }))).play();
@@ -266,13 +268,13 @@
       const g = btn.dataset.sample;
       const a = uniq.find(x => gender(x) === g);
       const lang = $('lang').value;
-      btn.disabled = true;
+      busy(btn, 'генерирую…');
       try {
         const b64 = await speak(lang === 'de' ? a.de : a.ru, $('v-' + g).value);
         playB64(b64);
         log('проба ' + g + ': ' + (lang === 'de' ? a.de : a.ru) + ' · ' + $('v-' + g).value, 'have');
       } catch (e) { log('проба ' + g + ' не вышла: ' + e.message, 'err'); }
-      btn.disabled = false;
+      idle(btn);
     });
   });
 
@@ -286,8 +288,9 @@
   }
 
   $('btnCheck').addEventListener('click', async () => {
-    $('btnCheck').disabled = true;
     let n = 0, have = 0;
+    busy($('btnCheck'), 'проверяю…');
+    $('bar').classList.remove('busy');   // тут прогресс настоящий
     const queue = uniq.slice();
     async function worker() {
       while (queue.length) {
@@ -296,6 +299,7 @@
         if (ok) { onSite[slug(a)] = true; have++; } else { delete onSite[slug(a)]; }
         n++;
         $('fill').style.width = (n / uniq.length * 100).toFixed(1) + '%';
+        $('btnCheck').textContent = 'проверяю… ' + n + ' / ' + uniq.length;
         if (n % 5 === 0) render();
       }
     }
@@ -303,7 +307,7 @@
     render();
     log('на сайте есть ' + have + ' из ' + uniq.length + ', не хватает ' + (uniq.length - have),
         have === uniq.length ? 'have' : 'fresh');
-    $('btnCheck').disabled = false;
+    idle($('btnCheck'));
   });
 
   // ── озвучка ─────────────────────────────────────────────────
@@ -313,8 +317,9 @@
     const todo = uniq.filter(a => redo || (!onSite[slug(a)] && !fresh[slug(a)]));
     if (!todo.length) { log('нечего озвучивать — всё уже есть', 'have'); return; }
 
-    $('btnGen').disabled = true;
     let ok = 0, bad = 0, n = 0;
+    busy($('btnGen'), 'озвучиваю…');
+    $('bar').classList.remove('busy');   // тут прогресс настоящий
     for (const a of todo) {
       const g = gender(a);
       try {
@@ -326,12 +331,13 @@
       }
       n++;
       $('fill').style.width = (n / todo.length * 100).toFixed(1) + '%';
+      $('btnGen').textContent = 'озвучиваю… ' + n + ' / ' + todo.length;
       render();
       await new Promise(r => setTimeout(r, 250));
     }
     log('озвучено ' + ok + ', ошибок ' + bad, bad ? 'err' : 'have');
+    idle($('btnGen'));
     $('btnPub').disabled = ok === 0;
-    $('btnGen').disabled = false;
   });
 
   // ── публикация ──────────────────────────────────────────────
@@ -342,7 +348,8 @@
       content: fresh[s]
     }));
     if (!files.length) return;
-    $('btnPub').disabled = true;
+    busy($('btnPub'), 'записываю ' + files.length + ' файлов…');
+    log('отправляю ' + files.length + ' файлов в ' + $('repo').value.trim() + ', это займёт несколько секунд');
     try {
       const r = await fetch('/api/commit', {
         method: 'POST',
@@ -362,7 +369,7 @@
       Object.keys(fresh).forEach(s => { onSite[s] = true; });
       render();
     } catch (e) { log('коммит не прошёл: ' + e.message, 'err'); }
-    $('btnPub').disabled = false;
+    idle($('btnPub'));
   });
 
   // ── список ──────────────────────────────────────────────────
