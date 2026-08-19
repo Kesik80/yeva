@@ -8,20 +8,29 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-  html,body{height:100%}
-  body{
-    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
-    color:#1E3D57;
-    background:
+  html{
+    height:100%;background:#5CBFE6;
+    background-image:
       radial-gradient(120% 80% at 18% 108%, rgba(255,224,138,.55), transparent 60%),
       radial-gradient(90% 60% at 86% 6%, rgba(255,154,213,.32), transparent 65%),
       linear-gradient(180deg,#5CBFE6 0%,#8FDCF2 42%,#CFF0FB 78%,#EAF9FF 100%);
-    min-height:100%;
+    background-attachment:fixed;background-repeat:no-repeat;background-size:cover;
+    overscroll-behavior:none;
+  }
+  body{
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#1E3D57;
+    background:transparent;
+    min-height:100%;min-height:100dvh;
     display:flex;flex-direction:column;align-items:center;
     padding:calc(env(safe-area-inset-top,0px) + 34px) 20px calc(env(safe-area-inset-bottom,0px) + 34px);
     user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
@@ -89,7 +98,7 @@
   }
 </style>
 </head>
-<body>
+<body data-install="banner">
 
 <div class="bg" id="bg"></div>
 
@@ -153,6 +162,7 @@
   if (location.search.indexOf('voice') >= 0) location.href = 'voicegen.html';
 })();
 </script>
+<script src="install.js"></script>
 <script src="console.js"></script>
 </body>
 </html>
