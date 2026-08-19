@@ -652,12 +652,37 @@
   /* ================= level ================= */
   function world() { return WORLDS[Math.floor((level - 1) / 2) % WORLDS.length]; }
 
+  // Android красит статус-бар в meta[theme-color] текущей страницы.
+  // Прозрачным его сделать нельзя, поэтому подгоняем цвет под верх экрана:
+  // top — чистое небо мира, over — оно же под полупрозрачным оверлеем.
+  const THEME = {
+    '':      { top: '#5CBFE6', over: '#80CFED' },
+    'sky1':  { top: '#6B5BA8', over: '#8995C9' },
+    'sky2':  { top: '#0E1B3D', over: '#536F8B' },
+    'sky3':  { top: '#8EA8E8', over: '#9DC1EE' },
+    'sea':   { top: '#16607F', over: '#5897B1' },
+    'space': { top: '#0A0C2C', over: '#516781' }
+  };
+  let metaTheme = document.querySelector('meta[name="theme-color"]');
+
+  function paintStatusBar() {
+    const t = THEME[world().css] || THEME[''];
+    const covered = !overlay.classList.contains('hidden');
+    if (!metaTheme) {
+      metaTheme = document.createElement('meta');
+      metaTheme.setAttribute('name', 'theme-color');
+      document.head.appendChild(metaTheme);
+    }
+    metaTheme.setAttribute('content', covered ? t.over : t.top);
+  }
+
   function applyTheme() {
     const w = world();
     isNight = w.night;
     if (document.body) document.body.className = w.css;
     buildSky();
     warmVoices();
+    paintStatusBar();
   }
 
   function pickAnimal() {
@@ -1552,6 +1577,7 @@
   }
   startBest = best;
   applyTheme();
+  paintStatusBar();
   renderLives();
   renderProgress();
   for (let i = 0; i < 9; i++) {
@@ -1638,6 +1664,7 @@
       overlay.dataset.mode = m;
       overlay.classList.remove('hidden');
     }
+    paintStatusBar();
   }
 
   btnPlay.addEventListener('click', () => { goFullscreen(); initAudio(); probeVoices(); warmVoices(); setMode('play'); });
