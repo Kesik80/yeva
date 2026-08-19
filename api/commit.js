@@ -7,6 +7,11 @@
 //   content — base64 без префикса data:
 //
 // Env vars: GITHUB_TOKEN, GITHUB_REPO_DEFAULT, ADMIN_TOKEN (опц.)
+//
+// Блобы заливаются пачками по 6 параллельно: 85 файлов подряд по одному
+// не укладывались в лимит времени функции, и коммит обрывался на хвосте.
+
+export const config = { maxDuration: 60 };
 
 function safePath(p) {
   if (typeof p !== 'string') return null;
@@ -76,20 +81,36 @@ export default async function handler(req, res) {
     const headSha = ref.object.sha;
     const headCommit = await gh(`${base}/git/commits/${headSha}`);
 
-    // 2. заливаем каждый файл как blob
-    const tree = [];
-    for (const f of clean) {
-      const blob = await gh(`${base}/git/blobs`, {
-        method: 'POST',
-        body: JSON.stringify({ content: f.content, encoding: 'base64' }),
-      });
-      tree.push({ path: f.path, mode: '100644', type: 'blob', sha: blob.sha });
+    // 2. заливаем файлы как blob'ы, по 6 одновременно
+    const tree = new Array(clean.length);
+    const queue = clean.map((f, i) => ({ f, i }));
+    const failed = [];
+
+    async function worker() {
+      while (queue.length) {
+        const { f, i } = queue.shift();
+        try {
+          const blob = await gh(`${base}/git/blobs`, {
+            method: 'POST',
+            body: JSON.stringify({ content: f.content, encoding: 'base64' }),
+          });
+          tree[i] = { path: f.path, mode: '100644', type: 'blob', sha: blob.sha };
+        } catch (e) {
+          failed.push({ path: f.path, error: e.message });
+        }
+      }
+    }
+    await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
+
+    const good = tree.filter(Boolean);
+    if (!good.length) {
+      return res.status(502).json({ error: 'ни один файл не залился', failed });
     }
 
     // 3. одно дерево, один коммит
     const newTree = await gh(`${base}/git/trees`, {
       method: 'POST',
-      body: JSON.stringify({ base_tree: headCommit.tree.sha, tree }),
+      body: JSON.stringify({ base_tree: headCommit.tree.sha, tree: good }),
     });
     const commit = await gh(`${base}/git/commits`, {
       method: 'POST',
@@ -103,8 +124,10 @@ export default async function handler(req, res) {
     return res.json({
       ok: true,
       commit: commit.sha,
-      count: clean.length,
-      paths: clean.map(f => f.path),
+      count: good.length,
+      requested: clean.length,
+      failed,                       // что не долетело — видно сразу
+      paths: good.map(f => f.path),
     });
 
   } catch (e) {
