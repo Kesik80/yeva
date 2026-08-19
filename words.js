@@ -139,7 +139,7 @@
           A('\u{1F6B2}', 'ding',  'велосипед',       'das Fahrrad'),
           A('\u{1F686}', 'honk',  'поезд',           'der Zug'),
           A('\u{2708}\u{FE0F}', 'zap', 'самолёт',    'das Flugzeug'),
-          A('\u{1F681}', 'brum',  'вертолёт',        'der Hubschrauber'),
+          A('\u{1F681}', 'brum',  'вертолёт',        'der Helikopter'),
           A('\u{1F6A2}', 'honk',  'корабль',         'das Schiff'),
           A('\u{1F69C}', 'brum',  'трактор',         'der Traktor'),
           A('\u{1F692}', 'honk',  'пожарная машина', 'das Feuerwehrauto'),
