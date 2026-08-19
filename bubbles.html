@@ -1617,6 +1617,19 @@
   }, { passive: false });
 
   /* ================= UI ================= */
+  // Immersive-режим Android: в отличие от manifest display:fullscreen
+  // он растягивает картинку и под вырез камеры, без чёрной полосы.
+  // Требует жеста пользователя — поэтому вызываем по кнопке.
+  function goFullscreen() {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+    if (!fn || document.fullscreenElement) return;
+    try {
+      const p = fn.call(el, { navigationUI: 'hide' });
+      if (p && p.catch) p.catch(e => console.log('[fs] отказ: ' + e.message));
+    } catch (e) { console.log('[fs] не вышло: ' + e.message); }
+  }
+
   function setMode(m) {
     mode = m;
     if (m === 'play') {
@@ -1627,9 +1640,10 @@
     }
   }
 
-  btnPlay.addEventListener('click', () => { initAudio(); probeVoices(); warmVoices(); setMode('play'); });
+  btnPlay.addEventListener('click', () => { goFullscreen(); initAudio(); probeVoices(); warmVoices(); setMode('play'); });
 
   btnRestart.addEventListener('click', () => {
+    goFullscreen();
     initAudio();
     reset();
     setMode('play');
@@ -1650,6 +1664,7 @@
     else if (!document.hidden && actx && actx.state === 'suspended') actx.resume();
   });
   window.addEventListener('blur', () => { if (mode === 'play') setMode('pause'); });
+  document.addEventListener('fullscreenchange', () => setTimeout(resize, 120));
 })();
 </script>
 <script src="install.js"></script>
