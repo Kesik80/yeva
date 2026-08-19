@@ -6,11 +6,13 @@
 //   save: false   → не писать в GitHub, вернуть { audio: base64 }
 //   path: "..."   → своя папка/имя файла вместо audio/{lang}/{voice}/{text}.mp3
 //   adminToken    → обязателен для записи, ЕСЛИ задана env ADMIN_TOKEN
+//   voiceSettings → { stability, similarity_boost, style, speed, use_speaker_boost }
+//   previousText / nextText → контекст для интонации, вслух НЕ читается
+//   modelId       → из белого списка моделей
 //
 // Env vars: ELEVENLABS_API_KEY, GITHUB_TOKEN, GITHUB_REPO_DEFAULT, ADMIN_TOKEN (опц.)
 
 const ALLOWED_VOICES = {
-  'h8PCn0HukMaFj1sJwcjY': 'Elena',
   'CwhRBWXzGAHq8TQ4Fs17': 'Roger',
   'FGY2WhTYpPnrIDTdsKH5': 'Laura',
   'TX3LPaxmHKxFdv7VOQHJ': 'Liam',
@@ -24,7 +26,14 @@ const ALLOWED_VOICES = {
   'pqHfZKP75CvOlQylNhV4': 'Bill',
 };
 
-const DEFAULT_VOICE = 'h8PCn0HukMaFj1sJwcjY'; // Roger
+const DEFAULT_VOICE = 'CwhRBWXzGAHq8TQ4Fs17'; // Roger
+
+const ALLOWED_MODELS = ['eleven_multilingual_v2', 'eleven_flash_v2_5', 'eleven_turbo_v2_5'];
+
+const num = (v, min, max, dflt) => {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : dflt;
+};
 
 // Путь из запроса нельзя пускать в GitHub как есть
 function safePath(p) {
@@ -51,6 +60,10 @@ export default async function handler(req, res) {
     path: rawPath,
     save = true,
     adminToken,
+    voiceSettings,
+    previousText,
+    nextText,
+    modelId,
   } = req.body || {};
 
   if (!text || !text.trim()) return res.status(400).json({ error: 'text required' });
@@ -67,6 +80,18 @@ export default async function handler(req, res) {
 
   const safeVoiceId = ALLOWED_VOICES[voiceId] ? voiceId : DEFAULT_VOICE;
   const voiceName = ALLOWED_VOICES[safeVoiceId].toLowerCase();
+  const model = ALLOWED_MODELS.includes(modelId) ? modelId : 'eleven_multilingual_v2';
+
+  // Значения по умолчанию — прежние, так что старые вызовы не меняют звучание.
+  const vs = voiceSettings || {};
+  const settings = {
+    stability: num(vs.stability, 0, 1, 0.5),
+    similarity_boost: num(vs.similarity_boost, 0, 1, 0.75),
+    style: num(vs.style, 0, 1, 0),
+    use_speaker_boost: vs.use_speaker_boost !== false,
+  };
+  const speed = num(vs.speed, 0.7, 1.2, 1);
+  if (speed !== 1) settings.speed = speed;
 
   // ── генерация ───────────────────────────────────────────────
   async function generate() {
@@ -79,8 +104,11 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         text,
-        model_id: 'eleven_multilingual_v2',
-        voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+        model_id: model,
+        voice_settings: settings,
+        // читается «в уме» для интонации, в звук не попадает
+        ...(previousText ? { previous_text: String(previousText).slice(0, 400) } : {}),
+        ...(nextText ? { next_text: String(nextText).slice(0, 400) } : {}),
       }),
     });
     if (!r.ok) {
