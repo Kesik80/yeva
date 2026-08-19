@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Проверка озвучки — YEVA</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{
+    font-family:ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    background:#0F1720;color:#DCE6F0;line-height:1.45;font-size:14px;
+    padding:calc(env(safe-area-inset-top,0px) + 16px) 12px calc(env(safe-area-inset-bottom,0px) + 30px);
+  }
+  .wrap{max-width:640px;margin:0 auto}
+  h1{font-size:19px;font-weight:600;margin-bottom:3px}
+  .sub{font-size:12.5px;color:#7E93A8;margin-bottom:14px}
+  .card{background:#182430;border-radius:14px;padding:13px;margin-bottom:11px}
+  button{
+    width:100%;padding:13px;font-size:15px;font-weight:600;font-family:inherit;border:0;border-radius:11px;
+    background:#2F8FC4;color:#fff;cursor:pointer;margin-top:9px;
+  }
+  button:disabled{background:#2A3846;color:#64748B}
+  button.ghost{background:#22303E;color:#9FB3C8}
+  .chk{display:flex;align-items:center;gap:9px;margin-top:10px;font-size:13.5px;color:#9FB3C8}
+  .chk input{width:18px;height:18px}
+  .sum{font-size:13px;line-height:1.7}
+  .sum b{font-variant-numeric:tabular-nums}
+  .ok{color:#4ADE80}.bad{color:#F87171}.warn{color:#FBBF24}.dim{color:#64748B}
+  .bar{height:9px;border-radius:99px;background:#22303E;overflow:hidden;margin:10px 0}
+  .bar i{display:block;height:100%;width:0;background:#4ADE80;transition:width .2s}
+  .row{display:flex;gap:8px;align-items:center;padding:6px 2px;border-bottom:1px solid #22303E;font-size:13px}
+  .row .e{font-size:19px;flex:none}
+  .row .w{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .st{font-size:11.5px;text-align:right;flex:none;max-width:47%;word-break:break-all}
+  .row .pl{width:30px;height:30px;flex:none;margin:0;padding:0;border-radius:50%;background:#22303E;color:#8FD3FF;font-size:12px}
+  code{background:#22303E;padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Проверка озвучки</h1>
+  <div class="sub">Берёт те же адреса, что запрашивают игры, и проверяет каждый файл по-настоящему: скачивает и пробует раскодировать.</div>
+
+  <div class="card">
+    <div class="sum" id="sum">нажми «Проверить»</div>
+    <div class="bar"><i id="fill"></i></div>
+    <div class="chk">
+      <input type="checkbox" id="bust" checked>
+      <label for="bust">в обход кэша и service worker</label>
+    </div>
+    <button id="go">Проверить все слова</button>
+    <button class="ghost" id="onlyBad" disabled>Показать только проблемные</button>
+  </div>
+
+  <div class="card" id="list"></div>
+</div>
+
+<script src="words.js"></script>
+<script>
+(() => {
+  'use strict';
+  const YW = window.YEVA_WORDS;
+  const $ = id => document.getElementById(id);
+  if (!YW) { document.body.innerHTML = '<p style="padding:40px">Не загрузился words.js</p>'; return; }
+
+  const LANG = 'de';
+  const WORDS = YW.unique;
+  let actx = null, results = [], filter = false;
+
+  const url = a => 'voice/' + LANG + '/' + YW.slug(a) + '.mp3'
+    + ($('bust').checked ? '?t=' + Date.now() : '');
+
+  function ensureAudio() {
+    if (actx) return actx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    actx = AC ? new AC() : null;
+    return actx;
+  }
+
+  async function check(a) {
+    const u = url(a);
+    const r = { a: a, url: u.split('?')[0], state: '', cls: '', note: '' };
+    try {
+      const res = await fetch(u, { cache: 'no-store' });
+      const ct = res.headers.get('content-type') || '—';
+      const len = res.headers.get('content-length');
+      if (!res.ok) { r.state = 'нет файла'; r.cls = 'bad'; r.note = 'HTTP ' + res.status; return r; }
+      if (!/audio|octet-stream|mpeg/i.test(ct)) {
+        r.state = 'не аудио'; r.cls = 'bad'; r.note = ct;
+        return r;
+      }
+      const buf = await res.arrayBuffer();
+      if (buf.byteLength < 400) {
+        r.state = 'пустой'; r.cls = 'bad'; r.note = buf.byteLength + ' Б';
+        return r;
+      }
+      const ctx = ensureAudio();
+      if (!ctx) { r.state = 'есть'; r.cls = 'ok'; r.note = Math.round(buf.byteLength / 1024) + ' КБ'; return r; }
+      try {
+        const dec = await ctx.decodeAudioData(buf.slice(0));
+        r.state = 'ок';
+        r.cls = 'ok';
+        r.note = dec.duration.toFixed(2) + ' с · ' + Math.round(buf.byteLength / 1024) + ' КБ';
+        if (dec.duration < 0.25) { r.state = 'слишком коротко'; r.cls = 'warn'; }
+      } catch (e) {
+        r.state = 'не раскодировался'; r.cls = 'bad';
+        r.note = (e.message || 'decode error').slice(0, 60) + ' · ' + Math.round(buf.byteLength / 1024) + ' КБ';
+      }
+      return r;
+    } catch (e) {
+      r.state = 'запрос упал'; r.cls = 'bad'; r.note = e.message;
+      return r;
+    }
+  }
+
+  function render() {
+    const rows = filter ? results.filter(r => r.cls !== 'ok') : results;
+    $('list').innerHTML = rows.map((r, i) => `
+      <div class="row">
+        <span class="e">${r.a.e}</span>
+        <span class="w">${r.a.de}<br><span class="dim" style="font-size:11px">${r.url}</span></span>
+        <span class="st ${r.cls}">${r.state}<br><span class="dim">${r.note}</span></span>
+        <button class="pl" data-i="${results.indexOf(r)}">▶</button>
+      </div>`).join('') || '<div class="row dim">проблемных нет</div>';
+  }
+
+  $('list').addEventListener('click', e => {
+    const b = e.target.closest('.pl');
+    if (!b) return;
+    const r = results[+b.dataset.i];
+    new Audio(r.url).play().catch(err => alert('не проигрывается: ' + err.message));
+  });
+
+  $('go').addEventListener('click', async () => {
+    $('go').disabled = true;
+    results = [];
+    filter = false;
+    let n = 0;
+    for (const a of WORDS) {
+      results.push(await check(a));
+      n++;
+      $('fill').style.width = (n / WORDS.length * 100).toFixed(1) + '%';
+      if (n % 5 === 0) { summary(); render(); }
+    }
+    summary();
+    render();
+    $('go').disabled = false;
+    $('onlyBad').disabled = false;
+  });
+
+  $('onlyBad').addEventListener('click', () => { filter = !filter; render(); });
+
+  function summary() {
+    const okN = results.filter(r => r.cls === 'ok').length;
+    const warnN = results.filter(r => r.cls === 'warn').length;
+    const badN = results.filter(r => r.cls === 'bad').length;
+    const byState = {};
+    results.filter(r => r.cls !== 'ok').forEach(r => { byState[r.state] = (byState[r.state] || 0) + 1; });
+    $('sum').innerHTML =
+      'проверено <b>' + results.length + '</b> из ' + WORDS.length +
+      ' · <span class="ok">ок ' + okN + '</span>' +
+      (warnN ? ' · <span class="warn">странных ' + warnN + '</span>' : '') +
+      (badN ? ' · <span class="bad">сломанных ' + badN + '</span>' : '') +
+      (Object.keys(byState).length
+        ? '<br><span class="dim">' + Object.entries(byState).map(([k, v]) => k + ': ' + v).join(' · ') + '</span>'
+        : '');
+  }
+})();
+</script>
+<script src="console.js"></script>
+</body>
+</html>
