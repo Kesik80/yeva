@@ -76,6 +76,23 @@
   .fresh{color:#B77B0B}
   .miss{color:#B9C6D2}
   .err{color:#C0392B}
+  .lock{
+    position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:20px;
+    background:linear-gradient(180deg,#E3EDF7 0%,#F5F9FC 100%);
+  }
+  .lock.hidden{display:none}
+  .lockbox{
+    background:#fff;border-radius:22px;padding:28px 22px;width:100%;max-width:380px;text-align:center;
+    box-shadow:0 12px 40px rgba(30,61,87,.14);
+  }
+  .lockic{font-size:40px;line-height:1;margin-bottom:10px}
+  .lockbox h2{font-size:19px;font-weight:600;margin-bottom:4px}
+  .lockbox p{font-size:13px;color:#7A93A8;margin-bottom:18px}
+  .lockbox input[type=password]{text-align:center;letter-spacing:.12em}
+  .lockmsg{font-size:13px;margin-top:10px;min-height:18px;color:#C0392B}
+  .lockmsg.ok{color:#1F8A5F}
+  .lockbox.shake{animation:shk .45s ease}
+  @keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-10px)}55%{transform:translateX(9px)}80%{transform:translateX(-4px)}}
   .quota{padding:13px 15px}
   .qtop{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;color:#5B7A93;letter-spacing:.02em}
   .qref{width:30px;height:30px;margin:0;padding:0;border-radius:50%;background:#EDF3FA;color:#2F8FC4;font-size:15px;line-height:1}
@@ -96,10 +113,28 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="lock" id="lock">
+  <div class="lockbox">
+    <div class="lockic">🔒</div>
+    <h2>Голоса для игр</h2>
+    <p>Страница закрыта паролем</p>
+    <input id="pw" type="password" autocomplete="off" inputmode="text" placeholder="ADMIN_TOKEN">
+    <div class="chk" style="margin-top:12px">
+      <input type="checkbox" id="keep">
+      <label for="keep" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
+        запомнить на этом телефоне
+      </label>
+    </div>
+    <button id="btnUnlock">Войти</button>
+    <div class="lockmsg" id="lockMsg"></div>
+    <a class="back" href="index.html" style="display:inline-block;margin-top:14px">← на главную</a>
+  </div>
+</div>
+
+<div class="wrap" id="app" hidden>
   <div class="top">
     <h1>Голоса для игр</h1>
-    <a class="back" href="index.html">← назад</a>
+    <button class="back" id="btnLock" style="background:none;border:0;padding:0;width:auto;margin:0;cursor:pointer">выйти</button>
   </div>
 
   <div class="card quota" id="quotaCard">
@@ -123,12 +158,6 @@
       <div>
         <label for="repo">Репозиторий</label>
         <input id="repo" value="Kesik80/yeva" autocomplete="off">
-      </div>
-    </div>
-    <div class="row">
-      <div>
-        <label for="admin">Пароль записи <span style="font-weight:500">(ADMIN_TOKEN)</span></label>
-        <input id="admin" type="password" autocomplete="off" placeholder="если задан в Vercel">
       </div>
     </div>
   </div>
@@ -227,6 +256,7 @@
   const GENDERS = ['der', 'die', 'das'];
   const DEFAULTS = { der: 'Roger', die: 'Matilda', das: 'Daniel' };
 
+  let PW = '';                       // ADMIN_TOKEN, введённый на входе
   const $ = id => document.getElementById(id);
   const log = (m, cls) => {
     const d = document.createElement('div');
@@ -303,7 +333,7 @@
   async function loadQuota() {
     $('qNums').textContent = 'загружаю…';
     try {
-      const u = '/api/quota' + ($('admin').value ? '?adminToken=' + encodeURIComponent($('admin').value) : '');
+      const u = '/api/quota' + ('?adminToken=' + encodeURIComponent(PW));
       const r = await fetch(u, { cache: 'no-store' });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
@@ -311,10 +341,15 @@
       paintQuota();
     } catch (e) {
       quota = null;
-      $('qNums').innerHTML = 'не удалось узнать: ' + e.message;
       $('qFill').style.width = '0';
+      $('qNeed').style.display = 'none';
+      $('qNums').innerHTML = /unauthorized/i.test(e.message)
+        ? 'введи пароль записи выше — без него лимит не показать'
+        : 'не удалось узнать: ' + e.message;
     }
   }
+
+
 
   function paintQuota() {
     if (!quota) return;
@@ -414,7 +449,7 @@
         lang: $('lang').value,
         save: false,
         repo: $('repo').value.trim(),
-        adminToken: $('admin').value,
+        adminToken: PW,
         voiceSettings: readSettings(),
         previousText: $('ctx').checked ? CTX_BEFORE : undefined,
         nextText: $('ctx').checked ? CTX_AFTER : undefined
@@ -544,7 +579,7 @@
                    ' · ровность ' + (+$('stab').value).toFixed(2) +
                    ' скорость ' + (+$('speed').value).toFixed(2),
           files: files,
-          adminToken: $('admin').value
+          adminToken: PW
         })
       });
       const d = await r.json().catch(() => ({}));
@@ -588,10 +623,67 @@
     new Audio('voice/' + $('lang').value + '/' + s + '.mp3').play();
   });
 
-  if (needPreset) applyPreset('flat');
-  showSettings();
-  render();
-  loadQuota();
+  // ── вход ────────────────────────────────────────────────────
+  // Пароль проверяется на сервере: /api/quota отвечает 401 на неверный.
+  // Это не «защита JavaScript'ом» — записывать в репозиторий всё равно
+  // может только тот, кто знает ADMIN_TOKEN, функция проверяет его сама.
+  async function checkPw(candidate) {
+    const r = await fetch('/api/quota?adminToken=' + encodeURIComponent(candidate), { cache: 'no-store' });
+    if (r.status === 401) return false;
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return true;
+  }
+
+  function openApp() {
+    $('lock').classList.add('hidden');
+    $('app').hidden = false;
+    if (needPreset) applyPreset('flat');
+    showSettings();
+    render();
+    loadQuota();
+  }
+
+  async function unlock(candidate, silent) {
+    const msg = $('lockMsg');
+    msg.className = 'lockmsg';
+    msg.textContent = silent ? '' : 'проверяю…';
+    try {
+      const ok = await checkPw(candidate);
+      if (!ok) {
+        if (!silent) {
+          msg.textContent = 'неверный пароль';
+          const box = document.querySelector('.lockbox');
+          box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+        }
+        try { localStorage.removeItem('voicegen.pw'); } catch (e) {}
+        return;
+      }
+      PW = candidate;
+      try {
+        if ($('keep').checked) {
+          localStorage.setItem('voicegen.pw', candidate);
+          localStorage.setItem('voicegen.keep', '1');
+        }
+      } catch (e) {}
+      openApp();
+    } catch (e) {
+      msg.textContent = 'сервер не ответил: ' + e.message;
+    }
+  }
+
+  $('btnUnlock').addEventListener('click', () => unlock($('pw').value.trim(), false));
+  $('pw').addEventListener('keydown', e => { if (e.key === 'Enter') unlock($('pw').value.trim(), false); });
+  $('btnLock').addEventListener('click', () => {
+    try { localStorage.removeItem('voicegen.pw'); localStorage.removeItem('voicegen.keep'); } catch (e) {}
+    location.reload();
+  });
+
+  // если пароль сохранён — входим молча
+  try {
+    const saved = localStorage.getItem('voicegen.pw');
+    if (localStorage.getItem('voicegen.keep')) $('keep').checked = true;
+    if (saved) { $('pw').value = saved; unlock(saved, true); }
+  } catch (e) {}
 })();
 </script>
 <script src="console.js"></script>
