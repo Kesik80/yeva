@@ -21,7 +21,7 @@
   const A = (e, s, ru, de) => ({ e: e, s: s, ru: ru, de: de });
 
   window.YEVA_WORDS = {
-    version: 1,
+    version: 2,
 
     // фоновые украшения для миров, где вместо облаков что-то своё
     decor: {
@@ -109,6 +109,57 @@
           A('\u{2600}\u{FE0F}', 'tweet', 'солнышко','die Sonne'),
           A('\u{1F916}', 'cluck', 'робот',         'der Roboter'),
           A('\u{1F30D}', 'bloop', 'земля',         'die Erde')
+        ]
+      }
+      ,
+      {
+        id: 'essen', css: 'sky3', night: false, decor: 'clouds',
+        animals: [
+          A('\u{1F34E}', 'nom',   'яблоко',    'der Apfel'),
+          A('\u{1F34C}', 'nom',   'банан',     'die Banane'),
+          A('\u{1F353}', 'nom',   'клубника',  'die Erdbeere'),
+          A('\u{1F347}', 'nom',   'виноград',  'die Traube'),
+          A('\u{1F955}', 'nom',   'морковка',  'die Karotte'),
+          A('\u{1F345}', 'nom',   'помидор',   'die Tomate'),
+          A('\u{1F952}', 'nom',   'огурец',    'die Gurke'),
+          A('\u{1F35E}', 'nom',   'хлеб',      'das Brot'),
+          A('\u{1F9C0}', 'nom',   'сыр',       'der Käse'),
+          A('\u{1F95B}', 'bloop', 'молоко',    'die Milch'),
+          A('\u{1F36A}', 'nom',   'печенье',   'der Keks'),
+          A('\u{1F370}', 'ding',  'торт',      'der Kuchen'),
+          A('\u{1F366}', 'ding',  'мороженое', 'das Eis'),
+          A('\u{1F95A}', 'cluck', 'яйцо',      'das Ei')
+        ]
+      },
+      {
+        id: 'verkehr', css: '', night: false, decor: 'clouds',
+        animals: [
+          A('\u{1F697}', 'brum',  'машина',          'das Auto'),
+          A('\u{1F68C}', 'honk',  'автобус',         'der Bus'),
+          A('\u{1F6B2}', 'ding',  'велосипед',       'das Fahrrad'),
+          A('\u{1F686}', 'honk',  'поезд',           'der Zug'),
+          A('\u{2708}\u{FE0F}', 'zap', 'самолёт',    'das Flugzeug'),
+          A('\u{1F681}', 'brum',  'вертолёт',        'der Hubschrauber'),
+          A('\u{1F6A2}', 'honk',  'корабль',         'das Schiff'),
+          A('\u{1F69C}', 'brum',  'трактор',         'der Traktor'),
+          A('\u{1F692}', 'honk',  'пожарная машина', 'das Feuerwehrauto'),
+          A('\u{1F691}', 'honk',  'скорая',          'der Krankenwagen'),
+          A('\u{1F6F4}', 'ding',  'самокат',         'der Roller')
+        ]
+      },
+      {
+        id: 'kleidung', css: 'sky1', night: false, decor: 'clouds',
+        animals: [
+          A('\u{1F455}', 'swish', 'футболка',  'das T-Shirt'),
+          A('\u{1F456}', 'swish', 'штанишки',  'die Hose'),
+          A('\u{1F457}', 'swish', 'платье',    'das Kleid'),
+          A('\u{1F9E6}', 'swish', 'носочек',   'die Socke'),
+          A('\u{1F45F}', 'swish', 'ботинок',   'der Schuh'),
+          A('\u{1F9E2}', 'swish', 'шапочка',   'die Mütze'),
+          A('\u{1F9E4}', 'swish', 'варежка',   'der Handschuh'),
+          A('\u{1F9E3}', 'swish', 'шарфик',    'der Schal'),
+          A('\u{1F9E5}', 'swish', 'куртка',    'die Jacke'),
+          A('\u{1F452}', 'swish', 'шляпа',     'der Hut')
         ]
       }
     ]

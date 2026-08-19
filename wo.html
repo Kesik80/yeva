@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Wo ist…?</title>
+<meta name="theme-color" content="#7FC8A9">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#7FC8A9}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#1C4437;
+    background:
+      radial-gradient(120% 80% at 80% 110%, rgba(255,236,150,.5), transparent 62%),
+      radial-gradient(90% 60% at 15% 5%, rgba(150,220,255,.4), transparent 66%),
+      linear-gradient(180deg,#7FC8A9 0%,#A8DEC0 40%,#DCF2E2 76%,#F3FBF4 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 10px) 12px calc(env(safe-area-inset-bottom,0px) + 12px);
+  }
+
+  /* ── верх ── */
+  .top{display:flex;align-items:center;gap:10px;flex:none}
+  .stars{
+    display:flex;gap:4px;flex:1;min-width:0;overflow:hidden;
+    background:rgba(255,255,255,.6);border-radius:999px;padding:9px 14px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(28,68,55,.13);
+  }
+  .stars i{
+    width:19px;height:19px;flex:none;border-radius:50%;
+    background:rgba(28,68,55,.13);transition:transform .3s,background .3s;
+  }
+  .stars i.on{background:linear-gradient(160deg,#FFD86E,#FFAE20);transform:scale(1.12)}
+  .btn{
+    width:46px;height:46px;flex:none;border:0;border-radius:50%;
+    background:rgba(255,255,255,.62);color:#1C4437;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(28,68,55,.14);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.9)}
+  .btn svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ── поле ── */
+  .field{
+    flex:1;min-height:0;display:grid;gap:12px;padding:12px 0;
+    grid-template-columns:1fr;align-content:center;
+  }
+  .field.n2{grid-template-columns:1fr 1fr;grid-template-rows:1fr}
+  .field.n3{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  .field.n4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  @media (orientation:landscape){
+    .field.n3,.field.n4{grid-template-columns:repeat(4,1fr);grid-template-rows:1fr}
+  }
+
+  .card{
+    border:0;border-radius:26px;cursor:pointer;
+    background:rgba(255,255,255,.66);
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    box-shadow:0 10px 28px rgba(28,68,55,.15);
+    display:grid;place-items:center;
+    font-size:min(19vw,110px);line-height:1;
+    transition:transform .22s cubic-bezier(.3,1.3,.5,1),box-shadow .22s,opacity .3s;
+    -webkit-user-select:none;user-select:none;
+  }
+  .card:active{transform:scale(.95)}
+  .card.right{
+    transform:scale(1.08);
+    background:rgba(214,255,228,.9);
+    box-shadow:0 14px 40px rgba(31,155,110,.4);
+  }
+  .card.wrong{animation:shake .5s ease}
+  .card.gone{opacity:0;transform:scale(.8)}
+  @keyframes shake{
+    0%,100%{transform:translateX(0) rotate(0)}
+    20%{transform:translateX(-11px) rotate(-4deg)}
+    45%{transform:translateX(9px) rotate(3deg)}
+    70%{transform:translateX(-5px) rotate(-2deg)}
+  }
+
+  /* ── старт и праздник ── */
+  .veil{
+    position:fixed;inset:0;z-index:20;display:grid;place-items:center;
+    background:rgba(168,222,192,.5);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    transition:opacity .3s;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .big{
+    width:min(46vw,190px);aspect-ratio:1;border:0;border-radius:50%;cursor:pointer;
+    display:grid;place-items:center;color:#1C4437;
+    background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.98),rgba(255,255,255,.3) 30%,rgba(255,216,110,.45) 58%,rgba(127,200,169,.5) 80%,rgba(255,255,255,.92) 100%);
+    box-shadow:0 18px 44px rgba(28,68,55,.25),inset 0 0 34px rgba(255,255,255,.6);
+    animation:float 3.6s ease-in-out infinite;
+  }
+  .big svg{width:34%;height:34%;fill:currentColor}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-11px)}}
+
+  .party{position:fixed;inset:0;z-index:30;pointer-events:none;overflow:hidden}
+  .party i{position:absolute;width:12px;height:16px;border-radius:3px;animation:fall linear forwards}
+  @keyframes fall{from{transform:translateY(-12vh) rotate(0)}to{transform:translateY(112vh) rotate(680deg)}}
+
+  /* ── панель родителя ── */
+  .stats{
+    position:fixed;inset:0;z-index:40;background:rgba(12,40,32,.75);
+    display:none;align-items:flex-end;padding:12px;
+  }
+  .stats.show{display:flex}
+  .sheet{background:#fff;border-radius:24px;padding:20px;width:100%;max-height:78vh;overflow:auto}
+  .sheet h3{font-size:17px;margin-bottom:12px}
+  .srow{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #F0F5F2;font-size:14px}
+  .srow .w{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .srow .p{font-size:12.5px;color:#7A8F86;font-variant-numeric:tabular-nums}
+  .bar2{width:64px;height:8px;border-radius:99px;background:#EDF3F0;overflow:hidden;flex:none}
+  .bar2 i{display:block;height:100%;background:linear-gradient(90deg,#7FC8A9,#FFC83D)}
+  .sheet button{width:100%;margin-top:14px;padding:13px;border:0;border-radius:13px;background:#1F9B6E;color:#fff;font-family:inherit;font-size:15px;font-weight:600}
+  @media (prefers-reduced-motion:reduce){ .big{animation:none} .card{transition:none} }
+</style>
+</head>
+<body>
+
+<script src="words.js"></script>
+
+<div class="top">
+  <div class="stars" id="stars"></div>
+  <button class="btn" id="btnAgain" aria-label="Повторить">
+    <svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M16 9.2a4 4 0 0 1 0 5.6"/><path d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8"/></svg>
+  </button>
+  <a class="btn" href="index.html" aria-label="Домой" style="text-decoration:none">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>
+  </a>
+</div>
+
+<div class="field n2" id="field"></div>
+
+<div class="veil" id="veil">
+  <button class="big" id="btnStart" aria-label="Играть">
+    <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
+  </button>
+</div>
+
+<div class="party" id="party"></div>
+
+<div class="stats" id="stats">
+  <div class="sheet">
+    <h3>Что уже узнаёт</h3>
+    <div id="statList"></div>
+    <button id="statClose">Закрыть</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const YW = window.YEVA_WORDS;
+  const $ = id => document.getElementById(id);
+  if (!YW) {
+    document.body.innerHTML = '<div style="padding:40px;text-align:center">Не загрузился words.js</div>';
+    return;
+  }
+
+  const CFG = {
+    goal: 10,            // сколько верных до салюта
+    upAfter: 3,          // подряд верных, чтобы добавить картинку
+    maxCards: 4,
+    voicePath: 'voice/',
+    voice: 'de'
+  };
+
+  const WORDS = YW.unique;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  let cards = 2, streak = 0, done = 0, target = null, locked = false;
+
+  /* ── звук ── */
+  let actx = null, master = null;
+  const vBuf = {}, vBad = {};
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.32;
+    master.connect(actx.destination);
+  }
+
+  const vUrl = a => CFG.voicePath + CFG.voice + '/' + YW.slug(a) + '.mp3';
+
+  function loadVoice(a) {
+    if (!actx) return;
+    const u = vUrl(a);
+    if (vBuf[u] || vBad[u]) return;
+    fetch(u)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(ab => actx.decodeAudioData(ab))
+      .then(b => { vBuf[u] = b; })
+      .catch(e => { vBad[u] = true; console.warn('[voice] нет ' + u + ' — ' + e.message); });
+  }
+
+  function tone(type, freq, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur * 0.9);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+
+  function say(a, delay) {
+    if (!actx) return;
+    const u = vUrl(a);
+    if (!vBuf[u] && !vBad[u]) loadVoice(a);
+    setTimeout(() => {
+      if (vBuf[u]) {
+        const src = actx.createBufferSource(), g = actx.createGain();
+        g.gain.value = 1.25;
+        src.buffer = vBuf[u];
+        src.connect(g); g.connect(master);
+        src.start();
+        return;
+      }
+      try {
+        if (typeof speechSynthesis === 'undefined') return;
+        speechSynthesis.cancel();
+        const ut = new SpeechSynthesisUtterance(a.de);
+        ut.lang = 'de-DE'; ut.rate = 0.85; ut.pitch = 1.2;
+        speechSynthesis.speak(ut);
+      } catch (e) {}
+    }, delay || 0);
+  }
+
+  const yay = () => { [0, 4, 7, 12].forEach((n, i) => tone('triangle', 523.25 * Math.pow(2, n / 12), i * 0.07, 0.4, 0.34)); };
+  const nope = () => { tone('sine', 300, 0, 0.16, 0.22, 240); tone('sine', 240, 0.15, 0.24, 0.2, 190); };
+  const fanfare = () => { [0, 4, 7, 12, 7, 12, 16].forEach((n, i) => tone('triangle', 392 * Math.pow(2, n / 12), i * 0.12, 0.42, 0.36)); };
+  const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+
+  /* ── статистика ── */
+  const KEY = 'yeva.wo.stats';
+  let stats = {};
+  try { stats = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+  function note(a, firstTry) {
+    const k = YW.slug(a);
+    const s = stats[k] || { seen: 0, ok: 0 };
+    s.seen++;
+    if (firstTry) s.ok++;
+    stats[k] = s;
+    try { localStorage.setItem(KEY, JSON.stringify(stats)); } catch (e) {}
+  }
+
+  /* ── раунд ── */
+  function newRound() {
+    locked = false;
+    const pool = WORDS.slice();
+    target = pick(pool);
+    const shown = [target];
+    while (shown.length < cards) {
+      const c = pick(pool);
+      if (!shown.some(x => x.de === c.de)) shown.push(c);
+    }
+    shown.sort(() => Math.random() - 0.5);
+
+    const field = $('field');
+    field.className = 'field n' + cards;
+    field.innerHTML = shown.map(a =>
+      `<button class="card" data-de="${a.de}">${a.e}</button>`).join('');
+
+    shown.forEach(loadVoice);
+    say(target, 350);
+  }
+
+  function answer(btn) {
+    if (locked) return;
+    const right = btn.dataset.de === target.de;
+    if (!right) {
+      btn.classList.remove('wrong');
+      void btn.offsetWidth;
+      btn.classList.add('wrong');
+      nope();
+      buzz(60);
+      streak = 0;
+      btn.dataset.missed = '1';
+      say(target, 600);
+      return;
+    }
+
+    locked = true;
+    const firstTry = !$('field').querySelector('[data-missed]');
+    note(target, firstTry);
+
+    btn.classList.add('right');
+    [...$('field').children].forEach(c => { if (c !== btn) c.classList.add('gone'); });
+    yay();
+    buzz([15, 40, 15]);
+    say(target, 380);
+
+    if (firstTry) streak++; else streak = 0;
+    if (streak >= CFG.upAfter && cards < CFG.maxCards) { cards++; streak = 0; }
+
+    done++;
+    paintStars();
+
+    if (done >= CFG.goal) {
+      setTimeout(party, 900);
+    } else {
+      setTimeout(newRound, 1250);
+    }
+  }
+
+  $('field').addEventListener('click', e => {
+    const b = e.target.closest('.card');
+    if (b) answer(b);
+  });
+  $('btnAgain').addEventListener('click', () => { if (target) say(target, 0); });
+
+  /* ── звёзды и салют ── */
+  function paintStars() {
+    let h = '';
+    for (let i = 0; i < CFG.goal; i++) h += '<i class="' + (i < done ? 'on' : '') + '"></i>';
+    $('stars').innerHTML = h;
+  }
+
+  function party() {
+    fanfare();
+    buzz([20, 60, 20, 60, 40]);
+    const box = $('party');
+    const colors = ['#FFD86E', '#FF8FB1', '#7FC8A9', '#8FD3FF', '#C6A8F0'];
+    for (let i = 0; i < 70; i++) {
+      const c = document.createElement('i');
+      c.style.left = rand(0, 100) + 'vw';
+      c.style.background = pick(colors);
+      c.style.animationDuration = rand(1.8, 3.4) + 's';
+      c.style.animationDelay = rand(0, 0.7) + 's';
+      box.appendChild(c);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 4200);
+    done = 0;
+    paintStars();
+    setTimeout(newRound, 2600);
+  }
+
+  /* ── запуск ── */
+  function goFullscreen() {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!fn || document.fullscreenElement) return;
+    try {
+      const p = fn.call(el, { navigationUI: 'hide' });
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
+  }
+
+  $('btnStart').addEventListener('click', () => {
+    goFullscreen();
+    initAudio();
+    WORDS.slice(0, 12).forEach(loadVoice);
+    $('veil').classList.add('hidden');
+    newRound();
+  });
+
+  /* ── панель для родителя: удержать полоску звёзд ── */
+  let hold = null;
+  $('stars').addEventListener('pointerdown', () => {
+    hold = setTimeout(showStats, 1500);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev =>
+    $('stars').addEventListener(ev, () => clearTimeout(hold)));
+
+  function showStats() {
+    const rows = WORDS.map(a => {
+      const s = stats[YW.slug(a)];
+      return { a: a, seen: s ? s.seen : 0, ok: s ? s.ok : 0 };
+    }).filter(r => r.seen > 0)
+      .sort((x, y) => (x.ok / x.seen) - (y.ok / y.seen));
+
+    $('statList').innerHTML = rows.length
+      ? rows.map(r => {
+          const pct = Math.round(r.ok / r.seen * 100);
+          return `<div class="srow">
+            <span style="font-size:20px">${r.a.e}</span>
+            <span class="w">${r.a.de}</span>
+            <span class="bar2"><i style="width:${pct}%"></i></span>
+            <span class="p">${r.ok}/${r.seen}</span>
+          </div>`;
+        }).join('')
+      : '<div class="srow">Пока нет данных — поиграйте немного</div>';
+    $('stats').classList.add('show');
+  }
+  $('statClose').addEventListener('click', () => $('stats').classList.remove('show'));
+
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && actx && actx.state === 'suspended') actx.resume();
+  });
+
+  paintStars();
+})();
+</script>
+<script src="install.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
