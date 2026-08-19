@@ -231,6 +231,7 @@
     .join('');
   GENDERS.forEach(g => { $('v-' + g).innerHTML = opts(DEFAULTS[g]); });
 
+  let needPreset = false;   // применим после того, как всё объявлено
   try {
     const sv = JSON.parse(localStorage.getItem('voicegen2') || '{}');
     GENDERS.forEach(g => { if (sv[g] && VOICES[sv[g]]) $('v-' + g).value = sv[g]; });
@@ -240,8 +241,8 @@
       $('stab').value = sv.stab; $('sim').value = sv.sim;
       $('style').value = sv.style; $('speed').value = sv.speed;
       $('dot').checked = !!sv.dot; $('ctx').checked = !!sv.ctx;
-    } else { applyPreset('flat'); }
-  } catch (e) { applyPreset('flat'); }
+    } else { needPreset = true; }
+  } catch (e) { needPreset = true; }
   const remember = () => {
     try {
       const o = { lang: $('lang').value, repo: $('repo').value,
@@ -496,6 +497,7 @@
     new Audio('voice/' + $('lang').value + '/' + s + '.mp3').play();
   });
 
+  if (needPreset) applyPreset('flat');
   showSettings();
   render();
 })();
