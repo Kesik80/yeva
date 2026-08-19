@@ -137,6 +137,22 @@
     bg.appendChild(b);
   }
 
+  // Полоса под вырезом камеры убирается только настоящим immersive-режимом,
+  // а он требует жеста пользователя. Ловим первое же касание по экрану.
+  function goFullscreen() {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+    if (!fn || document.fullscreenElement) return;
+    try {
+      const p = fn.call(el, { navigationUI: 'hide' });
+      if (p && p.catch) p.catch(e => console.log('[fs] otkaz: ' + e.message));
+    } catch (e) { console.log('[fs] ne vyshlo: ' + e.message); }
+  }
+  const asApp = window.matchMedia('(display-mode: standalone)').matches
+    || window.matchMedia('(display-mode: fullscreen)').matches
+    || window.navigator.standalone === true;
+  if (asApp) document.addEventListener('pointerdown', goFullscreen, { once: true });
+
   // Скрытый вход в генератор голосов: удержать надпись YEVA полторы секунды.
   // Ребёнок так не попадёт, взрослый попадёт с первого раза.
   const title = document.getElementById('title');
