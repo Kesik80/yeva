@@ -543,8 +543,16 @@
         fresh[slug(a)] = await speak(phrase(a), $('v-' + g).value);
         ok++;
       } catch (e) {
-        bad++;
-        log('✗ ' + a.de + ' — ' + e.message, 'err');
+        // одна повторная попытка: чаще всего это 429 из-за темпа
+        await new Promise(r => setTimeout(r, 1200));
+        try {
+          fresh[slug(a)] = await speak(phrase(a), $('v-' + g).value);
+          ok++;
+          log('↻ ' + a.de + ' — со второй попытки', 'fresh');
+        } catch (e2) {
+          bad++;
+          log('✗ ' + a.de + ' — ' + e2.message, 'err');
+        }
       }
       n++;
       $('fill').style.width = (n / todo.length * 100).toFixed(1) + '%';
@@ -585,9 +593,16 @@
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
       log('коммит ' + String(d.commit).slice(0, 7) + ' · файлов ' + d.count +
-          ' · появятся на сайте после пересборки', 'have');
+          (d.requested && d.count < d.requested ? ' из ' + d.requested : '') +
+          ' · появятся на сайте после пересборки', d.count < (d.requested || d.count) ? 'err' : 'have');
+      if (d.failed && d.failed.length) {
+        d.failed.forEach(f => log('✗ не залился ' + f.path + ' — ' + f.error, 'err'));
+      }
+      // не помечаем вслепую: подтверждаем проверкой через полминуты
       Object.keys(fresh).forEach(s => { onSite[s] = true; });
       render();
+      log('через 40 секунд проверю, что всё реально отдаётся сайтом');
+      setTimeout(() => $('btnCheck').click(), 40000);
     } catch (e) { log('коммит не прошёл: ' + e.message, 'err'); }
     idle($('btnPub'));
   });
