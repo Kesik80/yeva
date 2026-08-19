@@ -76,6 +76,11 @@
   .fresh{color:#B77B0B}
   .miss{color:#B9C6D2}
   .err{color:#C0392B}
+  input[type=range]{width:100%;padding:0;height:26px;background:transparent;border:0;accent-color:#2F8FC4}
+  .preset{display:flex;gap:9px}
+  .preset button{margin-top:0}
+  .hint{font-weight:500;color:#93A8BA;font-size:11.5px}
+  label b{color:#2F8FC4;font-variant-numeric:tabular-nums}
   .log{margin-top:10px;font-size:12.5px;color:#5B7A93;max-height:120px;overflow:auto}
   .log div{padding:2px 0}
 </style>
@@ -124,6 +129,34 @@
       <h3>das · средний <span class="cnt" id="cnt-das"></span></h3>
       <select id="v-das"></select>
       <button class="ghost slim" data-sample="das">Послушать пробу</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;color:#5B7A93;margin-bottom:9px">КАК ЧИТАТЬ</div>
+    <div class="preset">
+      <button class="ghost slim" data-preset="flat">Ровно, для одного слова</button>
+      <button class="ghost slim" data-preset="live">Живо, как раньше</button>
+    </div>
+    <label style="margin-top:12px">Ровность <b id="vStab"></b> <span class="hint">выше — меньше эмоций и разброса</span></label>
+    <input type="range" id="stab" min="0" max="1" step="0.05">
+    <label style="margin-top:10px">Похожесть на голос <b id="vSim"></b></label>
+    <input type="range" id="sim" min="0" max="1" step="0.05">
+    <label style="margin-top:10px">Артистичность <b id="vStyle"></b> <span class="hint">для слов держи на нуле</span></label>
+    <input type="range" id="style" min="0" max="1" step="0.05">
+    <label style="margin-top:10px">Скорость <b id="vSpeed"></b></label>
+    <input type="range" id="speed" min="0.7" max="1.2" step="0.02">
+    <div class="chk">
+      <input type="checkbox" id="dot">
+      <label for="dot" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
+        Слать «Die Katze.» с заглавной и точкой
+      </label>
+    </div>
+    <div class="chk">
+      <input type="checkbox" id="ctx">
+      <label for="ctx" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
+        Подставлять невидимый контекст фразы
+      </label>
     </div>
   </div>
 
@@ -203,10 +236,18 @@
     GENDERS.forEach(g => { if (sv[g] && VOICES[sv[g]]) $('v-' + g).value = sv[g]; });
     if (sv.lang) $('lang').value = sv.lang;
     if (sv.repo) $('repo').value = sv.repo;
-  } catch (e) {}
+    if (sv.stab !== undefined) {
+      $('stab').value = sv.stab; $('sim').value = sv.sim;
+      $('style').value = sv.style; $('speed').value = sv.speed;
+      $('dot').checked = !!sv.dot; $('ctx').checked = !!sv.ctx;
+    } else { applyPreset('flat'); }
+  } catch (e) { applyPreset('flat'); }
   const remember = () => {
     try {
-      const o = { lang: $('lang').value, repo: $('repo').value };
+      const o = { lang: $('lang').value, repo: $('repo').value,
+                  stab: $('stab').value, sim: $('sim').value,
+                  style: $('style').value, speed: $('speed').value,
+                  dot: $('dot').checked, ctx: $('ctx').checked };
       GENDERS.forEach(g => { o[g] = $('v-' + g).value; });
       localStorage.setItem('voicegen2', JSON.stringify(o));
     } catch (e) {}
@@ -225,6 +266,53 @@
     $('cnt-' + g).textContent = n + ' слов';
   });
 
+  // ── как читать ──────────────────────────────────────────────
+  const PRESETS = {
+    flat: { stab: 0.85, sim: 0.8,  style: 0,   speed: 0.92, dot: true,  ctx: true  },
+    live: { stab: 0.5,  sim: 0.75, style: 0,   speed: 1,    dot: false, ctx: false }
+  };
+  // Контекст читается моделью «в уме» ради ровной интонации,
+  // вслух он не произносится.
+  const CTX_BEFORE = 'Wir lernen heute neue Wörter. ';
+  const CTX_AFTER  = ' Und jetzt das nächste Wort.';
+
+  function readSettings() {
+    return {
+      stability: parseFloat($('stab').value),
+      similarity_boost: parseFloat($('sim').value),
+      style: parseFloat($('style').value),
+      speed: parseFloat($('speed').value),
+      use_speaker_boost: true
+    };
+  }
+  function showSettings() {
+    $('vStab').textContent = (+$('stab').value).toFixed(2);
+    $('vSim').textContent = (+$('sim').value).toFixed(2);
+    $('vStyle').textContent = (+$('style').value).toFixed(2);
+    $('vSpeed').textContent = (+$('speed').value).toFixed(2) + '×';
+    remember();
+  }
+  function applyPreset(name) {
+    const p = PRESETS[name];
+    $('stab').value = p.stab; $('sim').value = p.sim;
+    $('style').value = p.style; $('speed').value = p.speed;
+    $('dot').checked = p.dot; $('ctx').checked = p.ctx;
+    showSettings();
+    log('настройки: ' + (name === 'flat' ? 'ровно, для одного слова' : 'живо, как раньше'));
+  }
+  document.querySelectorAll('[data-preset]').forEach(b =>
+    b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+  ['stab','sim','style','speed'].forEach(id => $(id).addEventListener('input', showSettings));
+  ['dot','ctx'].forEach(id => $(id).addEventListener('change', remember));
+
+  // текст, который реально уходит в модель
+  function phrase(a) {
+    const lang = $('lang').value;
+    let t = lang === 'de' ? a.de : a.ru;
+    if ($('dot').checked) t = t.charAt(0).toUpperCase() + t.slice(1) + '.';
+    return t;
+  }
+
   // ── запрос к твоей функции ──────────────────────────────────
   async function speak(text, voiceName) {
     const r = await fetch('/api/speak', {
@@ -236,7 +324,10 @@
         lang: $('lang').value,
         save: false,
         repo: $('repo').value.trim(),
-        adminToken: $('admin').value
+        adminToken: $('admin').value,
+        voiceSettings: readSettings(),
+        previousText: $('ctx').checked ? CTX_BEFORE : undefined,
+        nextText: $('ctx').checked ? CTX_AFTER : undefined
       })
     });
     const d = await r.json().catch(() => ({}));
@@ -270,7 +361,7 @@
       const lang = $('lang').value;
       busy(btn, 'генерирую…');
       try {
-        const b64 = await speak(lang === 'de' ? a.de : a.ru, $('v-' + g).value);
+        const b64 = await speak(phrase(a), $('v-' + g).value);
         playB64(b64);
         log('проба ' + g + ': ' + (lang === 'de' ? a.de : a.ru) + ' · ' + $('v-' + g).value, 'have');
       } catch (e) { log('проба ' + g + ' не вышла: ' + e.message, 'err'); }
@@ -323,7 +414,7 @@
     for (const a of todo) {
       const g = gender(a);
       try {
-        fresh[slug(a)] = await speak(lang === 'de' ? a.de : a.ru, $('v-' + g).value);
+        fresh[slug(a)] = await speak(phrase(a), $('v-' + g).value);
         ok++;
       } catch (e) {
         bad++;
@@ -357,7 +448,9 @@
         body: JSON.stringify({
           repo: $('repo').value.trim(),
           message: 'Голоса: ' + files.length + ' слов · ' +
-                   GENDERS.map(g => g + '=' + $('v-' + g).value).join(' '),
+                   GENDERS.map(g => g + '=' + $('v-' + g).value).join(' ') +
+                   ' · ровность ' + (+$('stab').value).toFixed(2) +
+                   ' скорость ' + (+$('speed').value).toFixed(2),
           files: files,
           adminToken: $('admin').value
         })
@@ -403,6 +496,7 @@
     new Audio('voice/' + $('lang').value + '/' + s + '.mp3').play();
   });
 
+  showSettings();
   render();
 })();
 </script>
