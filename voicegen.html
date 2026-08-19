@@ -76,6 +76,16 @@
   .fresh{color:#B77B0B}
   .miss{color:#B9C6D2}
   .err{color:#C0392B}
+  .quota{padding:13px 15px}
+  .qtop{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;color:#5B7A93;letter-spacing:.02em}
+  .qref{width:30px;height:30px;margin:0;padding:0;border-radius:50%;background:#EDF3FA;color:#2F8FC4;font-size:15px;line-height:1}
+  .qbar{position:relative;height:12px;border-radius:99px;background:#E6EEF6;overflow:hidden;margin:10px 0 8px}
+  .qbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#5BC8A8,#8FD14F);transition:width .4s}
+  .qbar i.warn{background:linear-gradient(90deg,#F0B429,#F08A29)}
+  .qbar i.crit{background:linear-gradient(90deg,#E86A5A,#C0392B)}
+  .qbar b{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,rgba(47,143,196,.55) 0 5px,rgba(47,143,196,.2) 5px 10px);display:none}
+  .qnums{font-size:12.5px;color:#5B7A93;font-variant-numeric:tabular-nums;line-height:1.45}
+  .qnums b{color:#1E3D57}
   input[type=range]{width:100%;padding:0;height:26px;background:transparent;border:0;accent-color:#2F8FC4}
   .preset{display:flex;gap:9px}
   .preset button{margin-top:0}
@@ -90,6 +100,15 @@
   <div class="top">
     <h1>Голоса для игр</h1>
     <a class="back" href="index.html">← назад</a>
+  </div>
+
+  <div class="card quota" id="quotaCard">
+    <div class="qtop">
+      <span id="qTitle">Лимит ElevenLabs</span>
+      <button class="qref" id="qRefresh" aria-label="Обновить">⟳</button>
+    </div>
+    <div class="qbar"><i id="qFill"></i><b id="qNeed"></b></div>
+    <div class="qnums" id="qNums">загружаю…</div>
   </div>
 
   <div class="card">
@@ -267,6 +286,75 @@
     $('cnt-' + g).textContent = n + ' слов';
   });
 
+  // ── остаток лимита ──────────────────────────────────────────
+  let quota = null;
+
+  const nf = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+  // сколько символов уйдёт на то, что осталось озвучить
+  function needChars(onlyMissing) {
+    const extra = ($('ctx').checked ? 0 : 0);   // контекст не тарифицируется как речь
+    return uniq.reduce((n, a) => {
+      if (onlyMissing && (onSite[slug(a)] || fresh[slug(a)])) return n;
+      return n + phrase(a).length + extra;
+    }, 0);
+  }
+
+  async function loadQuota() {
+    $('qNums').textContent = 'загружаю…';
+    try {
+      const u = '/api/quota' + ($('admin').value ? '?adminToken=' + encodeURIComponent($('admin').value) : '');
+      const r = await fetch(u, { cache: 'no-store' });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+      quota = d;
+      paintQuota();
+    } catch (e) {
+      quota = null;
+      $('qNums').innerHTML = 'не удалось узнать: ' + e.message;
+      $('qFill').style.width = '0';
+    }
+  }
+
+  function paintQuota() {
+    if (!quota) return;
+    const need = needChars(true);
+    const fill = $('qFill');
+    fill.style.width = quota.percent + '%';
+    fill.className = quota.percent >= 90 ? 'crit' : quota.percent >= 70 ? 'warn' : '';
+
+    // заштрихованный кусок — сколько съест ближайшая генерация
+    const mark = $('qNeed');
+    if (need > 0 && quota.limit) {
+      const w = Math.min(100 - quota.percent, need / quota.limit * 100);
+      mark.style.display = 'block';
+      mark.style.left = quota.percent + '%';
+      mark.style.width = w + '%';
+    } else {
+      mark.style.display = 'none';
+    }
+
+    let when = '';
+    if (quota.resetUnix) {
+      const dt = new Date(quota.resetUnix * 1000);
+      const days = Math.max(0, Math.ceil((dt - Date.now()) / 86400000));
+      when = ' · обновится ' + dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) +
+             ' (через ' + days + ' дн.)';
+    }
+
+    const enough = need <= quota.left;
+    $('qNums').innerHTML =
+      'осталось <b>' + nf(quota.left) + '</b> из ' + nf(quota.limit) +
+      ' · тариф ' + quota.tier + when + '<br>' +
+      (need > 0
+        ? ('на недостающие слова нужно <b>' + nf(need) + '</b> символов — ' +
+           (enough ? 'хватает' : '<b style="color:#C0392B">не хватает ' + nf(need - quota.left) + '</b>'))
+        : 'все слова уже озвучены');
+    $('qTitle').textContent = 'Лимит ElevenLabs · использовано ' + quota.percent + '%';
+  }
+
+  $('qRefresh').addEventListener('click', loadQuota);
+
   // ── как читать ──────────────────────────────────────────────
   const PRESETS = {
     flat: { stab: 0.85, sim: 0.8,  style: 0,   speed: 0.92, dot: true,  ctx: true  },
@@ -304,7 +392,8 @@
   document.querySelectorAll('[data-preset]').forEach(b =>
     b.addEventListener('click', () => applyPreset(b.dataset.preset)));
   ['stab','sim','style','speed'].forEach(id => $(id).addEventListener('input', showSettings));
-  ['dot','ctx'].forEach(id => $(id).addEventListener('change', remember));
+  ['dot','ctx'].forEach(id => $(id).addEventListener('change', () => { remember(); paintQuota(); }));
+  $('lang').addEventListener('change', paintQuota);
 
   // текст, который реально уходит в модель
   function phrase(a) {
@@ -399,6 +488,7 @@
     render();
     log('на сайте есть ' + have + ' из ' + uniq.length + ', не хватает ' + (uniq.length - have),
         have === uniq.length ? 'have' : 'fresh');
+    paintQuota();
     idle($('btnCheck'));
   });
 
@@ -428,6 +518,7 @@
       await new Promise(r => setTimeout(r, 250));
     }
     log('озвучено ' + ok + ', ошибок ' + bad, bad ? 'err' : 'have');
+    loadQuota();
     idle($('btnGen'));
     $('btnPub').disabled = ok === 0;
   });
@@ -500,6 +591,7 @@
   if (needPreset) applyPreset('flat');
   showSettings();
   render();
+  loadQuota();
 })();
 </script>
 <script src="console.js"></script>
