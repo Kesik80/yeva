@@ -137,21 +137,44 @@
     bg.appendChild(b);
   }
 
-  // Полоса под вырезом камеры убирается только настоящим immersive-режимом,
-  // а он требует жеста пользователя. Ловим первое же касание по экрану.
-  function goFullscreen() {
+  // ── полноэкранный режим ────────────────────────────────
+  // Чёрная полоса — это область выреза камеры. Убрать её может только
+  // настоящий immersive-режим, и только по жесту пользователя.
+  const mode = window.matchMedia('(display-mode: fullscreen)').matches ? 'fullscreen'
+             : window.matchMedia('(display-mode: standalone)').matches ? 'standalone'
+             : 'browser';
+  console.log('[fs] режим показа: ' + mode);
+
+  function goFullscreen(why) {
+    if (document.fullscreenElement) return;
     const el = document.documentElement;
     const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
-    if (!fn || document.fullscreenElement) return;
+    if (!fn) { console.log('[fs] браузер не умеет requestFullscreen'); return; }
     try {
       const p = fn.call(el, { navigationUI: 'hide' });
-      if (p && p.catch) p.catch(e => console.log('[fs] otkaz: ' + e.message));
-    } catch (e) { console.log('[fs] ne vyshlo: ' + e.message); }
+      if (p && p.then) p.then(() => console.log('[fs] включён (' + why + ')'))
+                        .catch(e => console.log('[fs] отказ (' + why + '): ' + e.message));
+      else console.log('[fs] запрошен без промиса (' + why + ')');
+    } catch (e) { console.log('[fs] исключение: ' + e.message); }
   }
-  const asApp = window.matchMedia('(display-mode: standalone)').matches
-    || window.matchMedia('(display-mode: fullscreen)').matches
-    || window.navigator.standalone === true;
-  if (asApp) document.addEventListener('pointerdown', goFullscreen, { once: true });
+
+  // В standalone статус-бар красится в theme_color и полосы нет — там не мешаем.
+  if (mode === 'fullscreen') {
+    ['pointerdown', 'touchend'].forEach(ev => {
+      document.addEventListener(ev, () => goFullscreen(ev), true);
+    });
+
+    // Тап по карточке уводит на другую страницу и обрывает запрос,
+    // поэтому переход чуть придерживаем.
+    document.querySelectorAll('a.game').forEach(link => {
+      link.addEventListener('click', e => {
+        if (document.fullscreenElement) return;
+        e.preventDefault();
+        goFullscreen('карточка');
+        setTimeout(() => { location.href = link.getAttribute('href'); }, 280);
+      });
+    });
+  }
 
   // Скрытый вход в генератор голосов: удержать надпись YEVA полторы секунды.
   // Ребёнок так не попадёт, взрослый попадёт с первого раза.
