@@ -58,14 +58,13 @@
   /* ── поле ── */
   .field{
     flex:1;min-height:0;display:grid;gap:12px;padding:12px 0;
-    grid-template-columns:1fr;align-content:center;
+    align-content:center;justify-content:center;
+    width:100%;margin:0 auto;
   }
-  .field.n2{grid-template-columns:1fr 1fr;grid-template-rows:1fr}
-  .field.n3{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
-  .field.n4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
-  @media (orientation:landscape){
-    .field.n3,.field.n4{grid-template-columns:repeat(4,1fr);grid-template-rows:1fr}
-  }
+  /* карточки квадратные, размер считает layout() по высоте экрана */
+  .card{aspect-ratio:1}
+  /* три карточки: третья по центру под первыми двумя */
+  .field.n3 .card:last-child{grid-column:1 / -1;justify-self:center}
 
   .card{
     border:0;border-radius:26px;cursor:pointer;
@@ -284,6 +283,23 @@
   }
 
   /* ── раунд ── */
+  function layout(n) {
+    const W = window.innerWidth, H = window.innerHeight;
+    const land = W > H;
+    // в портрете две карточки ставим друг под другом — так они крупнее
+    const cols = land ? Math.min(n, 4) : (n <= 2 ? 1 : 2);
+    const rows = Math.ceil(n / cols);
+    const field = $('field');
+    field.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+
+    const availH = field.clientHeight || H * 0.66;
+    const availW = W - 24;                                  // поля страницы
+    const byHeight = (availH - (rows - 1) * 12) / rows;
+    const byWidth = (availW - (cols - 1) * 12) / cols;       // промежутки тоже занимают ширину
+    const side = Math.max(90, Math.min(byHeight, byWidth, 300));
+    field.style.maxWidth = Math.floor(side * cols + (cols - 1) * 12) + 'px';
+  }
+
   function newRound() {
     locked = false;
     const pool = WORDS.slice();
@@ -303,6 +319,7 @@
          <span class="cap ${YW.gender(a)}">${a.de}</span>
        </button>`).join('');
 
+    layout(cards);
     shown.forEach(loadVoice);
     say(target, 350);
   }
@@ -442,6 +459,9 @@
   }
   $('statClose').addEventListener('click', () => $('stats').classList.remove('show'));
 
+  window.addEventListener('resize', () => { if (target) layout(cards); });
+  window.addEventListener('orientationchange', () => setTimeout(() => { if (target) layout(cards); }, 250));
+  document.addEventListener('fullscreenchange', () => setTimeout(() => { if (target) layout(cards); }, 150));
   document.addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('gesturestart', e => e.preventDefault());
   document.addEventListener('visibilitychange', () => {
