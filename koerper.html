@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Zeig mir…</title>
+<meta name="theme-color" content="#F2A65A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#F7C978}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#5A3A1A;
+    background:
+      radial-gradient(110% 70% at 20% 108%, rgba(255,190,120,.5), transparent 62%),
+      radial-gradient(90% 60% at 85% 4%, rgba(255,240,190,.6), transparent 66%),
+      linear-gradient(180deg,#F7C978 0%,#FBDFA4 38%,#FDF0D5 74%,#FFFBF0 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 10px) 12px calc(env(safe-area-inset-bottom,0px) + 10px);
+  }
+
+  .top{display:flex;align-items:center;gap:9px;flex:none}
+  .stars{
+    display:flex;gap:4px;flex:1;min-width:0;overflow:hidden;
+    background:rgba(255,255,255,.66);border-radius:999px;padding:9px 14px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(90,58,26,.13);
+  }
+  .stars i{width:18px;height:18px;flex:none;border-radius:50%;background:rgba(90,58,26,.14);transition:transform .3s,background .3s}
+  .stars i.on{background:linear-gradient(160deg,#FFD86E,#F2913A);transform:scale(1.12)}
+  .btn{
+    width:44px;height:44px;flex:none;border:0;border-radius:50%;
+    background:rgba(255,255,255,.66);color:#5A3A1A;text-decoration:none;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(90,58,26,.14);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.9)}
+  .btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  .stage{flex:1;min-height:0;display:grid;place-items:center;padding:8px 0}
+  #kid{width:auto;height:100%;max-width:100%;overflow:visible}
+
+  /* области фигурки */
+  #kid g[data-part]{cursor:pointer}
+  #kid g[data-part] .hit{fill:transparent;stroke:none}
+  #kid .paint{transition:filter .25s}
+  g[data-part].right .paint{filter:drop-shadow(0 0 14px #FFC83D) drop-shadow(0 0 26px #FFA31A)}
+  g[data-part].right{animation:pulse .55s ease}
+  @keyframes pulse{40%{transform:scale(1.06)}100%{transform:scale(1)}}
+  g[data-part].wrong{animation:wig .5s ease}
+  @keyframes wig{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}60%{transform:translateX(6px)}}
+  g[data-part]{transform-box:fill-box;transform-origin:center}
+
+  .veil{
+    position:fixed;inset:0;z-index:20;display:grid;place-items:center;
+    background:rgba(251,223,164,.55);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    transition:opacity .3s;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .big{
+    width:min(46vw,190px);aspect-ratio:1;border:0;border-radius:50%;cursor:pointer;
+    display:grid;place-items:center;color:#5A3A1A;
+    background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.98),rgba(255,255,255,.3) 30%,rgba(255,216,110,.5) 58%,rgba(242,166,90,.5) 80%,rgba(255,255,255,.92) 100%);
+    box-shadow:0 18px 44px rgba(90,58,26,.25),inset 0 0 34px rgba(255,255,255,.6);
+    animation:float 3.6s ease-in-out infinite;
+  }
+  .big svg{width:34%;height:34%;fill:currentColor}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-11px)}}
+
+  .party{position:fixed;inset:0;z-index:30;pointer-events:none;overflow:hidden}
+  .party i{position:absolute;width:12px;height:16px;border-radius:3px;animation:fall linear forwards}
+  @keyframes fall{from{transform:translateY(-12vh) rotate(0)}to{transform:translateY(112vh) rotate(680deg)}}
+
+  .stats{position:fixed;inset:0;z-index:40;background:rgba(60,40,15,.75);display:none;align-items:flex-end;padding:12px}
+  .stats.show{display:flex}
+  .sheet{background:#fff;border-radius:24px;padding:20px;width:100%;max-height:78vh;overflow:auto;color:#5A3A1A}
+  .sheet h3{font-size:17px;margin-bottom:12px}
+  .srow{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #F5EFE6;font-size:14px}
+  .srow .w{flex:1}
+  .bar2{width:64px;height:8px;border-radius:99px;background:#F3EDE4;overflow:hidden;flex:none}
+  .bar2 i{display:block;height:100%;background:linear-gradient(90deg,#F2A65A,#FFD86E)}
+  .sheet button{width:100%;margin-top:14px;padding:13px;border:0;border-radius:13px;background:#E08A2E;color:#fff;font-family:inherit;font-size:15px;font-weight:600}
+  @media (prefers-reduced-motion:reduce){ .big{animation:none} }
+</style>
+</head>
+<body>
+
+<script src="words.js"></script>
+
+<div class="top">
+  <div class="stars" id="stars"></div>
+  <button class="btn" id="btnAgain" aria-label="Повторить">
+    <svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M16 9.2a4 4 0 0 1 0 5.6"/><path d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8"/></svg>
+  </button>
+  <a class="btn" href="index.html" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>
+  </a>
+</div>
+
+<div class="stage">
+<svg id="kid" viewBox="0 0 220 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- ноги -->
+  <g data-part="bein">
+    <path class="paint" d="M96 236 L90 330" stroke="#4A6FA5" stroke-width="26" stroke-linecap="round" fill="none"/>
+    <path class="paint" d="M124 236 L130 330" stroke="#4A6FA5" stroke-width="26" stroke-linecap="round" fill="none"/>
+    <rect class="hit" x="74" y="240" width="72" height="70"/>
+  </g>
+  <g data-part="knie">
+    <circle class="paint" cx="92" cy="292" r="14" fill="#3E5F8C"/>
+    <circle class="paint" cx="128" cy="292" r="14" fill="#3E5F8C"/>
+    <rect class="hit" x="70" y="272" width="80" height="42"/>
+  </g>
+  <g data-part="fuss">
+    <ellipse class="paint" cx="84" cy="348" rx="24" ry="14" fill="#3A2A55"/>
+    <ellipse class="paint" cx="136" cy="348" rx="24" ry="14" fill="#3A2A55"/>
+    <rect class="hit" x="56" y="330" width="108" height="40"/>
+  </g>
+
+  <!-- руки -->
+  <g data-part="arm">
+    <path class="paint" d="M80 150 L48 224" stroke="#F7C9A6" stroke-width="21" stroke-linecap="round" fill="none"/>
+    <path class="paint" d="M140 150 L172 224" stroke="#F7C9A6" stroke-width="21" stroke-linecap="round" fill="none"/>
+    <rect class="hit" x="30" y="150" width="46" height="76"/>
+    <rect class="hit" x="144" y="150" width="46" height="76"/>
+  </g>
+
+  <!-- тело -->
+  <g data-part="bauch">
+    <rect class="paint" x="70" y="136" width="80" height="108" rx="34" fill="#6EC1E4"/>
+    <ellipse class="hit" cx="110" cy="196" rx="34" ry="34"/>
+  </g>
+  <g data-part="schulter">
+    <ellipse class="paint" cx="80" cy="146" rx="20" ry="14" fill="#5BB0D6"/>
+    <ellipse class="paint" cx="140" cy="146" rx="20" ry="14" fill="#5BB0D6"/>
+    <rect class="hit" x="58" y="130" width="46" height="34"/>
+    <rect class="hit" x="116" y="130" width="46" height="34"/>
+  </g>
+  <g data-part="hand">
+    <circle class="paint" cx="44" cy="232" r="16" fill="#F7C9A6"/>
+    <circle class="paint" cx="176" cy="232" r="16" fill="#F7C9A6"/>
+    <circle class="hit" cx="44" cy="232" r="27"/>
+    <circle class="hit" cx="176" cy="232" r="27"/>
+  </g>
+
+  <!-- шея и голова -->
+  <g data-part="hals">
+    <rect class="paint" x="98" y="106" width="24" height="26" rx="9" fill="#EFB98F"/>
+    <rect class="hit" x="88" y="104" width="44" height="30"/>
+  </g>
+  <g data-part="kopf">
+    <circle class="paint" cx="110" cy="66" r="48" fill="#F7C9A6"/>
+    <circle class="hit" cx="110" cy="66" r="50"/>
+  </g>
+  <g data-part="haar">
+    <path class="paint" d="M62 56 A48 48 0 0 1 158 56 A62 40 0 0 0 62 56 Z" fill="#7A4B2A"/>
+    <ellipse class="paint" cx="110" cy="30" rx="46" ry="20" fill="#7A4B2A"/>
+    <rect class="hit" x="62" y="8" width="96" height="42"/>
+  </g>
+  <g data-part="ohr">
+    <ellipse class="paint" cx="60" cy="70" rx="10" ry="14" fill="#EFB98F"/>
+    <ellipse class="paint" cx="160" cy="70" rx="10" ry="14" fill="#EFB98F"/>
+    <circle class="hit" cx="60" cy="70" r="20"/>
+    <circle class="hit" cx="160" cy="70" r="20"/>
+  </g>
+  <g data-part="auge">
+    <circle class="paint" cx="92" cy="62" r="7" fill="#3A2A55"/>
+    <circle class="paint" cx="128" cy="62" r="7" fill="#3A2A55"/>
+    <circle class="hit" cx="92" cy="62" r="17"/>
+    <circle class="hit" cx="128" cy="62" r="17"/>
+  </g>
+  <g data-part="nase">
+    <path class="paint" d="M110 68 q7 10 0 12 q-7 -2 0 -12 Z" fill="#E8A97E"/>
+    <circle class="hit" cx="110" cy="76" r="15"/>
+  </g>
+  <g data-part="mund">
+    <path class="paint" d="M94 92 q16 15 32 0" stroke="#C4543F" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <ellipse class="hit" cx="110" cy="95" rx="24" ry="14"/>
+  </g>
+</svg>
+</div>
+
+<div class="veil" id="veil">
+  <button class="big" id="btnStart" aria-label="Играть">
+    <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
+  </button>
+</div>
+
+<div class="party" id="party"></div>
+
+<div class="stats" id="stats">
+  <div class="sheet">
+    <h3>Что уже узнаёт</h3>
+    <div id="statList"></div>
+    <button id="statClose">Закрыть</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const YW = window.YEVA_WORDS;
+  const $ = id => document.getElementById(id);
+  if (!YW || !YW.body) {
+    document.body.innerHTML = '<div style="padding:40px;text-align:center">Нужен words.js версии 3</div>';
+    return;
+  }
+
+  const CFG = {
+    goal: 10,          // верных до салюта
+    openAfter: 8,      // сколько верных до подключения сложных слов
+    voicePath: 'voice/',
+    voice: 'de'
+  };
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  // берём только те части, что нарисованы на фигурке
+  const drawn = {};
+  document.querySelectorAll('#kid g[data-part]').forEach(g => { drawn[g.dataset.part] = g; });
+  const ALL = YW.body.filter(b => drawn[b.part]);
+  const EASY = ALL.filter(b => b.easy);
+
+  let target = null, locked = false, done = 0, total = 0, missedThisRound = false;
+
+  /* ── звук ── */
+  let actx = null, master = null;
+  const vBuf = {}, vBad = {};
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.32;
+    master.connect(actx.destination);
+  }
+
+  const vUrl = a => CFG.voicePath + CFG.voice + '/' + YW.slug(a) + '.mp3';
+
+  function loadVoice(a) {
+    if (!actx) return;
+    const u = vUrl(a);
+    if (vBuf[u] || vBad[u]) return;
+    fetch(u)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(ab => actx.decodeAudioData(ab))
+      .then(b => { vBuf[u] = b; })
+      .catch(e => { vBad[u] = true; console.warn('[voice] нет ' + u + ' — ' + e.message); });
+  }
+
+  function tone(type, freq, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur * 0.9);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+
+  function say(a, delay) {
+    if (!actx) return;
+    const u = vUrl(a);
+    if (!vBuf[u] && !vBad[u]) loadVoice(a);
+    setTimeout(() => {
+      if (vBuf[u]) {
+        const src = actx.createBufferSource(), g = actx.createGain();
+        g.gain.value = 1.25;
+        src.buffer = vBuf[u];
+        src.connect(g); g.connect(master);
+        src.start();
+        return;
+      }
+      try {
+        if (typeof speechSynthesis === 'undefined') return;
+        speechSynthesis.cancel();
+        const ut = new SpeechSynthesisUtterance(a.de);
+        ut.lang = 'de-DE'; ut.rate = 0.85; ut.pitch = 1.2;
+        speechSynthesis.speak(ut);
+      } catch (e) {}
+    }, delay || 0);
+  }
+
+  const yay = () => [0, 4, 7, 12].forEach((n, i) => tone('triangle', 523.25 * Math.pow(2, n / 12), i * 0.07, 0.4, 0.34));
+  const nope = () => { tone('sine', 300, 0, 0.16, 0.22, 240); tone('sine', 240, 0.15, 0.24, 0.2, 190); };
+  const fanfare = () => [0, 4, 7, 12, 7, 12, 16].forEach((n, i) => tone('triangle', 392 * Math.pow(2, n / 12), i * 0.12, 0.42, 0.36));
+  const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+
+  /* ── статистика ── */
+  const KEY = 'yeva.koerper.stats';
+  let stats = {};
+  try { stats = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+  function note(a, firstTry) {
+    const k = YW.slug(a);
+    const s = stats[k] || { seen: 0, ok: 0 };
+    s.seen++;
+    if (firstTry) s.ok++;
+    stats[k] = s;
+    try { localStorage.setItem(KEY, JSON.stringify(stats)); } catch (e) {}
+  }
+
+  /* ── раунд ── */
+  function pool() { return total >= CFG.openAfter ? ALL : EASY; }
+
+  function newRound() {
+    locked = false;
+    missedThisRound = false;
+    const list = pool();
+    let next = pick(list);
+    for (let i = 0; i < 4 && target && next.part === target.part; i++) next = pick(list);
+    target = next;
+    loadVoice(target);
+    say(target, 320);
+  }
+
+  function tap(g) {
+    if (locked || !target) return;
+    const part = g.dataset.part;
+
+    if (part !== target.part) {
+      g.classList.remove('wrong');
+      void g.getBoundingClientRect();
+      g.classList.add('wrong');
+      setTimeout(() => g.classList.remove('wrong'), 520);
+      nope();
+      buzz(60);
+      missedThisRound = true;
+      say(target, 620);
+      return;
+    }
+
+    locked = true;
+    note(target, !missedThisRound);
+    total++;
+    g.classList.add('right');
+    setTimeout(() => g.classList.remove('right'), 900);
+    yay();
+    buzz([15, 40, 15]);
+    say(target, 360);
+    done++;
+    paintStars();
+
+    if (done >= CFG.goal) setTimeout(party, 950);
+    else setTimeout(newRound, 1250);
+  }
+
+  document.querySelectorAll('#kid g[data-part]').forEach(g => {
+    g.addEventListener('click', () => tap(g));
+  });
+  $('btnAgain').addEventListener('click', () => { if (target) say(target, 0); });
+
+  /* ── звёзды и салют ── */
+  function paintStars() {
+    let h = '';
+    for (let i = 0; i < CFG.goal; i++) h += '<i class="' + (i < done ? 'on' : '') + '"></i>';
+    $('stars').innerHTML = h;
+  }
+
+  function party() {
+    fanfare();
+    buzz([20, 60, 20, 60, 40]);
+    const box = $('party');
+    const colors = ['#FFD86E', '#F2A65A', '#FF8FB1', '#8FD3FF', '#7FC8A9'];
+    for (let i = 0; i < 70; i++) {
+      const c = document.createElement('i');
+      c.style.left = rand(0, 100) + 'vw';
+      c.style.background = pick(colors);
+      c.style.animationDuration = rand(1.8, 3.4) + 's';
+      c.style.animationDelay = rand(0, 0.7) + 's';
+      box.appendChild(c);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 4200);
+    done = 0;
+    paintStars();
+    setTimeout(newRound, 2600);
+  }
+
+  /* ── запуск ── */
+  function goFullscreen() {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!fn || document.fullscreenElement) return;
+    try {
+      const p = fn.call(el, { navigationUI: 'hide' });
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
+  }
+
+  $('btnStart').addEventListener('click', () => {
+    goFullscreen();
+    initAudio();
+    EASY.forEach(loadVoice);
+    $('veil').classList.add('hidden');
+    newRound();
+  });
+
+  /* ── панель для родителя ── */
+  let hold = null;
+  $('stars').addEventListener('pointerdown', () => { hold = setTimeout(showStats, 1500); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev =>
+    $('stars').addEventListener(ev, () => clearTimeout(hold)));
+
+  function showStats() {
+    const rows = ALL.map(a => {
+      const s = stats[YW.slug(a)];
+      return { a: a, seen: s ? s.seen : 0, ok: s ? s.ok : 0 };
+    }).filter(r => r.seen > 0).sort((x, y) => (x.ok / x.seen) - (y.ok / y.seen));
+
+    $('statList').innerHTML = rows.length
+      ? rows.map(r => {
+          const pct = Math.round(r.ok / r.seen * 100);
+          return `<div class="srow">
+            <span class="w">${r.a.de} <span style="color:#A0876A">${r.a.ru}</span></span>
+            <span class="bar2"><i style="width:${pct}%"></i></span>
+            <span style="font-size:12.5px;color:#A0876A">${r.ok}/${r.seen}</span>
+          </div>`;
+        }).join('')
+      : '<div class="srow">Пока нет данных — поиграйте немного</div>';
+    $('stats').classList.add('show');
+  }
+  $('statClose').addEventListener('click', () => $('stats').classList.remove('show'));
+
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && actx && actx.state === 'suspended') actx.resume();
+  });
+
+  paintStars();
+})();
+</script>
+<script src="install.js"></script>
+<script src="console.js"></script>
+</body>
+</html>

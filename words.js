@@ -20,8 +20,32 @@
 
   const A = (e, s, ru, de) => ({ e: e, s: s, ru: ru, de: de });
 
+  // Части тела. part — область на фигурке в koerper.html.
+  // easy: первый круг, самые узнаваемые. e — эмодзи для пузырей и Memory
+  // (у некоторых его нет, такие в пузырях не появляются).
+  const B = (part, s, ru, de, easy, e) => ({ part: part, s: s, ru: ru, de: de, easy: !!easy, e: e || '' });
+  const BODY = [
+    B('kopf',     'ding',  'голова', 'der Kopf',     1, '\u{1F642}'),
+    B('auge',     'ding',  'глаз',   'das Auge',     1, '\u{1F441}\u{FE0F}'),
+    B('nase',     'squeak','нос',    'die Nase',     1, '\u{1F443}'),
+    B('mund',     'nom',   'рот',    'der Mund',     1, '\u{1F444}'),
+    B('ohr',      'ding',  'ухо',    'das Ohr',      1, '\u{1F442}'),
+    B('hand',     'ding',  'рука',   'die Hand',     1, '\u{270B}'),
+    B('bauch',    'nom',   'живот',  'der Bauch',    1, ''),
+    B('fuss',     'brum',  'нога',   'der Fuß',      1, '\u{1F9B6}'),
+    B('haar',     'swish', 'волосы', 'das Haar',     0, ''),
+    B('arm',      'ding',  'ручка',  'der Arm',      0, '\u{1F4AA}'),
+    B('bein',     'brum',  'ножка',  'das Bein',     0, '\u{1F9B5}'),
+    B('knie',     'ding',  'колено', 'das Knie',     0, ''),
+    B('schulter', 'swish', 'плечо',  'die Schulter', 0, ''),
+    B('hals',     'ding',  'шея',    'der Hals',     0, ''),
+    B('zahn',     'cluck', 'зуб',    'der Zahn',     0, '\u{1F9B7}'),
+    B('zunge',    'bloop', 'язык',   'die Zunge',    0, '\u{1F445}')
+  ];
+
   window.YEVA_WORDS = {
-    version: 2,
+    version: 3,
+    body: BODY,
 
     // фоновые украшения для миров, где вместо облаков что-то своё
     decor: {
@@ -113,6 +137,10 @@
       }
       ,
       {
+        id: 'koerper', css: 'sky3', night: false, decor: 'clouds',
+        animals: BODY.filter(b => b.e)
+      },
+      {
         id: 'essen', css: 'sky3', night: false, decor: 'clouds',
         animals: [
           A('\u{1F34E}', 'nom',   'яблоко',    'der Apfel'),
@@ -168,10 +196,12 @@
   // плоский список без повторов — им пользуется voicegen
   window.YEVA_WORDS.unique = (() => {
     const out = [], seen = {};
-    window.YEVA_WORDS.worlds.forEach(w => w.animals.forEach(a => {
+    const add = a => {
       const k = a.de.toLowerCase();
       if (!seen[k]) { seen[k] = 1; out.push(a); }
-    }));
+    };
+    window.YEVA_WORDS.worlds.forEach(w => w.animals.forEach(add));
+    BODY.forEach(add);          // Kopf, Bauch, Haar и прочие без эмодзи тоже нужны озвучке
     return out;
   })();
 
