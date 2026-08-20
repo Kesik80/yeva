@@ -43,8 +43,17 @@
     B('zunge',    'bloop', 'язык',   'die Zunge',    0, '\u{1F445}')
   ];
 
+  // Числа. Артикля нет, поэтому в voicegen они попадут к мужскому голосу.
+  // e не задаём — в карточные игры и пузыри числа не идут.
+  const N = (n, de) => ({ num: n, de: de, ru: String(n), s: 'ding', e: '' });
+  const NUMBERS = [
+    N(0, 'null'), N(1, 'eins'), N(2, 'zwei'), N(3, 'drei'), N(4, 'vier'),
+    N(5, 'fünf'), N(6, 'sechs'), N(7, 'sieben'), N(8, 'acht'), N(9, 'neun'), N(10, 'zehn')
+  ];
+
   window.YEVA_WORDS = {
-    version: 3,
+    version: 4,
+    numbers: NUMBERS,
     body: BODY,
 
     // фоновые украшения для миров, где вместо облаков что-то своё
@@ -202,6 +211,7 @@
     };
     window.YEVA_WORDS.worlds.forEach(w => w.animals.forEach(add));
     BODY.forEach(add);          // Kopf, Bauch, Haar и прочие без эмодзи тоже нужны озвучке
+    NUMBERS.forEach(add);       // числа — только ради озвучки
     return out;
   })();
 

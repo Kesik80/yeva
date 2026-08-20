@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Zahlen</title>
+<meta name="theme-color" content="#F08CA8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#F08CA8}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#5A2438;
+    background:
+      radial-gradient(110% 70% at 80% 108%, rgba(255,214,150,.5), transparent 62%),
+      radial-gradient(90% 60% at 12% 4%, rgba(200,225,255,.45), transparent 66%),
+      linear-gradient(180deg,#F08CA8 0%,#F7B3C6 38%,#FBDDE6 74%,#FFF5F8 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 10px) 12px calc(env(safe-area-inset-bottom,0px) + 10px);
+  }
+
+  .top{display:flex;align-items:center;gap:9px;flex:none}
+  .stars{
+    display:flex;gap:4px;flex:1;min-width:0;overflow:hidden;
+    background:rgba(255,255,255,.66);border-radius:999px;padding:9px 14px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(90,36,56,.13);
+  }
+  .stars i{width:18px;height:18px;flex:none;border-radius:50%;background:rgba(90,36,56,.14);transition:transform .3s,background .3s}
+  .stars i.on{background:linear-gradient(160deg,#FFD86E,#F2913A);transform:scale(1.12)}
+  .btn{
+    width:44px;height:44px;flex:none;border:0;border-radius:50%;
+    background:rgba(255,255,255,.66);color:#5A2438;text-decoration:none;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(90,36,56,.14);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.9)}
+  .btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  .stage{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+
+  /* ── счёт предметов ── */
+  .things{display:grid;gap:10px;justify-content:center;align-content:center;max-width:100%}
+  .thing{
+    border:0;background:rgba(255,255,255,.72);border-radius:24px;cursor:pointer;
+    aspect-ratio:1;display:grid;place-items:center;line-height:1;
+    box-shadow:0 8px 22px rgba(90,36,56,.14);
+    transition:transform .25s cubic-bezier(.3,1.3,.5,1),background .25s,opacity .25s;
+  }
+  .thing.counted{background:rgba(214,255,228,.92);transform:scale(1.06)}
+  .thing .num{
+    position:absolute;font-size:.42em;font-weight:600;color:#1F8A5F;
+    transform:translate(1.05em,-1.05em);opacity:0;transition:opacity .25s
+  }
+  .thing.counted .num{opacity:1}
+
+  /* ── большая цифра ── */
+  .big-num{
+    font-size:min(34vw,190px);font-weight:600;line-height:1;color:#D8437A;
+    text-shadow:0 8px 26px rgba(216,67,122,.28);
+    opacity:0;transform:scale(.5);transition:opacity .35s,transform .45s cubic-bezier(.2,1.4,.4,1);
+  }
+  .big-num.show{opacity:1;transform:scale(1)}
+  .word{font-size:clamp(18px,5.5vw,30px);font-weight:600;color:#8A3352;opacity:0;transition:opacity .35s}
+  .word.show{opacity:1}
+
+  /* ── выбор количества ── */
+  .choices{display:grid;gap:12px;justify-content:center;align-content:center;width:100%}
+  .choice{
+    border:0;border-radius:26px;cursor:pointer;aspect-ratio:1;
+    background:rgba(255,255,255,.72);
+    box-shadow:0 10px 26px rgba(90,36,56,.15);
+    display:grid;place-items:center;padding:8px;
+    transition:transform .22s cubic-bezier(.3,1.3,.5,1),background .22s,opacity .3s;
+  }
+  .choice .mini{display:grid;gap:4px;justify-content:center;align-content:center}
+  .choice .mini span{line-height:1}
+  .choice.right{background:rgba(214,255,228,.95);transform:scale(1.07)}
+  .choice.wrong{animation:wig .5s ease}
+  .choice.gone{opacity:.25}
+  @keyframes wig{0%,100%{transform:translateX(0)}25%{transform:translateX(-10px)}60%{transform:translateX(9px)}}
+
+  .veil{
+    position:fixed;inset:0;z-index:20;display:grid;place-items:center;
+    background:rgba(247,179,198,.5);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    transition:opacity .3s;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .big{
+    width:min(46vw,190px);aspect-ratio:1;border:0;border-radius:50%;cursor:pointer;
+    display:grid;place-items:center;color:#5A2438;
+    background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.98),rgba(255,255,255,.3) 30%,rgba(255,216,110,.45) 58%,rgba(240,140,168,.5) 80%,rgba(255,255,255,.92) 100%);
+    box-shadow:0 18px 44px rgba(90,36,56,.25),inset 0 0 34px rgba(255,255,255,.6);
+    animation:float 3.6s ease-in-out infinite;
+  }
+  .big svg{width:34%;height:34%;fill:currentColor}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-11px)}}
+
+  .party{position:fixed;inset:0;z-index:30;pointer-events:none;overflow:hidden}
+  .party i{position:absolute;width:12px;height:16px;border-radius:3px;animation:fall linear forwards}
+  @keyframes fall{from{transform:translateY(-12vh) rotate(0)}to{transform:translateY(112vh) rotate(680deg)}}
+
+  @media (prefers-reduced-motion:reduce){ .big{animation:none} }
+</style>
+</head>
+<body>
+
+<script src="words.js"></script>
+
+<div class="top">
+  <div class="stars" id="stars"></div>
+  <button class="btn" id="btnAgain" aria-label="Повторить">
+    <svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M16 9.2a4 4 0 0 1 0 5.6"/><path d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8"/></svg>
+  </button>
+  <a class="btn" href="index.html" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>
+  </a>
+</div>
+
+<div class="stage">
+  <div class="things" id="things"></div>
+  <div class="choices" id="choices" style="display:none"></div>
+  <div class="big-num" id="bigNum"></div>
+  <div class="word" id="word"></div>
+</div>
+
+<div class="veil" id="veil">
+  <button class="big" id="btnStart" aria-label="Играть">
+    <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
+  </button>
+</div>
+
+<div class="party" id="party"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const YW = window.YEVA_WORDS;
+  const $ = id => document.getElementById(id);
+  if (!YW || !YW.numbers) {
+    document.body.innerHTML = '<div style="padding:40px;text-align:center">Нужен words.js версии 4</div>';
+    return;
+  }
+
+  const CFG = {
+    goal: 8,          // успехов до салюта
+    countPause: 520,  // пауза между произнесением чисел при счёте
+    voicePath: 'voice/',
+    voice: 'de'
+  };
+
+  const NUM = YW.numbers;                        // 0..10
+  const PICS = YW.pictured;                      // предметы для счёта
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const irand = (a, b) => Math.floor(rand(a, b + 1));
+
+  let done = 0, total = 0, mode = 'count', target = 0, counted = 0, locked = false, missed = false;
+
+  /* ── звук ── */
+  let actx = null, master = null;
+  const vBuf = {}, vBad = {};
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.32;
+    master.connect(actx.destination);
+  }
+
+  const vUrl = a => CFG.voicePath + CFG.voice + '/' + YW.slug(a) + '.mp3';
+
+  function loadVoice(a) {
+    if (!actx) return;
+    const u = vUrl(a);
+    if (vBuf[u] || vBad[u]) return;
+    fetch(u)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(ab => actx.decodeAudioData(ab))
+      .then(b => { vBuf[u] = b; })
+      .catch(e => { vBad[u] = true; console.warn('[voice] нет ' + u + ' — ' + e.message); });
+  }
+
+  function tone(type, freq, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur * 0.9);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+
+  function say(a, delay) {
+    if (!actx || !a) return;
+    const u = vUrl(a);
+    if (!vBuf[u] && !vBad[u]) loadVoice(a);
+    setTimeout(() => {
+      if (vBuf[u]) {
+        const src = actx.createBufferSource(), g = actx.createGain();
+        g.gain.value = 1.25;
+        src.buffer = vBuf[u];
+        src.connect(g); g.connect(master);
+        src.start();
+        return;
+      }
+      try {
+        if (typeof speechSynthesis === 'undefined') return;
+        speechSynthesis.cancel();
+        const ut = new SpeechSynthesisUtterance(a.de);
+        ut.lang = 'de-DE'; ut.rate = 0.85; ut.pitch = 1.2;
+        speechSynthesis.speak(ut);
+      } catch (e) {}
+    }, delay || 0);
+  }
+
+  const blip = () => tone('sine', 760, 0, 0.09, 0.18, 1200);
+  const yay = () => [0, 4, 7, 12].forEach((n, i) => tone('triangle', 523.25 * Math.pow(2, n / 12), i * 0.07, 0.4, 0.34));
+  const nope = () => { tone('sine', 300, 0, 0.16, 0.22, 240); tone('sine', 240, 0.15, 0.24, 0.2, 190); };
+  const fanfare = () => [0, 4, 7, 12, 7, 12, 16].forEach((n, i) => tone('triangle', 392 * Math.pow(2, n / 12), i * 0.12, 0.42, 0.36));
+  const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+
+  /* ── сложность ── */
+  function maxNumber() {
+    if (total < 6) return 3;
+    if (total < 14) return 5;
+    if (total < 24) return 7;
+    return 10;
+  }
+  function chooseMode() {
+    // сначала только счёт: он не даёт ошибиться и учит соответствию «один предмет — одно число»
+    if (total < 8) return 'count';
+    return Math.random() < 0.5 ? 'count' : 'choice';
+  }
+
+  /* ── раскладка ── */
+  function gridFor(box, n, gap, cap) {
+    const W = window.innerWidth - 24;
+    const H = (box.clientHeight || window.innerHeight * 0.5);
+    let best = { side: 0, cols: 1 };
+    for (let cols = 1; cols <= n; cols++) {
+      const rows = Math.ceil(n / cols);
+      const byW = (W - (cols - 1) * gap) / cols;
+      const byH = (H - (rows - 1) * gap) / rows;
+      const side = Math.min(byW, byH, cap);
+      if (side > best.side) best = { side: side, cols: cols };
+    }
+    box.style.gridTemplateColumns = 'repeat(' + best.cols + ', ' + Math.floor(best.side) + 'px)';
+    return best.side;
+  }
+
+  /* ── режим «посчитай» ── */
+  function roundCount() {
+    mode = 'count';
+    locked = false; counted = 0;
+    target = irand(1, maxNumber());
+    const thing = pick(PICS);
+
+    $('choices').style.display = 'none';
+    $('things').style.display = 'grid';
+    $('bigNum').classList.remove('show');
+    $('word').classList.remove('show');
+
+    $('things').innerHTML = Array.from({ length: target }, (_, i) =>
+      `<button class="thing" data-i="${i}"><span>${thing.e}</span><span class="num"></span></button>`).join('');
+    const side = gridFor($('things'), target, 10, 130);
+    $('things').style.fontSize = Math.floor(side * 0.52) + 'px';
+
+    NUM.slice(0, target + 1).forEach(loadVoice);
+  }
+
+  function tapThing(btn) {
+    if (locked || btn.classList.contains('counted')) return;
+    counted++;
+    btn.classList.add('counted');
+    btn.querySelector('.num').textContent = counted;
+    blip();
+    say(NUM[counted], 60);            // «eins», «zwei», ...
+    if (counted >= target) {
+      locked = true;
+      setTimeout(finishCount, CFG.countPause + 200);
+    }
+  }
+
+  function finishCount() {
+    $('bigNum').textContent = target;
+    $('word').textContent = NUM[target].de;
+    $('bigNum').classList.add('show');
+    $('word').classList.add('show');
+    yay();
+    buzz([15, 40, 15]);
+    say(NUM[target], 280);            // итог: сколько всего
+    score();
+  }
+
+  /* ── режим «покажи, где столько» ── */
+  function roundChoice() {
+    mode = 'choice';
+    locked = false; missed = false;
+    const max = maxNumber();
+    target = irand(1, max);
+    const opts = [target];
+    const howMany = total < 16 ? 2 : 3;
+    while (opts.length < howMany) {
+      const c = irand(1, max);
+      if (!opts.includes(c)) opts.push(c);
+    }
+    opts.sort(() => Math.random() - 0.5);
+    const thing = pick(PICS);
+
+    $('things').style.display = 'none';
+    $('choices').style.display = 'grid';
+    $('bigNum').classList.remove('show');
+    $('word').classList.remove('show');
+
+    $('choices').innerHTML = opts.map(k =>
+      `<button class="choice" data-k="${k}">
+         <span class="mini" data-n="${k}">${Array.from({ length: k }, () => '<span>' + thing.e + '</span>').join('')}</span>
+       </button>`).join('');
+
+    const side = gridFor($('choices'), opts.length, 12, 260);
+    // предметы внутри карточки раскладываем в квадратик
+    $('choices').querySelectorAll('.mini').forEach(m => {
+      const k = +m.dataset.n;
+      const cols = Math.ceil(Math.sqrt(k));
+      m.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+      m.style.fontSize = Math.floor(Math.min(side * 0.7 / cols, side * 0.34)) + 'px';
+    });
+
+    NUM.slice(0, max + 1).forEach(loadVoice);
+    say(NUM[target], 320);
+  }
+
+  function tapChoice(btn) {
+    if (locked) return;
+    const k = +btn.dataset.k;
+    if (k !== target) {
+      btn.classList.remove('wrong');
+      void btn.offsetWidth;
+      btn.classList.add('wrong');
+      nope(); buzz(60);
+      missed = true;
+      say(NUM[target], 600);
+      return;
+    }
+    locked = true;
+    [...$('choices').children].forEach(c => { if (c !== btn) c.classList.add('gone'); });
+    btn.classList.add('right');
+    $('bigNum').textContent = target;
+    $('word').textContent = NUM[target].de;
+    $('bigNum').classList.add('show');
+    $('word').classList.add('show');
+    yay(); buzz([15, 40, 15]);
+    say(NUM[target], 280);
+    score();
+  }
+
+  function score() {
+    total++;
+    done++;
+    paintStars();
+    if (done >= CFG.goal) setTimeout(party, 1200);
+    else setTimeout(next, 1700);
+  }
+
+  function next() {
+    if (chooseMode() === 'count') roundCount(); else roundChoice();
+  }
+
+  $('things').addEventListener('click', e => {
+    const b = e.target.closest('.thing');
+    if (b) tapThing(b);
+  });
+  $('choices').addEventListener('click', e => {
+    const b = e.target.closest('.choice');
+    if (b) tapChoice(b);
+  });
+  $('btnAgain').addEventListener('click', () => {
+    if (mode === 'choice') say(NUM[target], 0);
+    else say(NUM[Math.max(1, counted)], 0);
+  });
+
+  /* ── звёзды и салют ── */
+  function paintStars() {
+    let h = '';
+    for (let i = 0; i < CFG.goal; i++) h += '<i class="' + (i < done ? 'on' : '') + '"></i>';
+    $('stars').innerHTML = h;
+  }
+
+  function party() {
+    fanfare(); buzz([20, 60, 20, 60, 40]);
+    const box = $('party');
+    const colors = ['#FFD86E', '#F08CA8', '#8FD3FF', '#7FC8A9', '#C6A8F0'];
+    for (let i = 0; i < 70; i++) {
+      const c = document.createElement('i');
+      c.style.left = rand(0, 100) + 'vw';
+      c.style.background = pick(colors);
+      c.style.animationDuration = rand(1.8, 3.4) + 's';
+      c.style.animationDelay = rand(0, 0.7) + 's';
+      box.appendChild(c);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 4200);
+    done = 0;
+    paintStars();
+    setTimeout(next, 2600);
+  }
+
+  /* ── запуск ── */
+  function goFullscreen() {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!fn || document.fullscreenElement) return;
+    try {
+      const p = fn.call(el, { navigationUI: 'hide' });
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
+  }
+
+  $('btnStart').addEventListener('click', () => {
+    goFullscreen();
+    initAudio();
+    NUM.forEach(loadVoice);
+    $('veil').classList.add('hidden');
+    next();
+  });
+
+  const relayout = () => {
+    if (mode === 'count' && target) { const s = gridFor($('things'), target, 10, 130); $('things').style.fontSize = Math.floor(s * 0.52) + 'px'; }
+    if (mode === 'choice' && $('choices').children.length) gridFor($('choices'), $('choices').children.length, 12, 260);
+  };
+  window.addEventListener('resize', relayout);
+  window.addEventListener('orientationchange', () => setTimeout(relayout, 250));
+  document.addEventListener('fullscreenchange', () => setTimeout(relayout, 150));
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && actx && actx.state === 'suspended') actx.resume();
+  });
+
+  paintStars();
+})();
+</script>
+<script src="install.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
