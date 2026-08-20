@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Memory</title>
+<meta name="theme-color" content="#B79BE0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#B79BE0}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#3A2A55;
+    background:
+      radial-gradient(120% 80% at 82% 108%, rgba(255,214,150,.5), transparent 62%),
+      radial-gradient(90% 60% at 14% 4%, rgba(180,230,255,.45), transparent 66%),
+      linear-gradient(180deg,#B79BE0 0%,#CDB8EC 38%,#EADFF7 74%,#FAF5FF 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 10px) 10px calc(env(safe-area-inset-bottom,0px) + 10px);
+  }
+
+  .top{display:flex;align-items:center;gap:9px;flex:none}
+  .pairs{
+    flex:1;min-width:0;display:flex;align-items:center;gap:6px;
+    background:rgba(255,255,255,.62);border-radius:999px;padding:9px 15px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(58,42,85,.14);
+    font-size:15px;font-weight:600;
+  }
+  .pairs i{
+    width:17px;height:17px;border-radius:50%;flex:none;
+    background:rgba(58,42,85,.14);transition:transform .3s,background .3s;
+  }
+  .pairs i.on{background:linear-gradient(160deg,#FFD86E,#FF9F45);transform:scale(1.15)}
+  .btn{
+    width:44px;height:44px;flex:none;border:0;border-radius:50%;
+    background:rgba(255,255,255,.62);color:#3A2A55;text-decoration:none;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(58,42,85,.14);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.9)}
+  .btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  .board{
+    flex:1;min-height:0;display:grid;gap:9px;padding:10px 0;
+    align-content:center;justify-content:center;width:100%;
+  }
+
+  .card{
+    position:relative;aspect-ratio:1;border:0;padding:0;background:none;cursor:pointer;
+    perspective:700px;width:100%;
+  }
+  .inner{
+    position:absolute;inset:0;border-radius:20px;
+    transform-style:preserve-3d;transition:transform .42s cubic-bezier(.3,1.1,.4,1);
+  }
+  .card.up .inner{transform:rotateY(180deg)}
+  .face{
+    position:absolute;inset:0;border-radius:20px;
+    display:grid;place-items:center;
+    -webkit-backface-visibility:hidden;backface-visibility:hidden;
+    box-shadow:0 7px 20px rgba(58,42,85,.16);
+  }
+  .back{
+    background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.9),rgba(255,255,255,.25) 32%,rgba(183,155,224,.75) 62%,rgba(140,110,190,.9) 100%);
+    font-size:min(9vw,42px);color:rgba(255,255,255,.85);
+  }
+  .front{
+    background:rgba(255,255,255,.9);
+    transform:rotateY(180deg);
+    font-size:min(15vw,74px);line-height:1;
+  }
+  .card.done .front{background:rgba(214,255,228,.95);box-shadow:0 8px 26px rgba(31,155,110,.34)}
+  .card.done{animation:pop .45s ease}
+  @keyframes pop{40%{transform:scale(1.1)}100%{transform:scale(1)}}
+  .card.miss .front{background:rgba(255,226,226,.95)}
+
+  .veil{
+    position:fixed;inset:0;z-index:20;display:grid;place-items:center;
+    background:rgba(205,184,236,.5);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    transition:opacity .3s;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .big{
+    width:min(46vw,190px);aspect-ratio:1;border:0;border-radius:50%;cursor:pointer;
+    display:grid;place-items:center;color:#3A2A55;
+    background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.98),rgba(255,255,255,.3) 30%,rgba(255,216,110,.45) 58%,rgba(183,155,224,.55) 80%,rgba(255,255,255,.92) 100%);
+    box-shadow:0 18px 44px rgba(58,42,85,.26),inset 0 0 34px rgba(255,255,255,.6);
+    animation:float 3.6s ease-in-out infinite;
+  }
+  .big svg{width:34%;height:34%;fill:currentColor}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-11px)}}
+
+  .party{position:fixed;inset:0;z-index:30;pointer-events:none;overflow:hidden}
+  .party i{position:absolute;width:12px;height:16px;border-radius:3px;animation:fall linear forwards}
+  @keyframes fall{from{transform:translateY(-12vh) rotate(0)}to{transform:translateY(112vh) rotate(680deg)}}
+
+  @media (prefers-reduced-motion:reduce){
+    .big{animation:none}
+    .inner{transition:none}
+  }
+</style>
+</head>
+<body>
+
+<script src="words.js"></script>
+
+<div class="top">
+  <div class="pairs" id="pairs"></div>
+  <button class="btn" id="btnNew" aria-label="Заново">
+    <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.6h-4.6"/></svg>
+  </button>
+  <a class="btn" href="index.html" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>
+  </a>
+</div>
+
+<div class="board" id="board"></div>
+
+<div class="veil" id="veil">
+  <button class="big" id="btnStart" aria-label="Играть">
+    <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
+  </button>
+</div>
+
+<div class="party" id="party"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const YW = window.YEVA_WORDS;
+  const $ = id => document.getElementById(id);
+  if (!YW) {
+    document.body.innerHTML = '<div style="padding:40px;text-align:center">Не загрузился words.js</div>';
+    return;
+  }
+
+  const CFG = {
+    startPairs: 3,     // с трёх пар: для 3,5 лет шесть карточек это уже нагрузка
+    maxPairs: 6,
+    showMs: 1100,      // сколько неподходящая пара остаётся открытой
+    voicePath: 'voice/',
+    voice: 'de'
+  };
+
+  const WORDS = YW.unique;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  let pairs = CFG.startPairs;
+  let deck = [], first = null, lock = false, found = 0;
+
+  /* ── звук ───────────────────────────────────────────── */
+  let actx = null, master = null;
+  const vBuf = {}, vBad = {};
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.32;
+    master.connect(actx.destination);
+  }
+
+  const vUrl = a => CFG.voicePath + CFG.voice + '/' + YW.slug(a) + '.mp3';
+
+  function loadVoice(a) {
+    if (!actx) return;
+    const u = vUrl(a);
+    if (vBuf[u] || vBad[u]) return;
+    fetch(u)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(ab => actx.decodeAudioData(ab))
+      .then(b => { vBuf[u] = b; })
+      .catch(e => { vBad[u] = true; console.warn('[voice] нет ' + u + ' — ' + e.message); });
+  }
+
+  function tone(type, freq, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur * 0.9);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+
+  function say(a, delay) {
+    if (!actx) return;
+    const u = vUrl(a);
+    if (!vBuf[u] && !vBad[u]) loadVoice(a);
+    setTimeout(() => {
+      if (vBuf[u]) {
+        const src = actx.createBufferSource(), g = actx.createGain();
+        g.gain.value = 1.25;
+        src.buffer = vBuf[u];
+        src.connect(g); g.connect(master);
+        src.start();
+        return;
+      }
+      try {
+        if (typeof speechSynthesis === 'undefined') return;
+        speechSynthesis.cancel();
+        const ut = new SpeechSynthesisUtterance(a.de);
+        ut.lang = 'de-DE'; ut.rate = 0.85; ut.pitch = 1.2;
+        speechSynthesis.speak(ut);
+      } catch (e) {}
+    }, delay || 0);
+  }
+
+  const flipSound = () => tone('sine', 900, 0, 0.07, 0.16, 1500);
+  const yay = () => [0, 4, 7, 12].forEach((n, i) => tone('triangle', 523.25 * Math.pow(2, n / 12), i * 0.07, 0.4, 0.32));
+  const nope = () => { tone('sine', 320, 0, 0.14, 0.2, 250); tone('sine', 250, 0.13, 0.2, 0.18, 200); };
+  const fanfare = () => [0, 4, 7, 12, 7, 12, 16].forEach((n, i) => tone('triangle', 392 * Math.pow(2, n / 12), i * 0.12, 0.42, 0.34));
+  const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+
+  /* ── раскладка ──────────────────────────────────────── */
+  function layout(n) {
+    const land = window.innerWidth > window.innerHeight;
+    let cols;
+    if (land) cols = n <= 6 ? 3 : n <= 8 ? 4 : n <= 10 ? 5 : 6;
+    else cols = n <= 6 ? 2 : n <= 8 ? 2 : n <= 10 ? 2 : 3;
+    const board = $('board');
+    board.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+    // ширина карточки такая, чтобы все ряды влезли по высоте
+    const rows = Math.ceil(n / cols);
+    const h = board.clientHeight || (window.innerHeight * 0.7);
+    const maxByHeight = (h - (rows - 1) * 9) / rows;
+    board.style.maxWidth = Math.floor(maxByHeight * cols + (cols - 1) * 9) + 'px';
+  }
+
+  /* ── новая раздача ──────────────────────────────────── */
+  function deal() {
+    lock = false; first = null; found = 0;
+
+    const chosen = [];
+    while (chosen.length < pairs) {
+      const w = pick(WORDS);
+      if (!chosen.some(x => x.de === w.de)) chosen.push(w);
+    }
+    chosen.forEach(loadVoice);
+
+    deck = [];
+    chosen.forEach((w, i) => { deck.push({ w: w, id: i }, { w: w, id: i }); });
+    deck.sort(() => Math.random() - 0.5);
+
+    $('board').innerHTML = deck.map((c, i) =>
+      `<button class="card" data-i="${i}">
+         <span class="inner">
+           <span class="face back">?</span>
+           <span class="face front">${c.w.e}</span>
+         </span>
+       </button>`).join('');
+
+    paintPairs();
+    layout(deck.length);
+  }
+
+  function paintPairs() {
+    let h = '';
+    for (let i = 0; i < pairs; i++) h += '<i class="' + (i < found ? 'on' : '') + '"></i>';
+    $('pairs').innerHTML = h;
+  }
+
+  /* ── ход ────────────────────────────────────────────── */
+  function tap(btn) {
+    if (lock) return;
+    const i = +btn.dataset.i;
+    const card = deck[i];
+    if (card.done || btn.classList.contains('up')) return;
+
+    btn.classList.add('up');
+    flipSound();
+    say(card.w, 180);
+
+    if (!first) { first = { btn: btn, card: card }; return; }
+    if (first.btn === btn) return;
+
+    lock = true;
+    const same = first.card.id === card.id;
+
+    if (same) {
+      setTimeout(() => {
+        first.card.done = card.done = true;
+        first.btn.classList.add('done');
+        btn.classList.add('done');
+        yay();
+        buzz([14, 40, 14]);
+        say(card.w, 260);
+        found++;
+        paintPairs();
+        first = null; lock = false;
+        if (found >= pairs) setTimeout(win, 900);
+      }, 420);
+    } else {
+      setTimeout(() => {
+        first.btn.classList.add('miss');
+        btn.classList.add('miss');
+        nope();
+      }, 420);
+      setTimeout(() => {
+        first.btn.classList.remove('up', 'miss');
+        btn.classList.remove('up', 'miss');
+        first = null; lock = false;
+      }, CFG.showMs + 420);
+    }
+  }
+
+  $('board').addEventListener('click', e => {
+    const b = e.target.closest('.card');
+    if (b) tap(b);
+  });
+
+  $('btnNew').addEventListener('click', () => { initAudio(); deal(); });
+
+  /* ── победа ─────────────────────────────────────────── */
+  function win() {
+    fanfare();
+    buzz([20, 60, 20, 60, 40]);
+    const box = $('party');
+    const colors = ['#FFD86E', '#FF8FB1', '#B79BE0', '#8FD3FF', '#7FC8A9'];
+    for (let i = 0; i < 70; i++) {
+      const c = document.createElement('i');
+      c.style.left = rand(0, 100) + 'vw';
+      c.style.background = pick(colors);
+      c.style.animationDuration = rand(1.8, 3.4) + 's';
+      c.style.animationDelay = rand(0, 0.7) + 's';
+      box.appendChild(c);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 4200);
+
+    if (pairs < CFG.maxPairs) pairs++;
+    setTimeout(deal, 2600);
+  }
+
+  /* ── запуск ─────────────────────────────────────────── */
+  function goFullscreen() {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!fn || document.fullscreenElement) return;
+    try {
+      const p = fn.call(el, { navigationUI: 'hide' });
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
+  }
+
+  $('btnStart').addEventListener('click', () => {
+    goFullscreen();
+    initAudio();
+    $('veil').classList.add('hidden');
+    setTimeout(deal, 60);
+  });
+
+  window.addEventListener('resize', () => { if (deck.length) layout(deck.length); });
+  window.addEventListener('orientationchange', () => setTimeout(() => { if (deck.length) layout(deck.length); }, 250));
+  document.addEventListener('fullscreenchange', () => setTimeout(() => { if (deck.length) layout(deck.length); }, 150));
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && actx && actx.state === 'suspended') actx.resume();
+  });
+
+  paintPairs();
+})();
+</script>
+<script src="install.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
