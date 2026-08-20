@@ -51,26 +51,30 @@
   .btn:active{transform:scale(.9)}
   .btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 
-  .stage{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+  .stage{flex:1;min-height:0;display:grid;grid-template-rows:1fr auto;align-items:center;justify-items:center}
+  .play{width:100%;min-height:0;height:100%;display:grid;place-items:center}
+  .result{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:26vh}
 
   /* ── счёт предметов ── */
   .things{display:grid;gap:10px;justify-content:center;align-content:center;max-width:100%}
   .thing{
-    border:0;background:rgba(255,255,255,.72);border-radius:24px;cursor:pointer;
+    position:relative;border:0;background:rgba(255,255,255,.72);border-radius:24px;cursor:pointer;
     aspect-ratio:1;display:grid;place-items:center;line-height:1;
     box-shadow:0 8px 22px rgba(90,36,56,.14);
     transition:transform .25s cubic-bezier(.3,1.3,.5,1),background .25s,opacity .25s;
   }
   .thing.counted{background:rgba(214,255,228,.92);transform:scale(1.06)}
+  .thing .pic{line-height:1}
   .thing .num{
-    position:absolute;font-size:.42em;font-weight:600;color:#1F8A5F;
-    transform:translate(1.05em,-1.05em);opacity:0;transition:opacity .25s
+    position:absolute;top:4px;right:8px;
+    font-weight:600;color:#1F8A5F;line-height:1;
+    opacity:0;transform:scale(.5);transition:opacity .25s,transform .3s cubic-bezier(.2,1.4,.4,1);
   }
-  .thing.counted .num{opacity:1}
+  .thing.counted .num{opacity:1;transform:scale(1)}
 
   /* ── большая цифра ── */
   .big-num{
-    font-size:min(34vw,190px);font-weight:600;line-height:1;color:#D8437A;
+    font-size:min(26vw,150px);font-weight:600;line-height:1;color:#D8437A;
     text-shadow:0 8px 26px rgba(216,67,122,.28);
     opacity:0;transform:scale(.5);transition:opacity .35s,transform .45s cubic-bezier(.2,1.4,.4,1);
   }
@@ -133,10 +137,14 @@
 </div>
 
 <div class="stage">
-  <div class="things" id="things"></div>
-  <div class="choices" id="choices" style="display:none"></div>
-  <div class="big-num" id="bigNum"></div>
-  <div class="word" id="word"></div>
+  <div class="play" id="play">
+    <div class="things" id="things"></div>
+    <div class="choices" id="choices" style="display:none"></div>
+  </div>
+  <div class="result">
+    <div class="big-num" id="bigNum"></div>
+    <div class="word" id="word"></div>
+  </div>
 </div>
 
 <div class="veil" id="veil">
@@ -259,7 +267,8 @@
   /* ── раскладка ── */
   function gridFor(box, n, gap, cap) {
     const W = window.innerWidth - 24;
-    const H = (box.clientHeight || window.innerHeight * 0.5);
+    // высота именно у контейнера: у самой сетки она нулевая до заполнения
+    const H = ($('play').clientHeight || window.innerHeight * 0.45) - 8;
     let best = { side: 0, cols: 1 };
     for (let cols = 1; cols <= n; cols++) {
       const rows = Math.ceil(n / cols);
@@ -285,9 +294,10 @@
     $('word').classList.remove('show');
 
     $('things').innerHTML = Array.from({ length: target }, (_, i) =>
-      `<button class="thing" data-i="${i}"><span>${thing.e}</span><span class="num"></span></button>`).join('');
-    const side = gridFor($('things'), target, 10, 130);
-    $('things').style.fontSize = Math.floor(side * 0.52) + 'px';
+      `<button class="thing" data-i="${i}"><span class="pic">${thing.e}</span><span class="num"></span></button>`).join('');
+    const side = gridFor($('things'), target, 10, 230);
+    $('things').querySelectorAll('.pic').forEach(el => { el.style.fontSize = Math.floor(side * 0.62) + 'px'; });
+    $('things').querySelectorAll('.num').forEach(el => { el.style.fontSize = Math.floor(side * 0.22) + 'px'; });
 
     NUM.slice(0, target + 1).forEach(loadVoice);
   }
@@ -341,13 +351,13 @@
          <span class="mini" data-n="${k}">${Array.from({ length: k }, () => '<span>' + thing.e + '</span>').join('')}</span>
        </button>`).join('');
 
-    const side = gridFor($('choices'), opts.length, 12, 260);
+    const side = gridFor($('choices'), opts.length, 12, 320);
     // предметы внутри карточки раскладываем в квадратик
     $('choices').querySelectorAll('.mini').forEach(m => {
       const k = +m.dataset.n;
       const cols = Math.ceil(Math.sqrt(k));
       m.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
-      m.style.fontSize = Math.floor(Math.min(side * 0.7 / cols, side * 0.34)) + 'px';
+      m.style.fontSize = Math.floor(Math.min(side * 0.78 / cols, side * 0.42)) + 'px';
     });
 
     NUM.slice(0, max + 1).forEach(loadVoice);
@@ -448,8 +458,12 @@
   });
 
   const relayout = () => {
-    if (mode === 'count' && target) { const s = gridFor($('things'), target, 10, 130); $('things').style.fontSize = Math.floor(s * 0.52) + 'px'; }
-    if (mode === 'choice' && $('choices').children.length) gridFor($('choices'), $('choices').children.length, 12, 260);
+    if (mode === 'count' && target) {
+      const s = gridFor($('things'), target, 10, 230);
+      $('things').querySelectorAll('.pic').forEach(el => { el.style.fontSize = Math.floor(s * 0.62) + 'px'; });
+      $('things').querySelectorAll('.num').forEach(el => { el.style.fontSize = Math.floor(s * 0.22) + 'px'; });
+    }
+    if (mode === 'choice' && $('choices').children.length) gridFor($('choices'), $('choices').children.length, 12, 320);
   };
   window.addEventListener('resize', relayout);
   window.addEventListener('orientationchange', () => setTimeout(relayout, 250));

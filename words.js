@@ -45,14 +45,23 @@
 
   // Числа. Артикля нет, поэтому в voicegen они попадут к мужскому голосу.
   // e не задаём — в карточные игры и пузыри числа не идут.
-  const N = (n, de) => ({ num: n, de: de, ru: String(n), s: 'ding', e: '' });
+  const N = (n, de, e) => ({ num: n, de: de, ru: String(n), s: 'ding', e: e });
   const NUMBERS = [
-    N(0, 'null'), N(1, 'eins'), N(2, 'zwei'), N(3, 'drei'), N(4, 'vier'),
-    N(5, 'fünf'), N(6, 'sechs'), N(7, 'sieben'), N(8, 'acht'), N(9, 'neun'), N(10, 'zehn')
+    N(0,  'null',   '\u0030\u{FE0F}\u{20E3}'),
+    N(1,  'eins',   '\u0031\u{FE0F}\u{20E3}'),
+    N(2,  'zwei',   '\u0032\u{FE0F}\u{20E3}'),
+    N(3,  'drei',   '\u0033\u{FE0F}\u{20E3}'),
+    N(4,  'vier',   '\u0034\u{FE0F}\u{20E3}'),
+    N(5,  'fünf',   '\u0035\u{FE0F}\u{20E3}'),
+    N(6,  'sechs',  '\u0036\u{FE0F}\u{20E3}'),
+    N(7,  'sieben', '\u0037\u{FE0F}\u{20E3}'),
+    N(8,  'acht',   '\u0038\u{FE0F}\u{20E3}'),
+    N(9,  'neun',   '\u0039\u{FE0F}\u{20E3}'),
+    N(10, 'zehn',   '\u{1F51F}')
   ];
 
   window.YEVA_WORDS = {
-    version: 4,
+    version: 5,
     numbers: NUMBERS,
     body: BODY,
 
@@ -148,6 +157,10 @@
       {
         id: 'koerper', css: 'sky3', night: false, decor: 'clouds',
         animals: BODY.filter(b => b.e)
+      },
+      {
+        id: 'zahlen', css: 'sky1', night: false, decor: 'clouds',
+        animals: NUMBERS.filter(n => n.num >= 1)   // ноль в пузырях не нужен
       },
       {
         id: 'essen', css: 'sky3', night: false, decor: 'clouds',
