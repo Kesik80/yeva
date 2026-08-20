@@ -205,6 +205,11 @@
     return out;
   })();
 
+  // Только те слова, которые можно показать картинкой.
+  // unique нужен озвучке (там есть и слова без эмодзи, вроде der Bauch),
+  // а играм с карточками нужен именно этот список.
+  window.YEVA_WORDS.pictured = window.YEVA_WORDS.unique.filter(a => a.e);
+
   // 'die Katze' -> 'katze'
   window.YEVA_WORDS.slug = a => (typeof a === 'string' ? a : a.de)
     .replace(/^(der|die|das)\s+/i, '')

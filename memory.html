@@ -82,8 +82,19 @@
   .front{
     background:rgba(255,255,255,.9);
     transform:rotateY(180deg);
-    font-size:min(15vw,74px);line-height:1;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
   }
+  .front .pic{font-size:min(13vw,64px);line-height:1}
+  .cap{
+    font-size:clamp(10px,2.9vw,16px);font-weight:600;line-height:1.1;
+    text-align:center;padding:0 4px;max-width:100%;
+  }
+  /* цвета родов: der синий, die красный, das зелёный */
+  .cap.der{color:#2B5DA8}
+  .cap.die{color:#B03A63}
+  .cap.das{color:#1F7A50}
+  body.nocap .cap{display:none}
+  body.nocap .front .pic{font-size:min(15vw,74px)}
   .card.done .front{background:rgba(214,255,228,.95);box-shadow:0 8px 26px rgba(31,155,110,.34)}
   .card.done{animation:pop .45s ease}
   @keyframes pop{40%{transform:scale(1.1)}100%{transform:scale(1)}}
@@ -122,6 +133,9 @@
 
 <div class="top">
   <div class="pairs" id="pairs"></div>
+  <button class="btn" id="btnCap" aria-label="Подписи">
+    <svg viewBox="0 0 24 24"><path d="M4 18l5-12 5 12"/><path d="M5.6 14h6.8"/><path d="M20 10v8"/><path d="M20 10a3 3 0 0 0-3 3v0a3 3 0 0 0 3 3"/></svg>
+  </button>
   <button class="btn" id="btnNew" aria-label="Заново">
     <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.6h-4.6"/></svg>
   </button>
@@ -159,7 +173,8 @@
     voice: 'de'
   };
 
-  const WORDS = YW.unique;
+  // только слова с картинкой: в unique есть и безкартиночные части тела
+  const WORDS = YW.pictured || YW.unique.filter(a => a.e);
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
@@ -270,7 +285,10 @@
       `<button class="card" data-i="${i}">
          <span class="inner">
            <span class="face back">?</span>
-           <span class="face front">${c.w.e}</span>
+           <span class="face front">
+             <span class="pic">${c.w.e}</span>
+             <span class="cap ${YW.gender(c.w)}">${c.w.de}</span>
+           </span>
          </span>
        </button>`).join('');
 
@@ -334,6 +352,22 @@
   });
 
   $('btnNew').addEventListener('click', () => { initAudio(); deal(); });
+
+  // подписи с артиклями — общий переключатель со всеми играми
+  function applyCaps() {
+    let on = true;
+    try { on = localStorage.getItem('yeva.caps') !== '0'; } catch (e) {}
+    document.body.classList.toggle('nocap', !on);
+    $('btnCap').style.opacity = on ? '1' : '.45';
+  }
+  $('btnCap').addEventListener('click', () => {
+    try {
+      const on = localStorage.getItem('yeva.caps') !== '0';
+      localStorage.setItem('yeva.caps', on ? '0' : '1');
+    } catch (e) {}
+    applyCaps();
+  });
+  applyCaps();
 
   /* ── победа ─────────────────────────────────────────── */
   function win() {

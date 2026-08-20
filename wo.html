@@ -72,11 +72,20 @@
     background:rgba(255,255,255,.66);
     -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
     box-shadow:0 10px 28px rgba(28,68,55,.15);
-    display:grid;place-items:center;
-    font-size:min(19vw,110px);line-height:1;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
     transition:transform .22s cubic-bezier(.3,1.3,.5,1),box-shadow .22s,opacity .3s;
     -webkit-user-select:none;user-select:none;
   }
+  .card .pic{font-size:min(17vw,96px);line-height:1}
+  .cap{
+    font-size:clamp(13px,3.9vw,20px);font-weight:600;line-height:1.15;
+    text-align:center;padding:0 6px;max-width:100%;
+  }
+  /* цвета родов — как в немецких садиках: der синий, die красный, das зелёный */
+  .cap.der{color:#2B5DA8}
+  .cap.die{color:#B03A63}
+  .cap.das{color:#1F7A50}
+  body.nocap .cap{display:none}
   .card:active{transform:scale(.95)}
   .card.right{
     transform:scale(1.08);
@@ -137,6 +146,9 @@
 
 <div class="top">
   <div class="stars" id="stars"></div>
+  <button class="btn" id="btnCap" aria-label="Подписи">
+    <svg viewBox="0 0 24 24"><path d="M4 18l5-12 5 12"/><path d="M5.6 14h6.8"/><path d="M20 10v8"/><path d="M20 10a3 3 0 0 0-3 3v0a3 3 0 0 0 3 3"/></svg>
+  </button>
   <button class="btn" id="btnAgain" aria-label="Повторить">
     <svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M16 9.2a4 4 0 0 1 0 5.6"/><path d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8"/></svg>
   </button>
@@ -182,7 +194,8 @@
     voice: 'de'
   };
 
-  const WORDS = YW.unique;
+  // только слова с картинкой: в unique есть и безкартиночные части тела
+  const WORDS = YW.pictured || YW.unique.filter(a => a.e);
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
@@ -285,7 +298,10 @@
     const field = $('field');
     field.className = 'field n' + cards;
     field.innerHTML = shown.map(a =>
-      `<button class="card" data-de="${a.de}">${a.e}</button>`).join('');
+      `<button class="card" data-de="${a.de}">
+         <span class="pic">${a.e}</span>
+         <span class="cap ${YW.gender(a)}">${a.de}</span>
+       </button>`).join('');
 
     shown.forEach(loadVoice);
     say(target, 350);
@@ -334,6 +350,22 @@
     if (b) answer(b);
   });
   $('btnAgain').addEventListener('click', () => { if (target) say(target, 0); });
+
+  // подписи с артиклями: ребёнку они не мешают, взрослому подсказывают род
+  function applyCaps() {
+    let on = true;
+    try { on = localStorage.getItem('yeva.caps') !== '0'; } catch (e) {}
+    document.body.classList.toggle('nocap', !on);
+    $('btnCap').style.opacity = on ? '1' : '.45';
+  }
+  $('btnCap').addEventListener('click', () => {
+    try {
+      const on = localStorage.getItem('yeva.caps') !== '0';
+      localStorage.setItem('yeva.caps', on ? '0' : '1');
+    } catch (e) {}
+    applyCaps();
+  });
+  applyCaps();
 
   /* ── звёзды и салют ── */
   function paintStars() {
