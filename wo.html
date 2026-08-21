@@ -246,21 +246,29 @@
     const u = vUrl(a);
     if (!vBuf[u] && !vBad[u]) loadVoice(a);
     setTimeout(() => {
-      if (vBuf[u]) {
-        const src = actx.createBufferSource(), g = actx.createGain();
-        g.gain.value = 1.25;
-        src.buffer = vBuf[u];
-        src.connect(g); g.connect(master);
-        src.start();
-        return;
-      }
-      try {
-        if (typeof speechSynthesis === 'undefined') return;
-        speechSynthesis.cancel();
-        const ut = new SpeechSynthesisUtterance(a.de);
-        ut.lang = 'de-DE'; ut.rate = 0.85; ut.pitch = 1.2;
-        speechSynthesis.speak(ut);
-      } catch (e) {}
+      // Файл мог не успеть догрузиться. Раньше игра сразу уходила в системный
+      // синтез, и записанный голос не звучал даже когда файл приходил следом.
+      let tries = 0;
+      (function wait() {
+        if (vBuf[u]) {
+          const src = actx.createBufferSource(), g = actx.createGain();
+          g.gain.value = 1.25;
+          src.buffer = vBuf[u];
+          src.connect(g); g.connect(master);
+          src.start();
+          return;
+        }
+        if (!vBad[u] && tries++ < 6) { setTimeout(wait, 120); return; }
+        try {
+          if (typeof speechSynthesis === 'undefined') return;
+          speechSynthesis.cancel();
+          const ut = new SpeechSynthesisUtterance(a.de);
+          ut.lang = 'de-DE'; ut.rate = 0.85; ut.pitch = 1.2;
+          speechSynthesis.speak(ut);
+          console.warn('[voice] ' + a.de + ': системный голос' +
+            (vBad[u] ? ' — файла нет' : ' — файл не успел загрузиться'));
+        } catch (e) {}
+      })();
     }, delay || 0);
   }
 
@@ -424,7 +432,7 @@
   $('btnStart').addEventListener('click', () => {
     goFullscreen();
     initAudio();
-    WORDS.slice(0, 12).forEach(loadVoice);
+    WORDS.forEach(loadVoice);
     $('veil').classList.add('hidden');
     newRound();
   });

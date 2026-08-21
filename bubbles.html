@@ -524,6 +524,9 @@
   function warmVoices() {
     if (!CFG.voiceFiles || !actx) return;
     (world().animals || []).forEach(loadVoice);
+    // следующий мир тоже: он наступит через два уровня, успеет догрузиться
+    const nx = WORLDS[(Math.floor((level - 1) / 2) + 1) % WORLDS.length];
+    if (nx && nx.animals) nx.animals.forEach(loadVoice);
   }
 
   let probed = false;
@@ -558,19 +561,26 @@
     const url = vUrl(a);
     if (CFG.voiceFiles && actx && !vBuf[url] && !vBad[url]) loadVoice(a);
     setTimeout(() => {
-      try {
+      // Даём файлу шанс догрузиться, прежде чем читать системным голосом
+      let tries = 0;
+      (function wait() {
         if (CFG.voiceFiles && actx && vBuf[url]) { playBuf(vBuf[url]); return; }
-        if (typeof speechSynthesis === 'undefined') return;
-        speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = lang;
-        const vs = speechSynthesis.getVoices() || [];
-        const v = vs.find(x => x.lang && x.lang.toLowerCase().replace('_', '-').indexOf(lang.slice(0, 2)) === 0);
-        if (v) u.voice = v;
-        u.rate = 0.85;
-        u.pitch = 1.2;
-        speechSynthesis.speak(u);
-      } catch (e) {}
+        if (CFG.voiceFiles && actx && !vBad[url] && tries++ < 6) { setTimeout(wait, 120); return; }
+        try {
+          if (typeof speechSynthesis === 'undefined') return;
+          speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = lang;
+          const vs = speechSynthesis.getVoices() || [];
+          const v = vs.find(x => x.lang && x.lang.toLowerCase().replace('_', '-').indexOf(lang.slice(0, 2)) === 0);
+          if (v) u.voice = v;
+          u.rate = 0.85;
+          u.pitch = 1.2;
+          speechSynthesis.speak(u);
+          console.warn('[voice] ' + text + ': системный голос' +
+            (vBad[url] ? ' — файла нет' : ' — файл не успел загрузиться'));
+        } catch (e) {}
+      })();
     }, 320);
   }
 

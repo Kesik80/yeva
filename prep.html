@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Подготовка раскрасок — YEVA</title>
+<meta name="theme-color" content="#EEF3FA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{
+    font-family:'Fredoka',ui-rounded,system-ui,-apple-system,'Segoe UI',sans-serif;
+    background:linear-gradient(180deg,#EDF3FA 0%,#F8FBFE 100%);
+    color:#1E3D57;line-height:1.45;
+    padding:calc(env(safe-area-inset-top,0px) + 14px) 12px calc(env(safe-area-inset-bottom,0px) + 30px);
+    -webkit-user-select:none;user-select:none;
+  }
+  .wrap{max-width:640px;margin:0 auto}
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  h1{font-size:19px;font-weight:600}
+  .back{font-size:14px;color:#2F8FC4;text-decoration:none}
+  .card{background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 4px 16px rgba(30,61,87,.07)}
+  label{display:block;font-size:12px;font-weight:600;color:#5B7A93;margin-bottom:5px}
+  input[type=text]{
+    width:100%;padding:11px 13px;font-size:16px;font-family:inherit;color:#1E3D57;
+    border:1.5px solid #D9E4EE;border-radius:11px;background:#FBFDFF;outline:none;
+  }
+  input[type=text]:focus{border-color:#4FA8D8}
+  input[type=range]{width:100%;height:26px;accent-color:#2F8FC4}
+  input[type=file]{display:none}
+  .drop{
+    display:block;border:2px dashed #C6D6E4;border-radius:14px;padding:22px 12px;text-align:center;
+    color:#5B7A93;font-size:14px;cursor:pointer;background:#FBFDFF;
+  }
+  button{
+    width:100%;padding:12px;font-size:15px;font-weight:600;font-family:inherit;
+    border:0;border-radius:12px;background:#2F8FC4;color:#fff;cursor:pointer;margin-top:10px;
+  }
+  button.ghost{background:#E9F2F9;color:#2C6E96}
+  button.go{background:#1F9B6E}
+  button:disabled{background:#BCCDDA}
+  .row{display:flex;gap:9px}
+  .row>*{flex:1}
+  .val{color:#2F8FC4;font-variant-numeric:tabular-nums}
+  .hint{font-weight:500;color:#93A8BA;font-size:11.5px}
+  canvas{width:100%;height:auto;display:block;border-radius:12px;background:#fff;border:1px solid #E6EDF4;touch-action:none}
+  .tabs{display:flex;gap:8px;margin-bottom:9px}
+  .tabs button{margin:0;padding:8px;font-size:13px;background:#EDF3FA;color:#5B7A93}
+  .tabs button.on{background:#2F8FC4;color:#fff}
+  .log{margin-top:10px;font-size:12.5px;color:#5B7A93;max-height:120px;overflow:auto}
+  .ok{color:#1F8A5F}.err{color:#C0392B}
+  .swatches{display:flex;gap:8px;overflow-x:auto;padding:8px 0 4px}
+  .sw{width:40px;height:40px;flex:none;border-radius:12px;border:3px solid transparent;padding:0;margin:0;cursor:pointer}
+  .sw.on{border-color:#1E3D57}
+  code{background:#EDF3FA;padding:1px 5px;border-radius:5px;font-size:12px}
+
+  .lock{position:fixed;inset:0;z-index:100;display:none;place-items:center;padding:20px;background:rgba(20,45,70,.6)}
+  .lock.show{display:grid}
+  .lockbox{background:#fff;border-radius:20px;padding:24px;width:100%;max-width:360px;text-align:center}
+  .lockbox h3{font-size:17px;margin-bottom:12px}
+  .lockbox input{width:100%;padding:11px;border:1.5px solid #D9E4EE;border-radius:11px;text-align:center;font-size:16px;font-family:inherit;letter-spacing:.1em}
+  .lockmsg{font-size:13px;min-height:18px;margin-top:8px;color:#C0392B}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Подготовка раскрасок</h1>
+    <a class="back" href="index.html">← назад</a>
+  </div>
+
+  <div class="card">
+    <label class="drop" for="f">Выбери фото или картинку<br><span class="hint">JPG, PNG, SVG — что угодно</span>
+      <input type="file" id="f" accept="image/*,.svg">
+    </label>
+  </div>
+
+  <div class="card" id="work" style="display:none">
+    <div class="tabs">
+      <button id="tOrig">исходник</button>
+      <button id="tRes" class="on">обработано</button>
+      <button id="tTest" class="ghost" style="background:#EDF3FA;color:#5B7A93">проверить заливку</button>
+    </div>
+    <canvas id="cv"></canvas>
+    <div class="swatches" id="sw" style="display:none"></div>
+
+    <label style="margin-top:12px">Порог чёрного <b class="val" id="vThr"></b> <span class="hint">выше — линий больше</span></label>
+    <input type="range" id="thr" min="80" max="220" step="5" value="150">
+
+    <label>Убрать крапинки <b class="val" id="vDes"></b> <span class="hint">мусор от сжатия JPG</span></label>
+    <input type="range" id="des" min="0" max="3" step="1" value="1">
+
+    <label>Заделать щели <b class="val" id="vGap"></b> <span class="hint">чтобы краска не вытекала</span></label>
+    <input type="range" id="gap" min="0" max="3" step="1" value="1">
+
+    <label>Толщина линий <b class="val" id="vFat"></b></label>
+    <input type="range" id="fat" min="0" max="2" step="1" value="0">
+
+    <div class="row">
+      <button class="ghost" id="auto">подобрать само</button>
+    </div>
+    <div id="stat" class="log"></div>
+  </div>
+
+  <div class="card" id="save" style="display:none">
+    <label for="nm">Имя файла <span class="hint">станет подписью в игре</span></label>
+    <input type="text" id="nm" placeholder="blume">
+    <button class="go" id="up">Загрузить на GitHub</button>
+    <button class="ghost" id="dl">Скачать на телефон</button>
+    <div id="log" class="log"></div>
+  </div>
+</div>
+
+<div class="lock" id="lock">
+  <div class="lockbox">
+    <h3>Пароль для записи</h3>
+    <input id="pw" type="password" autocomplete="off" placeholder="ADMIN_TOKEN">
+    <button id="ok">Войти и загрузить</button>
+    <button class="ghost" id="cancel">Отмена</button>
+    <div class="lockmsg" id="lockMsg"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const REPO_DIR = 'malen';
+  const MAXW = 1400;
+
+  let orig = null, oW = 0, oH = 0;     // исходник в ImageData
+  let out = null;                       // результат обработки
+  let mode = 'res', testData = null, fileBase = '';
+  const cv = $('cv');
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+
+  const log = (m, cls) => {
+    const d = document.createElement('div');
+    if (cls) d.className = cls;
+    d.textContent = m;
+    $('log').prepend(d);
+  };
+
+  /* ── загрузка ── */
+  $('f').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    fileBase = file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9._-]+/g, '-').toLowerCase();
+    $('nm').value = fileBase;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, MAXW / Math.max(img.width, img.height));
+      oW = Math.max(1, Math.round(img.width * k));
+      oH = Math.max(1, Math.round(img.height * k));
+      cv.width = oW; cv.height = oH;
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, oW, oH);
+      ctx.drawImage(img, 0, 0, oW, oH);
+      orig = ctx.getImageData(0, 0, oW, oH);
+      URL.revokeObjectURL(url);
+      $('work').style.display = 'block';
+      $('save').style.display = 'block';
+      autoTune();
+    };
+    img.onerror = () => alert('не удалось открыть картинку');
+    img.src = url;
+    e.target.value = '';
+  });
+
+  /* ── обработка ── */
+  function process() {
+    if (!orig) return;
+    const thr = +$('thr').value, des = +$('des').value, gapN = +$('gap').value, fat = +$('fat').value;
+    const src = orig.data, n = oW * oH;
+
+    // 1. в чёрно-белое по порогу — этим убираются все переливы JPG внутри областей
+    let mask = new Uint8Array(n);
+    for (let p = 0; p < n; p++) {
+      const i = p * 4;
+      const lum = 0.2126 * src[i] + 0.7152 * src[i + 1] + 0.0722 * src[i + 2];
+      if (src[i + 3] < 32) { mask[p] = 0; continue; }      // прозрачное считаем белым
+      mask[p] = lum < thr ? 1 : 0;
+    }
+
+    // 2. крапинки: одиночные чёрные точки без поддержки соседей
+    for (let k = 0; k < des; k++) mask = despeckle(mask);
+
+    // 3. щели: расширяем и сжимаем обратно — дырки в контуре затягиваются
+    for (let k = 0; k < gapN; k++) mask = dilate(mask);
+    for (let k = 0; k < gapN; k++) mask = erode(mask);
+
+    // 4. при желании линии потолще
+    for (let k = 0; k < fat; k++) mask = dilate(mask);
+
+    const img = ctx.createImageData(oW, oH);
+    const d = img.data;
+    let dark = 0;
+    for (let p = 0; p < n; p++) {
+      const v = mask[p] ? 0 : 255;
+      if (mask[p]) dark++;
+      const i = p * 4;
+      d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
+    }
+    out = img;
+    testData = null;
+    if (mode !== 'orig') draw();
+    $('stat').textContent = 'линий: ' + (dark / n * 100).toFixed(1) + '% холста · размер ' + oW + '×' + oH;
+  }
+
+  const idx = (x, y) => y * oW + x;
+  function neighbours(m, p) {
+    const x = p % oW, y = (p - x) / oW;
+    let c = 0;
+    if (x > 0 && m[p - 1]) c++;
+    if (x < oW - 1 && m[p + 1]) c++;
+    if (y > 0 && m[p - oW]) c++;
+    if (y < oH - 1 && m[p + oW]) c++;
+    return c;
+  }
+  function despeckle(m) {
+    const r = new Uint8Array(m);
+    for (let p = 0; p < m.length; p++) if (m[p] && neighbours(m, p) <= 1) r[p] = 0;
+    return r;
+  }
+  function dilate(m) {
+    const r = new Uint8Array(m);
+    for (let p = 0; p < m.length; p++) if (!m[p] && neighbours(m, p) >= 1) r[p] = 1;
+    return r;
+  }
+  function erode(m) {
+    const r = new Uint8Array(m);
+    for (let p = 0; p < m.length; p++) if (m[p] && neighbours(m, p) <= 2) r[p] = 0;
+    return r;
+  }
+
+  // порог подбираем так, чтобы линии заняли разумную долю холста
+  function autoTune() {
+    let best = 150, bestScore = 1e9;
+    for (let t = 90; t <= 210; t += 10) {
+      let dark = 0;
+      for (let p = 0; p < oW * oH; p++) {
+        const i = p * 4;
+        const lum = 0.2126 * orig.data[i] + 0.7152 * orig.data[i + 1] + 0.0722 * orig.data[i + 2];
+        if (lum < t) dark++;
+      }
+      const share = dark / (oW * oH);
+      const score = Math.abs(share - 0.08);          // около 8% холста — типичная раскраска
+      if (score < bestScore) { bestScore = score; best = t; }
+    }
+    $('thr').value = best;
+    showVals();
+    process();
+    log('порог подобран: ' + best, 'ok');
+  }
+  $('auto').addEventListener('click', autoTune);
+
+  /* ── показ ── */
+  function draw() {
+    if (mode === 'orig' && orig) ctx.putImageData(orig, 0, 0);
+    else if (mode === 'test' && testData) ctx.putImageData(testData, 0, 0);
+    else if (out) ctx.putImageData(out, 0, 0);
+  }
+  function setMode(m) {
+    mode = m;
+    $('tOrig').className = m === 'orig' ? 'on' : '';
+    $('tRes').className = m === 'res' ? 'on' : '';
+    $('tTest').className = m === 'test' ? 'on' : '';
+    $('sw').style.display = m === 'test' ? 'flex' : 'none';
+    if (m === 'test' && !testData) testData = new ImageData(new Uint8ClampedArray(out.data), oW, oH);
+    draw();
+  }
+  $('tOrig').onclick = () => setMode('orig');
+  $('tRes').onclick = () => setMode('res');
+  $('tTest').onclick = () => setMode('test');
+
+  ['thr', 'des', 'gap', 'fat'].forEach(id =>
+    $(id).addEventListener('input', () => { showVals(); process(); }));
+  function showVals() {
+    $('vThr').textContent = $('thr').value;
+    $('vDes').textContent = $('des').value;
+    $('vGap').textContent = $('gap').value;
+    $('vFat').textContent = $('fat').value;
+  }
+  showVals();
+
+  /* ── проба заливки прямо здесь ── */
+  const COLORS = [['rot', '#E23A3A'], ['blau', '#2F6FD0'], ['gelb', '#FFCE2E'], ['grün', '#3EA85A'], ['lila', '#8B5CD6']];
+  let fillC = [226, 58, 58];
+  $('sw').innerHTML = COLORS.map((c, i) =>
+    `<button class="sw ${i ? '' : 'on'}" data-c="${c[1]}" style="background:${c[1]}"></button>`).join('');
+  $('sw').addEventListener('click', e => {
+    const b = e.target.closest('.sw');
+    if (!b) return;
+    const h = b.dataset.c;
+    fillC = [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+    document.querySelectorAll('.sw').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+  });
+
+  cv.addEventListener('pointerdown', e => {
+    if (mode !== 'test' || !testData) return;
+    const r = cv.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) * oW / r.width);
+    const y = Math.floor((e.clientY - r.top) * oH / r.height);
+    if (x < 0 || y < 0 || x >= oW || y >= oH) return;
+    const d = testData.data, p0 = idx(x, y);
+    if (out.data[p0 * 4] < 128) return;                  // линия
+    const stack = [x, y], seen = new Uint8Array(oW * oH);
+    let n = 0;
+    while (stack.length) {
+      const yy = stack.pop(), xx = stack.pop();
+      if (xx < 0 || yy < 0 || xx >= oW || yy >= oH) continue;
+      const p = idx(xx, yy);
+      if (seen[p] || out.data[p * 4] < 128) continue;
+      const i = p * 4;
+      if (d[i] === fillC[0] && d[i + 1] === fillC[1] && d[i + 2] === fillC[2]) continue;
+      seen[p] = 1; n++;
+      d[i] = fillC[0]; d[i + 1] = fillC[1]; d[i + 2] = fillC[2];
+      stack.push(xx + 1, yy, xx - 1, yy, xx, yy + 1, xx, yy - 1);
+    }
+    draw();
+    const share = n / (oW * oH) * 100;
+    $('stat').textContent = 'залито ' + share.toFixed(1) + '% холста' +
+      (share > 60 ? ' — краска вытекла, добавь «заделать щели»' : '');
+  });
+
+  /* ── сохранение ── */
+  function pngBase64() {
+    const tmp = document.createElement('canvas');
+    tmp.width = oW; tmp.height = oH;
+    tmp.getContext('2d').putImageData(out, 0, 0);
+    return tmp.toDataURL('image/png').split(',')[1];
+  }
+
+  $('dl').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.href = 'data:image/png;base64,' + pngBase64();
+    a.download = ($('nm').value.trim() || fileBase || 'bild') + '.png';
+    a.click();
+  });
+
+  let pending = false;
+  $('up').addEventListener('click', () => {
+    if (!out) return;
+    pending = true;
+    let saved = null;
+    try { saved = localStorage.getItem('voicegen.pw'); } catch (e) {}
+    if (saved) { commit(saved); return; }      // тот же пароль, что в voicegen
+    $('lockMsg').textContent = '';
+    $('lock').classList.add('show');
+    $('pw').focus();
+  });
+  $('cancel').addEventListener('click', () => { $('lock').classList.remove('show'); pending = false; });
+  $('ok').addEventListener('click', () => {
+    const p = $('pw').value.trim();
+    if (!p) return;
+    $('lockMsg').textContent = 'проверяю…';
+    fetch('/api/quota?adminToken=' + encodeURIComponent(p), { cache: 'no-store' })
+      .then(r => {
+        if (r.status === 401) { $('lockMsg').textContent = 'неверный пароль'; return; }
+        try { localStorage.setItem('voicegen.pw', p); } catch (e) {}
+        $('lock').classList.remove('show');
+        commit(p);
+      })
+      .catch(e => { $('lockMsg').textContent = 'сервер не ответил: ' + e.message; });
+  });
+
+  function commit(pw) {
+    const name = ($('nm').value.trim() || fileBase || 'bild').replace(/[^a-zA-Z0-9._-]+/g, '-').toLowerCase();
+    const path = REPO_DIR + '/' + name.replace(/\.png$/i, '') + '.png';
+    $('up').disabled = true;
+    $('up').textContent = 'загружаю…';
+    log('отправляю ' + path);
+    fetch('/api/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Раскраска: ' + path,
+        files: [{ path: path, content: pngBase64() }],
+        adminToken: pw
+      })
+    })
+      .then(r => r.json().then(d => ({ r: r, d: d })))
+      .then(({ r, d }) => {
+        if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+        log('готово: коммит ' + String(d.commit).slice(0, 7) + ' · появится в игре после пересборки', 'ok');
+        try { localStorage.removeItem('yeva.malen.list'); } catch (e) {}   // чтобы список перечитался
+      })
+      .catch(e => {
+        log('не вышло: ' + e.message, 'err');
+        if (/unauthorized/i.test(e.message)) { try { localStorage.removeItem('voicegen.pw'); } catch (x) {} }
+      })
+      .finally(() => { $('up').disabled = false; $('up').textContent = 'Загрузить на GitHub'; });
+  }
+})();
+</script>
+<script src="console.js"></script>
+</body>
+</html>
