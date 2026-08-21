@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Malen</title>
+<meta name="theme-color" content="#8FD3C6">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#8FD3C6}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#20463E;
+    background:
+      radial-gradient(110% 70% at 82% 108%, rgba(255,226,150,.5), transparent 62%),
+      radial-gradient(90% 60% at 12% 4%, rgba(190,235,255,.5), transparent 66%),
+      linear-gradient(180deg,#8FD3C6 0%,#B6E4DA 38%,#E2F5F0 74%,#FAFFFD 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 10px) 10px calc(env(safe-area-inset-bottom,0px) + 10px);
+  }
+
+  .top{display:flex;align-items:center;gap:8px;flex:none}
+  .top .ttl{font-size:16px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .btn{
+    width:44px;height:44px;flex:none;border:0;border-radius:50%;
+    background:rgba(255,255,255,.7);color:#20463E;text-decoration:none;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(32,70,62,.14);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.9)}
+  .btn:disabled{opacity:.4}
+  .btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ── галерея ── */
+  .gallery{flex:1;min-height:0;overflow-y:auto;padding:10px 2px;display:grid;gap:12px;
+    grid-template-columns:repeat(auto-fill,minmax(140px,1fr));align-content:start}
+  .pic{
+    background:#fff;border:0;border-radius:20px;padding:8px;cursor:pointer;
+    box-shadow:0 6px 20px rgba(32,70,62,.13);display:flex;flex-direction:column;gap:6px;
+  }
+  .pic img{width:100%;aspect-ratio:1;object-fit:contain;border-radius:14px;background:#fff;pointer-events:none}
+  .pic span{font-size:13px;font-weight:600;color:#3A6B60}
+  .empty{
+    grid-column:1/-1;background:rgba(255,255,255,.8);border-radius:18px;padding:20px;
+    font-size:13.5px;line-height:1.6;color:#3A6B60;
+  }
+  code{background:#E6F4F0;padding:1px 6px;border-radius:5px;font-size:12.5px}
+
+  /* ── холст ── */
+  .board{flex:1;min-height:0;display:none;place-items:center;padding:8px 0}
+  .board.on{display:grid}
+  canvas{max-width:100%;max-height:100%;border-radius:16px;background:#fff;
+    box-shadow:0 8px 26px rgba(32,70,62,.16);touch-action:none}
+
+  .palette{flex:none;display:none}
+  .palette.on{display:block}
+  .swatches{display:flex;gap:9px;overflow-x:auto;padding:8px 2px 20px}
+  .sw{
+    width:52px;height:52px;flex:none;border-radius:17px;border:4px solid transparent;
+    position:relative;padding:0;cursor:pointer;box-shadow:0 4px 12px rgba(32,70,62,.16);
+  }
+  .sw.on{border-color:#20463E;transform:scale(1.05)}
+  .sw i{position:absolute;left:0;right:0;bottom:-17px;text-align:center;font-size:11px;font-style:normal;color:#3A6B60}
+
+  .party{position:fixed;inset:0;z-index:30;pointer-events:none;overflow:hidden}
+  .party i{position:absolute;width:12px;height:16px;border-radius:3px;animation:fall linear forwards}
+  @keyframes fall{from{transform:translateY(-12vh) rotate(0)}to{transform:translateY(112vh) rotate(680deg)}}
+</style>
+</head>
+<body>
+
+<script src="words.js"></script>
+
+<div class="top">
+  <button class="btn" id="btnBack" style="display:none" aria-label="К списку">
+    <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+  </button>
+  <div class="ttl" id="ttl">Malen</div>
+  <button class="btn" id="btnUndo" style="display:none" aria-label="Назад">
+    <svg viewBox="0 0 24 24"><path d="M9 7L4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10h-3"/></svg>
+  </button>
+  <button class="btn" id="btnReset" style="display:none" aria-label="Сброс">
+    <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.6h-4.6"/></svg>
+  </button>
+  <button class="btn" id="btnDone" style="display:none" aria-label="Готово">
+    <svg viewBox="0 0 24 24"><path d="M5 13l4.5 4.5L19 7"/></svg>
+  </button>
+  <a class="btn" href="index.html" id="btnHome" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>
+  </a>
+</div>
+
+<div class="gallery" id="gallery"></div>
+<div class="board" id="board"></div>
+
+<div class="palette" id="palette">
+  <div class="swatches" id="sw"></div>
+</div>
+
+<div class="party" id="party"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const YW = window.YEVA_WORDS;
+  const $ = id => document.getElementById(id);
+  if (!YW || !YW.colors) {
+    document.body.innerHTML = '<div style="padding:40px;text-align:center">Нужен words.js версии 6</div>';
+    return;
+  }
+
+  const CFG = {
+    dir: 'malen/',
+    tolerance: 70,       // насколько похожий оттенок считается той же областью
+    lineLum: 110,        // темнее этого — линия рисунка, красить нельзя
+    voicePath: 'voice/',
+    voice: 'de'
+  };
+
+  const COLORS = YW.colors;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  let cur = COLORS[0];
+
+  /* ── звук ── */
+  let actx = null, master = null;
+  const vBuf = {}, vBad = {};
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.32;
+    master.connect(actx.destination);
+  }
+  const vUrl = a => CFG.voicePath + CFG.voice + '/' + YW.slug(a) + '.mp3';
+  function loadVoice(a) {
+    if (!actx) return;
+    const u = vUrl(a);
+    if (vBuf[u] || vBad[u]) return;
+    fetch(u).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(ab => actx.decodeAudioData(ab))
+      .then(b => { vBuf[u] = b; })
+      .catch(e => { vBad[u] = true; console.warn('[voice] нет ' + u + ' — ' + e.message); });
+  }
+  function tone(type, f, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur * .9);
+    g.gain.setValueAtTime(.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + .012);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + .03);
+  }
+  function say(a, delay) {
+    if (!actx || !a) return;
+    const u = vUrl(a);
+    if (!vBuf[u] && !vBad[u]) loadVoice(a);
+    setTimeout(() => {
+      if (vBuf[u]) {
+        const src = actx.createBufferSource(), g = actx.createGain();
+        g.gain.value = 1.25; src.buffer = vBuf[u];
+        src.connect(g); g.connect(master); src.start();
+        return;
+      }
+      try {
+        if (typeof speechSynthesis === 'undefined') return;
+        speechSynthesis.cancel();
+        const ut = new SpeechSynthesisUtterance(a.de);
+        ut.lang = 'de-DE'; ut.rate = .85; ut.pitch = 1.2;
+        speechSynthesis.speak(ut);
+      } catch (e) {}
+    }, delay || 0);
+  }
+  const splash = () => tone('sine', 520, 0, .16, .2, 900);
+  const fanfare = () => [0, 4, 7, 12, 7, 12, 16].forEach((n, i) => tone('triangle', 392 * Math.pow(2, n / 12), i * .12, .42, .36));
+  const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+
+  /* ── палитра ── */
+  $('sw').innerHTML = COLORS.map((c, i) =>
+    `<button class="sw ${i ? '' : 'on'}" data-i="${i}" style="background:${c.color}${c.de === 'weiß' ? ';box-shadow:inset 0 0 0 2px #D9E5E1,0 4px 12px rgba(32,70,62,.16)' : ''}"><i>${c.de}</i></button>`).join('');
+  $('sw').addEventListener('click', e => {
+    const b = e.target.closest('.sw');
+    if (!b) return;
+    cur = COLORS[+b.dataset.i];
+    document.querySelectorAll('.sw').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    say(cur, 0);                      // цвет называется вслух при выборе
+  });
+
+  /* ── галерея ── */
+  fetch(CFG.dir + 'list.json', { cache: 'no-store' })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(list => showGallery(Array.isArray(list) ? list : []))
+    .catch(e => {
+      console.warn('[malen] список не прочитался: ' + e.message);
+      showGallery([]);
+    });
+
+  function showGallery(list) {
+    if (!list.length) {
+      $('gallery').innerHTML = `<div class="empty">
+        Пока нет ни одной картинки.<br><br>
+        Положи файлы в папку <code>malen/</code> и перечисли их в <code>malen/list.json</code>:
+        <br><br><code>[ { "file": "1.svg", "name": "Blume" } ]</code>
+        <br><br>Подойдёт любой SVG, PNG или JPG — заливка работает по картинке.
+      </div>`;
+      return;
+    }
+    $('gallery').innerHTML = list.map((p, i) =>
+      `<button class="pic" data-i="${i}">
+         <img src="${CFG.dir + p.file}" alt="" loading="lazy">
+         <span>${p.name || p.file}</span>
+       </button>`).join('');
+    $('gallery').addEventListener('click', e => {
+      const b = e.target.closest('.pic');
+      if (b) open(list[+b.dataset.i]);
+    });
+  }
+
+  /* ── холст ── */
+  let cv = null, ctx = null, W = 0, H = 0;
+  let clean = null, lineMask = null, cleanLum = null, history = [], painted = 0;
+
+  function open(item) {
+    initAudio();
+    COLORS.slice(0, 6).forEach(loadVoice);
+    $('ttl').textContent = item.name || item.file;
+    const img = new Image();
+    img.onload = () => setup(img);
+    img.onerror = () => { $('ttl').textContent = 'не открылось: ' + item.file; };
+    img.src = CFG.dir + item.file;
+  }
+
+  function setup(img) {
+    $('gallery').style.display = 'none';
+    $('board').classList.add('on');
+    $('palette').classList.add('on');
+    ['btnBack', 'btnUndo', 'btnReset', 'btnDone'].forEach(id => { $(id).style.display = 'grid'; });
+    $('btnHome').style.display = 'none';
+
+    const b = $('board');
+    const k = Math.min(b.clientWidth / img.width, b.clientHeight / img.height, 2);
+    W = Math.max(1, Math.round(img.width * k));
+    H = Math.max(1, Math.round(img.height * k));
+
+    cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    ctx = cv.getContext('2d', { willReadFrequently: true });
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, W, H);          // прозрачный фон делаем белым
+    ctx.drawImage(img, 0, 0, W, H);
+    b.innerHTML = '';
+    b.appendChild(cv);
+
+    clean = ctx.getImageData(0, 0, W, H);
+    const cd = clean.data;
+    lineMask = new Uint8Array(W * H);
+    cleanLum = new Uint8Array(W * H);
+    let free = 0;
+    for (let p = 0; p < W * H; p++) {
+      const i = p * 4;
+      const lum = .2126 * cd[i] + .7152 * cd[i + 1] + .0722 * cd[i + 2];
+      cleanLum[p] = lum > 255 ? 255 : lum;
+      if (lum < CFG.lineLum) lineMask[p] = 1; else free++;
+    }
+    history = []; painted = 0;
+    cv.addEventListener('pointerdown', onTap);
+  }
+
+  function onTap(e) {
+    const r = cv.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) * W / r.width);
+    const y = Math.floor((e.clientY - r.top) * H / r.height);
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+    fill(x, y);
+  }
+
+  function fill(sx, sy) {
+    const p0 = sy * W + sx;
+    if (lineMask[p0]) return;                    // линия рисунка неприкосновенна
+
+    const img = ctx.getImageData(0, 0, W, H);
+    const d = img.data;
+    const s = p0 * 4;
+    const sr = d[s], sg = d[s + 1], sb = d[s + 2];
+    const c = [parseInt(cur.color.slice(1, 3), 16), parseInt(cur.color.slice(3, 5), 16), parseInt(cur.color.slice(5, 7), 16)];
+    if (sr === c[0] && sg === c[1] && sb === c[2]) return;
+
+    history.push(new Uint8ClampedArray(d));
+    if (history.length > 15) history.shift();
+
+    const tol = CFG.tolerance * 3;
+    const near = i => Math.abs(d[i] - sr) + Math.abs(d[i + 1] - sg) + Math.abs(d[i + 2] - sb) <= tol;
+    const seen = new Uint8Array(W * H);
+    const stack = [sx, sy];
+    let edge = [], n = 0;
+
+    while (stack.length) {
+      const y = stack.pop(), x = stack.pop();
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      const p = y * W + x;
+      if (seen[p]) continue;
+      if (lineMask[p]) { edge.push(p); continue; }
+      const i = p * 4;
+      if (!near(i)) { edge.push(p); continue; }
+      seen[p] = 1; n++;
+      d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255;
+      stack.push(x + 1, y, x - 1, y, x, y + 1, x, y - 1);
+    }
+
+    // сглаженную кромку линии подкрашиваем, иначе остаётся белый ореол
+    for (let pass = 0; pass < 2; pass++) {
+      const next = [];
+      for (const p of edge) {
+        if (seen[p] || lineMask[p]) continue;
+        if (cleanLum[p] <= 120 || cleanLum[p] >= 245) continue;
+        seen[p] = 1;
+        const i = p * 4;
+        d[i] = Math.round((d[i] + c[0]) / 2);
+        d[i + 1] = Math.round((d[i + 1] + c[1]) / 2);
+        d[i + 2] = Math.round((d[i + 2] + c[2]) / 2);
+        const x = p % W, y = (p - x) / W;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(o => {
+          const nx = x + o[0], ny = y + o[1];
+          if (nx >= 0 && ny >= 0 && nx < W && ny < H && !seen[ny * W + nx]) next.push(ny * W + nx);
+        });
+      }
+      edge = next;
+    }
+
+    ctx.putImageData(img, 0, 0);
+    if (n > 40) { painted++; splash(); buzz(8); }
+  }
+
+  /* ── кнопки ── */
+  $('btnUndo').addEventListener('click', () => {
+    if (!ctx || !history.length) return;
+    const prev = history.pop();
+    const img = ctx.getImageData(0, 0, W, H);
+    img.data.set(prev);
+    ctx.putImageData(img, 0, 0);
+    painted = Math.max(0, painted - 1);
+  });
+
+  $('btnReset').addEventListener('click', () => {
+    if (!ctx || !clean) return;
+    ctx.putImageData(clean, 0, 0);
+    history = []; painted = 0;
+  });
+
+  $('btnDone').addEventListener('click', () => {
+    fanfare(); buzz([20, 60, 20, 60, 40]);
+    const box = $('party');
+    const cols = COLORS.filter(c => c.de !== 'weiß').map(c => c.color);
+    for (let i = 0; i < 70; i++) {
+      const el = document.createElement('i');
+      el.style.left = rand(0, 100) + 'vw';
+      el.style.background = pick(cols);
+      el.style.animationDuration = rand(1.8, 3.4) + 's';
+      el.style.animationDelay = rand(0, .7) + 's';
+      box.appendChild(el);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 4200);
+    setTimeout(toGallery, 2400);
+  });
+
+  function toGallery() {
+    $('board').classList.remove('on');
+    $('palette').classList.remove('on');
+    $('gallery').style.display = 'grid';
+    ['btnBack', 'btnUndo', 'btnReset', 'btnDone'].forEach(id => { $(id).style.display = 'none'; });
+    $('btnHome').style.display = 'grid';
+    $('ttl').textContent = 'Malen';
+    $('board').innerHTML = '';
+    cv = null; ctx = null; clean = null; history = [];
+  }
+  $('btnBack').addEventListener('click', toGallery);
+
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && actx && actx.state === 'suspended') actx.resume();
+  });
+})();
+</script>
+<script src="install.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
