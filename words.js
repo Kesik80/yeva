@@ -60,8 +60,27 @@
     N(10, 'zehn',   '\u{1F51F}')
   ];
 
+  // Цвета. Прилагательные, артикля нет — в voicegen уйдут к мужскому голосу.
+  // В карточные игры не идут: там цвет должен быть единственным отличием,
+  // а эмодзи перекрасить нельзя.
+  const C = (de, ru, hex) => ({ color: hex, de: de, ru: ru, s: 'ding', e: '' });
+  const COLORS = [
+    C('rot',     'красный',    '#E23A3A'),
+    C('blau',    'синий',      '#2F6FD0'),
+    C('gelb',    'жёлтый',     '#FFCE2E'),
+    C('grün',    'зелёный',    '#3EA85A'),
+    C('orange',  'оранжевый',  '#F5842B'),
+    C('lila',    'фиолетовый', '#8B5CD6'),
+    C('rosa',    'розовый',    '#FF8FC0'),
+    C('braun',   'коричневый', '#8B5A2B'),
+    C('grau',    'серый',      '#9AA5AE'),
+    C('schwarz', 'чёрный',     '#2A2A2A'),
+    C('weiß',    'белый',      '#FFFFFF')
+  ];
+
   window.YEVA_WORDS = {
-    version: 5,
+    version: 6,
+    colors: COLORS,
     numbers: NUMBERS,
     body: BODY,
 
@@ -225,6 +244,7 @@
     window.YEVA_WORDS.worlds.forEach(w => w.animals.forEach(add));
     BODY.forEach(add);          // Kopf, Bauch, Haar и прочие без эмодзи тоже нужны озвучке
     NUMBERS.forEach(add);       // числа — только ради озвучки
+    COLORS.forEach(add);        // цвета — тоже только ради озвучки
     return out;
   })();
 
