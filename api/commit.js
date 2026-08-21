@@ -18,7 +18,8 @@ function safePath(p) {
   const clean = p.replace(/^\/+/, '').replace(/\\/g, '/');
   if (clean.includes('..') || clean.length > 200) return null;
   if (!/^[a-zA-Z0-9._\-/äöüÄÖÜß]+$/.test(clean)) return null;
-  if (!/\.(mp3|m4a|ogg)$/i.test(clean)) return null;
+  // звук и картинки: функция общая для голосов и раскрасок
+  if (!/\.(mp3|m4a|ogg|png|jpe?g|webp|svg|gif)$/i.test(clean)) return null;
   return clean;
 }
 
