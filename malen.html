@@ -200,24 +200,34 @@
     g.gain.exponentialRampToValueAtTime(.0001, t + dur);
     o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + .03);
   }
+  function playBuf(buf) {
+    const src = actx.createBufferSource(), g = actx.createGain();
+    g.gain.value = 1.25; src.buffer = buf;
+    src.connect(g); g.connect(master); src.start();
+  }
+
   function say(a, delay) {
     if (!actx || !a) return;
     const u = vUrl(a);
     if (!vBuf[u] && !vBad[u]) loadVoice(a);
     setTimeout(() => {
-      if (vBuf[u]) {
-        const src = actx.createBufferSource(), g = actx.createGain();
-        g.gain.value = 1.25; src.buffer = vBuf[u];
-        src.connect(g); g.connect(master); src.start();
-        return;
-      }
-      try {
-        if (typeof speechSynthesis === 'undefined') return;
-        speechSynthesis.cancel();
-        const ut = new SpeechSynthesisUtterance(a.de);
-        ut.lang = 'de-DE'; ut.rate = .85; ut.pitch = 1.2;
-        speechSynthesis.speak(ut);
-      } catch (e) {}
+      // Файл мог не успеть догрузиться. Раньше в этот момент включался
+      // системный синтез — и записанный голос не звучал никогда, даже если
+      // файл приходил через полсекунды. Теперь немного ждём.
+      let tries = 0;
+      (function wait() {
+        if (vBuf[u]) { playBuf(vBuf[u]); return; }
+        if (!vBad[u] && tries++ < 6) { setTimeout(wait, 120); return; }
+        try {
+          if (typeof speechSynthesis === 'undefined') return;
+          speechSynthesis.cancel();
+          const ut = new SpeechSynthesisUtterance(a.de);
+          ut.lang = 'de-DE'; ut.rate = .85; ut.pitch = 1.2;
+          speechSynthesis.speak(ut);
+          console.warn('[voice] ' + a.de + ': читаю системным голосом' +
+            (vBad[u] ? ' — файла нет' : ' — файл не успел загрузиться'));
+        } catch (e) {}
+      })();
     }, delay || 0);
   }
   const splash = () => tone('sine', 520, 0, .16, .2, 900);
@@ -319,7 +329,7 @@
 
   function open(item) {
     initAudio();
-    COLORS.slice(0, 6).forEach(loadVoice);
+    COLORS.forEach(loadVoice);
     $('ttl').textContent = item.name || item.file;
     const url = CFG.dir + item.file;
     resolve(item.file).then(res => setup(res.img)).catch(() => {
