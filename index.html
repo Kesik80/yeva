@@ -60,7 +60,12 @@
   }
   .title.hold{animation:squeeze .9s ease}
   @keyframes squeeze{50%{transform:scale(.94)}}
-  .sub{position:relative;z-index:1;font-size:15px;color:rgba(30,61,87,.6);margin-top:4px;margin-bottom:34px}
+  .sub{
+    position:relative;z-index:1;font-size:15px;color:rgba(30,61,87,.6);
+    margin-top:4px;margin-bottom:26px;padding:8px 22px;
+    user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  }
+  .sub.hold{animation:squeeze .9s ease}
 
   .games{
     position:relative;z-index:1;
@@ -225,12 +230,15 @@
   const sub = document.querySelector('.sub');
   let timer2 = null;
   if (sub) {
-    sub.addEventListener('pointerdown', () => {
+    sub.addEventListener('pointerdown', e => {
+      e.preventDefault();          // иначе Android начнёт выделять текст и оборвёт нажатие
       clearTimeout(timer2);
+      sub.classList.add('hold');
       timer2 = setTimeout(() => { location.href = 'prep.html'; }, 1500);
     });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev =>
-      sub.addEventListener(ev, () => clearTimeout(timer2)));
+      sub.addEventListener(ev, () => { clearTimeout(timer2); sub.classList.remove('hold'); }));
+    sub.addEventListener('contextmenu', e => e.preventDefault());
   }
 
   title.addEventListener('pointerdown', start);
