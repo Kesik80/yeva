@@ -54,6 +54,9 @@
   }
   .pic img{width:100%;aspect-ratio:1;object-fit:contain;border-radius:14px;background:#fff;pointer-events:none}
   .pic span{font-size:13px;font-weight:600;color:#3A6B60}
+  .pic.broken{background:#FFF1F0}
+  .pic.broken span{color:#C0392B}
+  .pic small{display:block;font-size:10.5px;color:#C0392B;font-weight:500;word-break:break-all;line-height:1.25}
   .empty{
     grid-column:1/-1;background:rgba(255,255,255,.8);border-radius:18px;padding:20px;
     font-size:13.5px;line-height:1.6;color:#3A6B60;
@@ -63,6 +66,8 @@
   /* ── холст ── */
   .board{flex:1;min-height:0;display:none;place-items:center;padding:8px 0}
   .board.on{display:grid}
+  .board{overflow:hidden}
+  canvas{transform-origin:center center;will-change:transform}
   canvas{max-width:100%;max-height:100%;border-radius:16px;background:#fff;
     box-shadow:0 8px 26px rgba(32,70,62,.16);touch-action:none}
 
@@ -90,6 +95,9 @@
     <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
   </button>
   <div class="ttl" id="ttl">Malen</div>
+  <button class="btn" id="btnZoom" style="display:none" aria-label="Масштаб">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/><path d="M8 11h6"/><path d="M11 8v6"/></svg>
+  </button>
   <button class="btn" id="btnUndo" style="display:none" aria-label="Назад">
     <svg viewBox="0 0 24 24"><path d="M9 7L4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10h-3"/></svg>
   </button>
@@ -133,6 +141,27 @@
   };
 
   const COLORS = YW.colors;
+  const EXT = ['svg', 'png', 'jpg', 'jpeg', 'webp'];
+
+  // В list.json легко ошибиться расширением. Пробуем то же имя с другими.
+  function resolve(file) {
+    return new Promise((ok, fail) => {
+      const base = file.replace(/\.[^.]+$/, '');
+      const tries = [file].concat(EXT.map(e => base + '.' + e).filter(x => x !== file));
+      let i = 0;
+      (function attempt() {
+        if (i >= tries.length) return fail(new Error('не нашёл ни одного файла для ' + file));
+        const url = CFG.dir + tries[i];
+        const img = new Image();
+        img.onload = () => {
+          if (tries[i] !== file) console.log('[malen] ' + file + ' не найден, взял ' + tries[i]);
+          ok({ img: img, url: url, used: tries[i] });
+        };
+        img.onerror = () => { i++; attempt(); };
+        img.src = url;
+      })();
+    });
+  }
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = a => a[Math.floor(Math.random() * a.length)];
   let cur = COLORS[0];
@@ -208,29 +237,76 @@
   });
 
   /* ── галерея ── */
-  fetch(CFG.dir + 'list.json', { cache: 'no-store' })
+  // 1) спрашиваем у сервера, что лежит в папке
+  // 2) если не вышло (офлайн) — берём прошлый список из памяти телефона
+  // 3) если и его нет — читаем list.json, как раньше
+  const CACHE_KEY = 'yeva.malen.list';
+
+  fetch('/api/pics?dir=' + encodeURIComponent(CFG.dir.replace(/\/$/, '')), { cache: 'no-store' })
     .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(list => showGallery(Array.isArray(list) ? list : []))
+    .then(d => {
+      const items = (d && d.items) || [];
+      if (!items.length) throw new Error('папка пуста');
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(items)); } catch (e) {}
+      console.log('[malen] в папке найдено файлов: ' + items.length);
+      showGallery(items);
+    })
     .catch(e => {
-      console.warn('[malen] список не прочитался: ' + e.message);
-      showGallery([]);
+      console.warn('[malen] /api/pics: ' + e.message + ' — пробую запасные пути');
+      let cached = null;
+      try { cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch (x) {}
+      if (cached && cached.length) { showGallery(cached); return; }
+      fetch(CFG.dir + 'list.json', { cache: 'no-store' })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(list => showGallery(Array.isArray(list) ? list : []))
+        .catch(() => showGallery([]));
     });
 
   function showGallery(list) {
     if (!list.length) {
       $('gallery').innerHTML = `<div class="empty">
         Пока нет ни одной картинки.<br><br>
-        Положи файлы в папку <code>malen/</code> и перечисли их в <code>malen/list.json</code>:
-        <br><br><code>[ { "file": "1.svg", "name": "Blume" } ]</code>
+        Просто положи файлы в папку <code>malen/</code> — список ведётся сам.
+        Имя файла становится подписью: <code>blume.png</code> → «Blume».
         <br><br>Подойдёт любой SVG, PNG или JPG — заливка работает по картинке.
       </div>`;
       return;
     }
     $('gallery').innerHTML = list.map((p, i) =>
-      `<button class="pic" data-i="${i}">
-         <img src="${CFG.dir + p.file}" alt="" loading="lazy">
+      `<button class="pic" data-i="${i}" id="pic${i}">
+         <img src="${CFG.dir + p.file}" alt="">
          <span>${p.name || p.file}</span>
        </button>`).join('');
+
+    // Проверяем каждый файл по-настоящему: код ответа и тип содержимого.
+    // Битая картинка молча ничего не говорит, а так видно причину.
+    list.forEach((p, i) => {
+      const url = CFG.dir + p.file;
+      const card = $('pic' + i);
+      const img = card.querySelector('img');
+      img.addEventListener('error', () => {
+        resolve(p.file).then(res => {
+          img.src = res.url;                      // нашлось под другим расширением
+          card.classList.remove('broken');
+        }).catch(() => {
+        fetch(url, { cache: 'no-store' })
+          .then(r => {
+            const ct = r.headers.get('content-type') || '?';
+            const why = !r.ok ? ('HTTP ' + r.status)
+                      : /text\/html/i.test(ct) ? ('вместо картинки HTML: ' + ct)
+                      : ('тип ' + ct);
+            card.classList.add('broken');
+            card.insertAdjacentHTML('beforeend', '<small>' + url + '<br>' + why + '</small>');
+            console.warn('[malen] ' + url + ' — ' + why);
+          })
+          .catch(e => {
+            card.classList.add('broken');
+            card.insertAdjacentHTML('beforeend', '<small>' + url + '<br>' + e.message + '</small>');
+            console.warn('[malen] ' + url + ' — ' + e.message);
+          });
+        });
+      });
+    });
     $('gallery').addEventListener('click', e => {
       const b = e.target.closest('.pic');
       if (b) open(list[+b.dataset.i]);
@@ -245,17 +321,29 @@
     initAudio();
     COLORS.slice(0, 6).forEach(loadVoice);
     $('ttl').textContent = item.name || item.file;
-    const img = new Image();
-    img.onload = () => setup(img);
-    img.onerror = () => { $('ttl').textContent = 'не открылось: ' + item.file; };
-    img.src = CFG.dir + item.file;
+    const url = CFG.dir + item.file;
+    resolve(item.file).then(res => setup(res.img)).catch(() => {
+      fetch(url, { cache: 'no-store' })
+        .then(r => r.text().then(t => ({ r: r, t: t })))
+        .then(({ r, t }) => {
+          const ct = r.headers.get('content-type') || '?';
+          let why;
+          if (!r.ok) why = 'HTTP ' + r.status + ' — файла нет по адресу ' + url;
+          else if (/text\/html/i.test(ct)) why = 'сервер вернул HTML вместо картинки — путь неверный';
+          else if (/<svg/i.test(t) && !/viewBox|width/i.test(t.slice(0, 400))) why = 'в SVG нет viewBox и размеров — браузер не знает, какого он размера';
+          else why = 'файл есть (' + ct + ', ' + Math.round(t.length / 1024) + ' КБ), но не рисуется';
+          $('ttl').textContent = why;
+          console.warn('[malen] ' + url + ' — ' + why);
+        })
+        .catch(e => { $('ttl').textContent = url + ' — ' + e.message; });
+    });
   }
 
   function setup(img) {
     $('gallery').style.display = 'none';
     $('board').classList.add('on');
     $('palette').classList.add('on');
-    ['btnBack', 'btnUndo', 'btnReset', 'btnDone'].forEach(id => { $(id).style.display = 'grid'; });
+    ['btnBack', 'btnZoom', 'btnUndo', 'btnReset', 'btnDone'].forEach(id => { $(id).style.display = 'grid'; });
     $('btnHome').style.display = 'none';
 
     const b = $('board');
@@ -285,16 +373,95 @@
       if (lum < CFG.lineLum) lineMask[p] = 1; else free++;
     }
     history = []; painted = 0;
-    cv.addEventListener('pointerdown', onTap);
+    zoom.scale = 1; zoom.tx = 0; zoom.ty = 0; applyZoom();
+    cv.addEventListener('pointerdown', onDown);
+    cv.addEventListener('pointermove', onMove);
+    cv.addEventListener('pointerup', onUp);
+    cv.addEventListener('pointercancel', onUp);
   }
 
-  function onTap(e) {
+  /* ── масштаб и перетаскивание ──
+     Один палец: тап заливает, а при увеличении таскает картинку.
+     Два пальца: щипок меняет масштаб.
+     Координаты заливки берём из getBoundingClientRect, он уже учитывает
+     трансформацию, поэтому пересчитывать масштаб вручную не нужно. */
+  const zoom = { scale: 1, tx: 0, ty: 0 };
+  const pts = new Map();
+  let pinchDist = 0, pinchScale = 1, pinchMid = null, didPinch = false;
+
+  function applyZoom() {
+    if (!cv) return;
+    const lim = s => {
+      const maxX = Math.max(0, (W * zoom.scale - W) / 2) + 30;
+      const maxY = Math.max(0, (H * zoom.scale - H) / 2) + 30;
+      zoom.tx = Math.max(-maxX, Math.min(maxX, zoom.tx));
+      zoom.ty = Math.max(-maxY, Math.min(maxY, zoom.ty));
+    };
+    lim();
+    cv.style.transform = 'translate(' + zoom.tx.toFixed(1) + 'px,' + zoom.ty.toFixed(1) + 'px) scale(' + zoom.scale.toFixed(3) + ')';
+  }
+
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+  function onDown(e) {
+    cv.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: 0 });
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      pinchDist = dist(a, b);
+      pinchScale = zoom.scale;
+      pinchMid = mid(a, b);
+      didPinch = true;
+    }
+  }
+
+  function onMove(e) {
+    const p = pts.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    p.moved += Math.abs(dx) + Math.abs(dy);
+
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      const d = dist(a, b);
+      if (pinchDist > 0) zoom.scale = Math.max(1, Math.min(6, pinchScale * d / pinchDist));
+      const m = mid(a, b);
+      if (pinchMid) { zoom.tx += m.x - pinchMid.x; zoom.ty += m.y - pinchMid.y; }
+      pinchMid = m;
+      applyZoom();
+      return;
+    }
+    if (pts.size === 1 && zoom.scale > 1.02) {
+      zoom.tx += dx; zoom.ty += dy;
+      applyZoom();
+    }
+  }
+
+  function onUp(e) {
+    const p = pts.get(e.pointerId);
+    pts.delete(e.pointerId);
+    if (pts.size > 0) return;
+
+    const wasPinch = didPinch;
+    didPinch = false;
+    pinchMid = null;
+    if (wasPinch || !p) return;
+    if (p.moved > 12) return;                       // это было перетаскивание
+
     const r = cv.getBoundingClientRect();
-    const x = Math.floor((e.clientX - r.left) * W / r.width);
-    const y = Math.floor((e.clientY - r.top) * H / r.height);
+    const x = Math.floor((p.sx - r.left) * W / r.width);
+    const y = Math.floor((p.sy - r.top) * H / r.height);
     if (x < 0 || y < 0 || x >= W || y >= H) return;
     fill(x, y);
   }
+
+  $('btnZoom').addEventListener('click', () => {
+    zoom.scale = zoom.scale < 1.5 ? 2 : zoom.scale < 2.5 ? 3 : 1;
+    if (zoom.scale === 1) { zoom.tx = 0; zoom.ty = 0; }
+    applyZoom();
+  });
 
   function fill(sx, sy) {
     const p0 = sy * W + sx;
@@ -389,10 +556,11 @@
     $('board').classList.remove('on');
     $('palette').classList.remove('on');
     $('gallery').style.display = 'grid';
-    ['btnBack', 'btnUndo', 'btnReset', 'btnDone'].forEach(id => { $(id).style.display = 'none'; });
+    ['btnBack', 'btnZoom', 'btnUndo', 'btnReset', 'btnDone'].forEach(id => { $(id).style.display = 'none'; });
     $('btnHome').style.display = 'grid';
     $('ttl').textContent = 'Malen';
     $('board').innerHTML = '';
+    pts.clear(); zoom.scale = 1; zoom.tx = 0; zoom.ty = 0;
     cv = null; ctx = null; clean = null; history = [];
   }
   $('btnBack').addEventListener('click', toGallery);
