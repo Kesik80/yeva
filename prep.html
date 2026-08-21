@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Подготовка раскрасок — YEVA</title>
 <meta name="theme-color" content="#EEF3FA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,26 +18,19 @@
     -webkit-user-select:none;user-select:none;
   }
   .wrap{max-width:640px;margin:0 auto}
-  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-  h1{font-size:19px;font-weight:600}
-  .back{font-size:14px;color:#2F8FC4;text-decoration:none}
+  .top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  h1{font-size:19px;font-weight:600;flex:1}
+  .back{font-size:13.5px;color:#2F8FC4;text-decoration:none}
   .card{background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 4px 16px rgba(30,61,87,.07)}
   label{display:block;font-size:12px;font-weight:600;color:#5B7A93;margin-bottom:5px}
-  input[type=text]{
-    width:100%;padding:11px 13px;font-size:16px;font-family:inherit;color:#1E3D57;
-    border:1.5px solid #D9E4EE;border-radius:11px;background:#FBFDFF;outline:none;
-  }
-  input[type=text]:focus{border-color:#4FA8D8}
+  input[type=text]{width:100%;padding:11px 13px;font-size:16px;font-family:inherit;color:#1E3D57;
+    border:1.5px solid #D9E4EE;border-radius:11px;background:#FBFDFF;outline:none}
   input[type=range]{width:100%;height:26px;accent-color:#2F8FC4}
   input[type=file]{display:none}
-  .drop{
-    display:block;border:2px dashed #C6D6E4;border-radius:14px;padding:22px 12px;text-align:center;
-    color:#5B7A93;font-size:14px;cursor:pointer;background:#FBFDFF;
-  }
-  button{
-    width:100%;padding:12px;font-size:15px;font-weight:600;font-family:inherit;
-    border:0;border-radius:12px;background:#2F8FC4;color:#fff;cursor:pointer;margin-top:10px;
-  }
+  .drop{display:block;border:2px dashed #C6D6E4;border-radius:14px;padding:22px 12px;text-align:center;
+    color:#5B7A93;font-size:14px;cursor:pointer;background:#FBFDFF}
+  button{width:100%;padding:12px;font-size:15px;font-weight:600;font-family:inherit;border:0;border-radius:12px;
+    background:#2F8FC4;color:#fff;cursor:pointer;margin-top:10px}
   button.ghost{background:#E9F2F9;color:#2C6E96}
   button.go{background:#1F9B6E}
   button:disabled{background:#BCCDDA}
@@ -45,14 +38,21 @@
   .row>*{flex:1}
   .val{color:#2F8FC4;font-variant-numeric:tabular-nums}
   .hint{font-weight:500;color:#93A8BA;font-size:11.5px}
-  canvas{width:100%;height:auto;display:block;border-radius:12px;background:#fff;border:1px solid #E6EDF4;touch-action:none}
-  .tabs{display:flex;gap:8px;margin-bottom:9px}
-  .tabs button{margin:0;padding:8px;font-size:13px;background:#EDF3FA;color:#5B7A93}
-  .tabs button.on{background:#2F8FC4;color:#fff}
-  .log{margin-top:10px;font-size:12.5px;color:#5B7A93;max-height:120px;overflow:auto}
+
+  .viewport{overflow:hidden;border-radius:12px;border:1px solid #E6EDF4;background:#fff;
+    display:grid;place-items:center;max-height:62vh}
+  canvas{max-width:100%;display:block;touch-action:none;transform-origin:center center;will-change:transform}
+
+  .bar{display:flex;gap:7px;margin-bottom:9px;overflow-x:auto}
+  .bar button{margin:0;padding:9px 11px;font-size:13px;background:#EDF3FA;color:#5B7A93;width:auto;flex:none;white-space:nowrap}
+  .bar button.on{background:#2F8FC4;color:#fff}
+  .zoombar{display:flex;gap:7px;margin-top:9px}
+  .zoombar button{margin:0;padding:9px;font-size:15px;background:#EDF3FA;color:#2C6E96}
+
+  .log{margin-top:10px;font-size:12.5px;color:#5B7A93;max-height:110px;overflow:auto}
   .ok{color:#1F8A5F}.err{color:#C0392B}
   .swatches{display:flex;gap:8px;overflow-x:auto;padding:8px 0 4px}
-  .sw{width:40px;height:40px;flex:none;border-radius:12px;border:3px solid transparent;padding:0;margin:0;cursor:pointer}
+  .sw{width:38px;height:38px;flex:none;border-radius:12px;border:3px solid transparent;padding:0;margin:0}
   .sw.on{border-color:#1E3D57}
   code{background:#EDF3FA;padding:1px 5px;border-radius:5px;font-size:12px}
 
@@ -60,7 +60,8 @@
   .lock.show{display:grid}
   .lockbox{background:#fff;border-radius:20px;padding:24px;width:100%;max-width:360px;text-align:center}
   .lockbox h3{font-size:17px;margin-bottom:12px}
-  .lockbox input{width:100%;padding:11px;border:1.5px solid #D9E4EE;border-radius:11px;text-align:center;font-size:16px;font-family:inherit;letter-spacing:.1em}
+  .lockbox input{width:100%;padding:11px;border:1.5px solid #D9E4EE;border-radius:11px;text-align:center;
+    font-size:16px;font-family:inherit;letter-spacing:.1em}
   .lockmsg{font-size:13px;min-height:18px;margin-top:8px;color:#C0392B}
 </style>
 </head>
@@ -68,7 +69,8 @@
 <div class="wrap">
   <div class="top">
     <h1>Подготовка раскрасок</h1>
-    <a class="back" href="index.html">← назад</a>
+    <a class="back" href="voicegen.html">голоса</a>
+    <a class="back" href="index.html">← домой</a>
   </div>
 
   <div class="card">
@@ -78,18 +80,35 @@
   </div>
 
   <div class="card" id="work" style="display:none">
-    <div class="tabs">
+    <div class="bar">
+      <button id="tRes" class="on">результат</button>
       <button id="tOrig">исходник</button>
-      <button id="tRes" class="on">обработано</button>
-      <button id="tTest" class="ghost" style="background:#EDF3FA;color:#5B7A93">проверить заливку</button>
+      <button id="tMove">двигать</button>
+      <button id="tPen">рисовать</button>
+      <button id="tEr">ластик</button>
+      <button id="tFill">заливка</button>
     </div>
-    <canvas id="cv"></canvas>
+
+    <div class="viewport" id="vp"><canvas id="cv"></canvas></div>
+
     <div class="swatches" id="sw" style="display:none"></div>
+
+    <div class="zoombar">
+      <button id="zOut">−</button>
+      <button id="zFit">1:1</button>
+      <button id="zIn">+</button>
+      <button id="undo" style="flex:2">отменить</button>
+    </div>
+
+    <div id="brushBox" style="display:none">
+      <label style="margin-top:12px">Толщина кисти <b class="val" id="vBr"></b> <span class="hint">и для рисования, и для ластика</span></label>
+      <input type="range" id="br" min="1" max="30" step="1" value="6">
+    </div>
 
     <label style="margin-top:12px">Порог чёрного <b class="val" id="vThr"></b> <span class="hint">выше — линий больше</span></label>
     <input type="range" id="thr" min="80" max="220" step="5" value="150">
 
-    <label>Убрать крапинки <b class="val" id="vDes"></b> <span class="hint">мусор от сжатия JPG</span></label>
+    <label>Убрать крапинки <b class="val" id="vDes"></b></label>
     <input type="range" id="des" min="0" max="3" step="1" value="1">
 
     <label>Заделать щели <b class="val" id="vGap"></b> <span class="hint">чтобы краска не вытекала</span></label>
@@ -98,9 +117,7 @@
     <label>Толщина линий <b class="val" id="vFat"></b></label>
     <input type="range" id="fat" min="0" max="2" step="1" value="0">
 
-    <div class="row">
-      <button class="ghost" id="auto">подобрать само</button>
-    </div>
+    <button class="ghost" id="auto">подобрать само</button>
     <div id="stat" class="log"></div>
   </div>
 
@@ -130,11 +147,16 @@
   const REPO_DIR = 'malen';
   const MAXW = 1400;
 
-  let orig = null, oW = 0, oH = 0;     // исходник в ImageData
-  let out = null;                       // результат обработки
-  let mode = 'res', testData = null, fileBase = '';
   const cv = $('cv');
   const ctx = cv.getContext('2d', { willReadFrequently: true });
+
+  let orig = null, oW = 0, oH = 0;
+  let baseMask = null;     // результат порога и морфологии
+  let manual = null;       // ручные правки: 1 — чёрное, 2 — белое
+  let out = null;          // готовая картинка
+  let testData = null;
+  let mode = 'res', fileBase = '';
+  const undoStack = [];
 
   const log = (m, cls) => {
     const d = document.createElement('div');
@@ -159,9 +181,12 @@
       ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, oW, oH);
       ctx.drawImage(img, 0, 0, oW, oH);
       orig = ctx.getImageData(0, 0, oW, oH);
+      manual = new Uint8Array(oW * oH);
+      undoStack.length = 0;
       URL.revokeObjectURL(url);
       $('work').style.display = 'block';
       $('save').style.display = 'block';
+      zoom.scale = 1; zoom.tx = 0; zoom.ty = 0; applyZoom();
       autoTune();
     };
     img.onerror = () => alert('не удалось открыть картинку');
@@ -170,47 +195,8 @@
   });
 
   /* ── обработка ── */
-  function process() {
-    if (!orig) return;
-    const thr = +$('thr').value, des = +$('des').value, gapN = +$('gap').value, fat = +$('fat').value;
-    const src = orig.data, n = oW * oH;
-
-    // 1. в чёрно-белое по порогу — этим убираются все переливы JPG внутри областей
-    let mask = new Uint8Array(n);
-    for (let p = 0; p < n; p++) {
-      const i = p * 4;
-      const lum = 0.2126 * src[i] + 0.7152 * src[i + 1] + 0.0722 * src[i + 2];
-      if (src[i + 3] < 32) { mask[p] = 0; continue; }      // прозрачное считаем белым
-      mask[p] = lum < thr ? 1 : 0;
-    }
-
-    // 2. крапинки: одиночные чёрные точки без поддержки соседей
-    for (let k = 0; k < des; k++) mask = despeckle(mask);
-
-    // 3. щели: расширяем и сжимаем обратно — дырки в контуре затягиваются
-    for (let k = 0; k < gapN; k++) mask = dilate(mask);
-    for (let k = 0; k < gapN; k++) mask = erode(mask);
-
-    // 4. при желании линии потолще
-    for (let k = 0; k < fat; k++) mask = dilate(mask);
-
-    const img = ctx.createImageData(oW, oH);
-    const d = img.data;
-    let dark = 0;
-    for (let p = 0; p < n; p++) {
-      const v = mask[p] ? 0 : 255;
-      if (mask[p]) dark++;
-      const i = p * 4;
-      d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
-    }
-    out = img;
-    testData = null;
-    if (mode !== 'orig') draw();
-    $('stat').textContent = 'линий: ' + (dark / n * 100).toFixed(1) + '% холста · размер ' + oW + '×' + oH;
-  }
-
   const idx = (x, y) => y * oW + x;
-  function neighbours(m, p) {
+  function nb(m, p) {
     const x = p % oW, y = (p - x) / oW;
     let c = 0;
     if (x > 0 && m[p - 1]) c++;
@@ -219,77 +205,240 @@
     if (y < oH - 1 && m[p + oW]) c++;
     return c;
   }
-  function despeckle(m) {
-    const r = new Uint8Array(m);
-    for (let p = 0; p < m.length; p++) if (m[p] && neighbours(m, p) <= 1) r[p] = 0;
-    return r;
-  }
-  function dilate(m) {
-    const r = new Uint8Array(m);
-    for (let p = 0; p < m.length; p++) if (!m[p] && neighbours(m, p) >= 1) r[p] = 1;
-    return r;
-  }
-  function erode(m) {
-    const r = new Uint8Array(m);
-    for (let p = 0; p < m.length; p++) if (m[p] && neighbours(m, p) <= 2) r[p] = 0;
-    return r;
+  const despeckle = m => { const r = new Uint8Array(m); for (let p = 0; p < m.length; p++) if (m[p] && nb(m, p) <= 1) r[p] = 0; return r; };
+  const dilate = m => { const r = new Uint8Array(m); for (let p = 0; p < m.length; p++) if (!m[p] && nb(m, p) >= 1) r[p] = 1; return r; };
+  const erode = m => { const r = new Uint8Array(m); for (let p = 0; p < m.length; p++) if (m[p] && nb(m, p) <= 2) r[p] = 0; return r; };
+
+  function process() {
+    if (!orig) return;
+    const thr = +$('thr').value, des = +$('des').value, g = +$('gap').value, fat = +$('fat').value;
+    const src = orig.data, n = oW * oH;
+    let m = new Uint8Array(n);
+    for (let p = 0; p < n; p++) {
+      const i = p * 4;
+      if (src[i + 3] < 32) { m[p] = 0; continue; }
+      m[p] = (0.2126 * src[i] + 0.7152 * src[i + 1] + 0.0722 * src[i + 2]) < thr ? 1 : 0;
+    }
+    for (let k = 0; k < des; k++) m = despeckle(m);
+    for (let k = 0; k < g; k++) m = dilate(m);
+    for (let k = 0; k < g; k++) m = erode(m);
+    for (let k = 0; k < fat; k++) m = dilate(m);
+    baseMask = m;
+    compose();
   }
 
-  // порог подбираем так, чтобы линии заняли разумную долю холста
+  // ручные правки поверх обработки — поэтому ползунки не стирают нарисованное
+  function compose() {
+    if (!baseMask) return;
+    const n = oW * oH;
+    const img = ctx.createImageData(oW, oH);
+    const d = img.data;
+    let dark = 0;
+    for (let p = 0; p < n; p++) {
+      let black = baseMask[p];
+      if (manual[p] === 1) black = 1;
+      else if (manual[p] === 2) black = 0;
+      if (black) dark++;
+      const v = black ? 0 : 255, i = p * 4;
+      d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
+    }
+    out = img;
+    testData = null;
+    if (mode !== 'orig') draw();
+    $('stat').textContent = 'линий: ' + (dark / n * 100).toFixed(1) + '% холста · ' + oW + '×' + oH +
+      ' · масштаб ' + zoom.scale.toFixed(1) + '×';
+  }
+
   function autoTune() {
-    let best = 150, bestScore = 1e9;
+    // порог ищем по доле чёрного, а заодно ставим разумные крапинки и щели
+    let best = 150, bestScore = 1e9, n = oW * oH;
     for (let t = 90; t <= 210; t += 10) {
       let dark = 0;
-      for (let p = 0; p < oW * oH; p++) {
+      for (let p = 0; p < n; p++) {
         const i = p * 4;
-        const lum = 0.2126 * orig.data[i] + 0.7152 * orig.data[i + 1] + 0.0722 * orig.data[i + 2];
-        if (lum < t) dark++;
+        if ((0.2126 * orig.data[i] + 0.7152 * orig.data[i + 1] + 0.0722 * orig.data[i + 2]) < t) dark++;
       }
-      const share = dark / (oW * oH);
-      const score = Math.abs(share - 0.08);          // около 8% холста — типичная раскраска
+      const score = Math.abs(dark / n - 0.08);
       if (score < bestScore) { bestScore = score; best = t; }
     }
     $('thr').value = best;
+    // фотографии шумят сильнее рисунков — смотрим на разброс яркости
+    let noisy = 0;
+    for (let p = 0; p < n; p += 7) {
+      const i = p * 4;
+      const lum = 0.2126 * orig.data[i] + 0.7152 * orig.data[i + 1] + 0.0722 * orig.data[i + 2];
+      if (lum > 60 && lum < 200) noisy++;
+    }
+    const grey = noisy / (n / 7);
+    $('des').value = grey > 0.18 ? 2 : 1;
+    $('gap').value = grey > 0.18 ? 2 : 1;
+    $('fat').value = 0;
     showVals();
+    pushUndo();
     process();
-    log('порог подобран: ' + best, 'ok');
+    log('подобрано: порог ' + best + ', крапинки ' + $('des').value + ', щели ' + $('gap').value, 'ok');
   }
   $('auto').addEventListener('click', autoTune);
 
-  /* ── показ ── */
-  function draw() {
-    if (mode === 'orig' && orig) ctx.putImageData(orig, 0, 0);
-    else if (mode === 'test' && testData) ctx.putImageData(testData, 0, 0);
-    else if (out) ctx.putImageData(out, 0, 0);
+  /* ── отмена ── */
+  function pushUndo() {
+    undoStack.push({
+      manual: new Uint8Array(manual),
+      thr: $('thr').value, des: $('des').value, gap: $('gap').value, fat: $('fat').value
+    });
+    if (undoStack.length > 20) undoStack.shift();
   }
-  function setMode(m) {
-    mode = m;
-    $('tOrig').className = m === 'orig' ? 'on' : '';
-    $('tRes').className = m === 'res' ? 'on' : '';
-    $('tTest').className = m === 'test' ? 'on' : '';
-    $('sw').style.display = m === 'test' ? 'flex' : 'none';
-    if (m === 'test' && !testData) testData = new ImageData(new Uint8ClampedArray(out.data), oW, oH);
-    draw();
-  }
-  $('tOrig').onclick = () => setMode('orig');
-  $('tRes').onclick = () => setMode('res');
-  $('tTest').onclick = () => setMode('test');
+  $('undo').addEventListener('click', () => {
+    if (!undoStack.length) { log('отменять нечего'); return; }
+    const s = undoStack.pop();
+    manual = new Uint8Array(s.manual);
+    $('thr').value = s.thr; $('des').value = s.des; $('gap').value = s.gap; $('fat').value = s.fat;
+    showVals();
+    process();
+  });
 
-  ['thr', 'des', 'gap', 'fat'].forEach(id =>
-    $(id).addEventListener('input', () => { showVals(); process(); }));
+  ['thr', 'des', 'gap', 'fat'].forEach(id => {
+    $(id).addEventListener('input', () => { showVals(); process(); });
+    $(id).addEventListener('change', pushUndo);       // шаг отмены на отпускание ползунка
+  });
+  $('br').addEventListener('input', () => { $('vBr').textContent = $('br').value; });
   function showVals() {
     $('vThr').textContent = $('thr').value;
     $('vDes').textContent = $('des').value;
     $('vGap').textContent = $('gap').value;
     $('vFat').textContent = $('fat').value;
+    $('vBr').textContent = $('br').value;
   }
   showVals();
 
-  /* ── проба заливки прямо здесь ── */
+  /* ── режимы ── */
+  function setMode(m) {
+    mode = m;
+    [['tRes', 'res'], ['tOrig', 'orig'], ['tMove', 'move'], ['tPen', 'pen'], ['tEr', 'er'], ['tFill', 'fill']]
+      .forEach(([id, v]) => $(id).className = (m === v ? 'on' : ''));
+    $('brushBox').style.display = (m === 'pen' || m === 'er') ? 'block' : 'none';
+    $('sw').style.display = m === 'fill' ? 'flex' : 'none';
+    if (m === 'fill' && !testData) testData = new ImageData(new Uint8ClampedArray(out.data), oW, oH);
+    draw();
+  }
+  [['tRes', 'res'], ['tOrig', 'orig'], ['tMove', 'move'], ['tPen', 'pen'], ['tEr', 'er'], ['tFill', 'fill']]
+    .forEach(([id, v]) => $(id).addEventListener('click', () => setMode(v)));
+
+  function draw() {
+    if (mode === 'orig' && orig) ctx.putImageData(orig, 0, 0);
+    else if (mode === 'fill' && testData) ctx.putImageData(testData, 0, 0);
+    else if (out) ctx.putImageData(out, 0, 0);
+  }
+
+  /* ── масштаб ── */
+  const zoom = { scale: 1, tx: 0, ty: 0 };
+  function applyZoom() {
+    const maxX = Math.max(0, (cv.clientWidth * zoom.scale - cv.clientWidth) / 2) + 40;
+    const maxY = Math.max(0, (cv.clientHeight * zoom.scale - cv.clientHeight) / 2) + 40;
+    zoom.tx = Math.max(-maxX, Math.min(maxX, zoom.tx));
+    zoom.ty = Math.max(-maxY, Math.min(maxY, zoom.ty));
+    cv.style.transform = 'translate(' + zoom.tx.toFixed(1) + 'px,' + zoom.ty.toFixed(1) + 'px) scale(' + zoom.scale.toFixed(3) + ')';
+  }
+  $('zIn').onclick = () => { zoom.scale = Math.min(8, zoom.scale * 1.5); applyZoom(); };
+  $('zOut').onclick = () => { zoom.scale = Math.max(1, zoom.scale / 1.5); if (zoom.scale === 1) { zoom.tx = 0; zoom.ty = 0; } applyZoom(); };
+  $('zFit').onclick = () => { zoom.scale = 1; zoom.tx = 0; zoom.ty = 0; applyZoom(); };
+
+  /* ── жесты: рисование, ластик, перетаскивание, щипок ── */
+  const pts = new Map();
+  let pinchDist = 0, pinchScale = 1, pinchMid = null, didPinch = false, stroking = false, last = null;
+
+  const toImg = (clientX, clientY) => {
+    const r = cv.getBoundingClientRect();
+    return {
+      x: Math.floor((clientX - r.left) * oW / r.width),
+      y: Math.floor((clientY - r.top) * oH / r.height)
+    };
+  };
+
+  function paintAt(x, y, val) {
+    const rad = Math.max(1, Math.round(+$('br').value / 2));
+    for (let dy = -rad; dy <= rad; dy++) {
+      for (let dx = -rad; dx <= rad; dx++) {
+        if (dx * dx + dy * dy > rad * rad) continue;
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= oW || ny >= oH) continue;
+        manual[idx(nx, ny)] = val;
+      }
+    }
+  }
+  function line(a, b, val) {
+    const dx = Math.abs(b.x - a.x), dy = Math.abs(b.y - a.y);
+    const steps = Math.max(dx, dy, 1);
+    for (let i = 0; i <= steps; i++) {
+      paintAt(Math.round(a.x + (b.x - a.x) * i / steps), Math.round(a.y + (b.y - a.y) * i / steps), val);
+    }
+  }
+
+  cv.addEventListener('pointerdown', e => {
+    cv.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: 0 });
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+      pinchScale = zoom.scale;
+      pinchMid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      didPinch = true;
+      stroking = false;
+      return;
+    }
+    if (mode === 'pen' || mode === 'er') {
+      pushUndo();
+      stroking = true;
+      last = toImg(e.clientX, e.clientY);
+      paintAt(last.x, last.y, mode === 'pen' ? 1 : 2);
+      compose();
+    }
+  });
+
+  cv.addEventListener('pointermove', e => {
+    const p = pts.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    p.moved += Math.abs(dx) + Math.abs(dy);
+
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinchDist > 0) zoom.scale = Math.max(1, Math.min(8, pinchScale * d / pinchDist));
+      const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      if (pinchMid) { zoom.tx += m.x - pinchMid.x; zoom.ty += m.y - pinchMid.y; }
+      pinchMid = m;
+      applyZoom();
+      return;
+    }
+    if (stroking) {
+      const cur = toImg(e.clientX, e.clientY);
+      line(last, cur, mode === 'pen' ? 1 : 2);
+      last = cur;
+      compose();
+      return;
+    }
+    if (mode === 'move' && zoom.scale > 1.02) { zoom.tx += dx; zoom.ty += dy; applyZoom(); }
+  });
+
+  const endPointer = e => {
+    const p = pts.get(e.pointerId);
+    pts.delete(e.pointerId);
+    if (pts.size > 0) return;
+    const wasPinch = didPinch;
+    didPinch = false; pinchMid = null;
+    if (stroking) { stroking = false; return; }
+    if (wasPinch || !p || p.moved > 12) return;
+    if (mode === 'fill' && testData) doFill(toImg(p.sx, p.sy));
+  };
+  cv.addEventListener('pointerup', endPointer);
+  cv.addEventListener('pointercancel', endPointer);
+
+  /* ── проба заливки ── */
   const COLORS = [['rot', '#E23A3A'], ['blau', '#2F6FD0'], ['gelb', '#FFCE2E'], ['grün', '#3EA85A'], ['lila', '#8B5CD6']];
   let fillC = [226, 58, 58];
-  $('sw').innerHTML = COLORS.map((c, i) =>
-    `<button class="sw ${i ? '' : 'on'}" data-c="${c[1]}" style="background:${c[1]}"></button>`).join('');
+  $('sw').innerHTML = COLORS.map((c, i) => `<button class="sw ${i ? '' : 'on'}" data-c="${c[1]}" style="background:${c[1]}"></button>`).join('');
   $('sw').addEventListener('click', e => {
     const b = e.target.closest('.sw');
     if (!b) return;
@@ -299,15 +448,12 @@
     b.classList.add('on');
   });
 
-  cv.addEventListener('pointerdown', e => {
-    if (mode !== 'test' || !testData) return;
-    const r = cv.getBoundingClientRect();
-    const x = Math.floor((e.clientX - r.left) * oW / r.width);
-    const y = Math.floor((e.clientY - r.top) * oH / r.height);
+  function doFill(pt) {
+    const { x, y } = pt;
     if (x < 0 || y < 0 || x >= oW || y >= oH) return;
-    const d = testData.data, p0 = idx(x, y);
-    if (out.data[p0 * 4] < 128) return;                  // линия
-    const stack = [x, y], seen = new Uint8Array(oW * oH);
+    const d = testData.data;
+    if (out.data[idx(x, y) * 4] < 128) return;
+    const seen = new Uint8Array(oW * oH), stack = [x, y];
     let n = 0;
     while (stack.length) {
       const yy = stack.pop(), xx = stack.pop();
@@ -323,8 +469,8 @@
     draw();
     const share = n / (oW * oH) * 100;
     $('stat').textContent = 'залито ' + share.toFixed(1) + '% холста' +
-      (share > 60 ? ' — краска вытекла, добавь «заделать щели»' : '');
-  });
+      (share > 60 ? ' — краска вытекла: добавь «заделать щели» или закрась разрыв кистью' : '');
+  }
 
   /* ── сохранение ── */
   function pngBase64() {
@@ -333,7 +479,6 @@
     tmp.getContext('2d').putImageData(out, 0, 0);
     return tmp.toDataURL('image/png').split(',')[1];
   }
-
   $('dl').addEventListener('click', () => {
     const a = document.createElement('a');
     a.href = 'data:image/png;base64,' + pngBase64();
@@ -341,18 +486,16 @@
     a.click();
   });
 
-  let pending = false;
   $('up').addEventListener('click', () => {
     if (!out) return;
-    pending = true;
     let saved = null;
     try { saved = localStorage.getItem('voicegen.pw'); } catch (e) {}
-    if (saved) { commit(saved); return; }      // тот же пароль, что в voicegen
+    if (saved) { commit(saved); return; }
     $('lockMsg').textContent = '';
     $('lock').classList.add('show');
     $('pw').focus();
   });
-  $('cancel').addEventListener('click', () => { $('lock').classList.remove('show'); pending = false; });
+  $('cancel').addEventListener('click', () => $('lock').classList.remove('show'));
   $('ok').addEventListener('click', () => {
     const p = $('pw').value.trim();
     if (!p) return;
@@ -376,17 +519,13 @@
     fetch('/api/commit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: 'Раскраска: ' + path,
-        files: [{ path: path, content: pngBase64() }],
-        adminToken: pw
-      })
+      body: JSON.stringify({ message: 'Раскраска: ' + path, files: [{ path: path, content: pngBase64() }], adminToken: pw })
     })
-      .then(r => r.json().then(d => ({ r: r, d: d })))
+      .then(r => r.json().then(d => ({ r, d })))
       .then(({ r, d }) => {
         if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
-        log('готово: коммит ' + String(d.commit).slice(0, 7) + ' · появится в игре после пересборки', 'ok');
-        try { localStorage.removeItem('yeva.malen.list'); } catch (e) {}   // чтобы список перечитался
+        log('готово: коммит ' + String(d.commit).slice(0, 7) + ' · появится после пересборки', 'ok');
+        try { localStorage.removeItem('yeva.malen.list'); } catch (e) {}
       })
       .catch(e => {
         log('не вышло: ' + e.message, 'err');

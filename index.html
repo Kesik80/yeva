@@ -221,6 +221,18 @@
     title.classList.remove('hold');
   };
 
+  // Подзаголовок ведёт на подготовку картинок — тем же долгим удержанием
+  const sub = document.querySelector('.sub');
+  let timer2 = null;
+  if (sub) {
+    sub.addEventListener('pointerdown', () => {
+      clearTimeout(timer2);
+      timer2 = setTimeout(() => { location.href = 'prep.html'; }, 1500);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev =>
+      sub.addEventListener(ev, () => clearTimeout(timer2)));
+  }
+
   title.addEventListener('pointerdown', start);
   title.addEventListener('pointerup', stop);
   title.addEventListener('pointerleave', stop);
@@ -229,6 +241,7 @@
 
   // запасной вход, если удержание не сработает: /?voice
   if (location.search.indexOf('voice') >= 0) location.href = 'voicegen.html';
+  if (location.search.indexOf('prep') >= 0) location.href = 'prep.html';
 })();
 </script>
 <script src="install.js"></script>
