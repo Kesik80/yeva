@@ -525,8 +525,12 @@
     }
     await Promise.all([worker(), worker(), worker(), worker()]);
     render();
-    log('на сайте есть ' + have + ' из ' + uniq.length + ', не хватает ' + (uniq.length - have),
-        have === uniq.length ? 'have' : 'fresh');
+    const missing = uniq.filter(a => !onSite[slug(a)]);
+    log('на сайте есть ' + have + ' из ' + uniq.length + ', не хватает ' + missing.length,
+        missing.length ? 'fresh' : 'have');
+    if (missing.length && missing.length <= 15) {
+      log('нет: ' + missing.map(a => slug(a) + '.mp3').join(', '), 'err');
+    }
     paintQuota();
     idle($('btnCheck'));
   });
@@ -602,11 +606,14 @@
       if (d.failed && d.failed.length) {
         d.failed.forEach(f => log('✗ не залился ' + f.path + ' — ' + f.error, 'err'));
       }
-      // не помечаем вслепую: подтверждаем проверкой через полминуты
-      Object.keys(fresh).forEach(s => { onSite[s] = true; });
+      // Раньше здесь стояло onSite[s] = true для всего отправленного.
+      // Из-за этого список показывал «есть» у слов, которых на сайте нет:
+      // коммит мог пройти частично, или сборка ещё не закончилась.
+      // Теперь верим только настоящей проверке.
       render();
-      log('через 40 секунд проверю, что всё реально отдаётся сайтом');
+      log('проверю через 40 секунд и ещё раз через полторы минуты — сборке нужно время');
       setTimeout(() => $('btnCheck').click(), 40000);
+      setTimeout(() => $('btnCheck').click(), 95000);
     } catch (e) { log('коммит не прошёл: ' + e.message, 'err'); }
     idle($('btnPub'));
   });
