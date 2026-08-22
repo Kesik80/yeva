@@ -56,6 +56,11 @@
   .sw.on{border-color:#1E3D57}
   code{background:#EDF3FA;padding:1px 5px;border-radius:5px;font-size:12px}
 
+  .item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #F2F6FA}
+  .item img{width:46px;height:46px;object-fit:contain;border-radius:9px;background:#fff;border:1px solid #E6EDF4;flex:none}
+  .item .nm{flex:1;min-width:0;overflow:hidden;font-size:14px;color:#1E3D57}
+  .item button{width:auto;margin:0;padding:8px 11px;font-size:12.5px;flex:none}
+  .item .del{background:#FDECEA;color:#C0392B}
   .lock{position:fixed;inset:0;z-index:100;display:none;place-items:center;padding:20px;background:rgba(20,45,70,.6)}
   .lock.show{display:grid}
   .lockbox{background:#fff;border-radius:20px;padding:24px;width:100%;max-width:360px;text-align:center}
@@ -77,6 +82,14 @@
     <label class="drop" for="f">Выбери фото или картинку<br><span class="hint">JPG, PNG, SVG — что угодно</span>
       <input type="file" id="f" accept="image/*,.svg">
     </label>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:8px">
+      <b style="font-size:15px">Картинки на сайте</b>
+      <button class="ghost" id="reload" style="width:auto;margin:0;padding:7px 12px;font-size:13px;margin-left:auto">обновить</button>
+    </div>
+    <div id="have" class="log" style="max-height:none;margin-top:10px">загружаю…</div>
   </div>
 
   <div class="card" id="work" style="display:none">
@@ -173,26 +186,29 @@
     $('nm').value = fileBase;
     const url = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = () => {
-      const k = Math.min(1, MAXW / Math.max(img.width, img.height));
-      oW = Math.max(1, Math.round(img.width * k));
-      oH = Math.max(1, Math.round(img.height * k));
-      cv.width = oW; cv.height = oH;
-      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, oW, oH);
-      ctx.drawImage(img, 0, 0, oW, oH);
-      orig = ctx.getImageData(0, 0, oW, oH);
-      manual = new Uint8Array(oW * oH);
-      undoStack.length = 0;
-      URL.revokeObjectURL(url);
-      $('work').style.display = 'block';
-      $('save').style.display = 'block';
-      zoom.scale = 1; zoom.tx = 0; zoom.ty = 0; applyZoom();
-      autoTune();
-    };
+    img.onload = () => { useImage(img); URL.revokeObjectURL(url); };
     img.onerror = () => alert('не удалось открыть картинку');
     img.src = url;
     e.target.value = '';
   });
+
+  // одна точка входа: и для файла с телефона, и для картинки с сайта
+  function useImage(img) {
+    const k = Math.min(1, MAXW / Math.max(img.width, img.height));
+    oW = Math.max(1, Math.round(img.width * k));
+    oH = Math.max(1, Math.round(img.height * k));
+    cv.width = oW; cv.height = oH;
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, oW, oH);
+    ctx.drawImage(img, 0, 0, oW, oH);
+    orig = ctx.getImageData(0, 0, oW, oH);
+    manual = new Uint8Array(oW * oH);
+    undoStack.length = 0;
+    $('work').style.display = 'block';
+    $('save').style.display = 'block';
+    zoom.scale = 1; zoom.tx = 0; zoom.ty = 0; applyZoom();
+    autoTune();
+    $('work').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   /* ── обработка ── */
   const idx = (x, y) => y * oW + x;
@@ -490,6 +506,72 @@
       (share > 60 ? ' — краска вытекла: добавь «заделать щели» или закрась разрыв кистью' : '');
   }
 
+  /* ── что уже лежит на сайте ── */
+  let haveList = [];
+
+  function loadHave() {
+    $('have').textContent = 'загружаю…';
+    fetch('/api/pics?dir=' + REPO_DIR, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => {
+        haveList = (d && d.items) || [];
+        if (!haveList.length) { $('have').textContent = 'пока пусто'; return; }
+        $('have').innerHTML = haveList.map((it, i) => {
+          const src = REPO_DIR + '/' + it.file + (it.sha ? '?v=' + it.sha : '');
+          return '<div class="item">' +
+            '<img src="' + src + '" alt="">' +
+            '<span class="nm">' + it.name + '<br><span class="hint">' + it.file +
+              ' · ' + Math.round((it.size || 0) / 1024) + ' КБ</span></span>' +
+            '<button class="ghost" data-open="' + i + '">открыть</button>' +
+            '<button class="del" data-del="' + i + '">удалить</button>' +
+          '</div>';
+        }).join('');
+      })
+      .catch(e => { $('have').textContent = 'не вышло: ' + e.message; });
+  }
+  $('reload').addEventListener('click', loadHave);
+
+  $('have').addEventListener('click', e => {
+    const o = e.target.closest('[data-open]');
+    if (o) {
+      const it = haveList[+o.dataset.open];
+      fileBase = it.file.replace(/\.[^.]+$/, '');
+      $('nm').value = fileBase;
+      const img = new Image();
+      img.onload = () => useImage(img);
+      img.onerror = () => alert('не открылось: ' + it.file);
+      img.src = REPO_DIR + '/' + it.file + (it.sha ? '?v=' + it.sha : '');
+      return;
+    }
+    const btn = e.target.closest('[data-del]');
+    if (!btn) return;
+    const it = haveList[+btn.dataset.del];
+    if (!confirm('Удалить «' + it.name + '» насовсем?')) return;
+    withPassword(pw => {
+      btn.disabled = true; btn.textContent = '…';
+      fetch('/api/commit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: 'Удаление раскраски: ' + it.file,
+          files: [],
+          deletes: [REPO_DIR + '/' + it.file],
+          adminToken: pw
+        })
+      })
+        .then(r => r.json().then(x => ({ r: r, x: x })))
+        .then(res => {
+          if (!res.r.ok) throw new Error(res.x.error || ('HTTP ' + res.r.status));
+          log('удалено: ' + it.file, 'ok');
+          try { localStorage.removeItem('yeva.malen.list'); } catch (err) {}
+          setTimeout(loadHave, 4000);
+        })
+        .catch(err => { log('не вышло: ' + err.message, 'err'); btn.disabled = false; btn.textContent = 'удалить'; });
+    });
+  });
+
+  loadHave();
+
   /* ── сохранение ── */
   function pngBase64() {
     const tmp = document.createElement('canvas');
@@ -504,15 +586,18 @@
     a.click();
   });
 
-  $('up').addEventListener('click', () => {
-    if (!out) return;
+  let pwThen = null;
+  function withPassword(fn) {
     let saved = null;
     try { saved = localStorage.getItem('voicegen.pw'); } catch (e) {}
-    if (saved) { commit(saved); return; }
+    if (saved) { fn(saved); return; }
+    pwThen = fn;
     $('lockMsg').textContent = '';
     $('lock').classList.add('show');
     $('pw').focus();
-  });
+  }
+
+  $('up').addEventListener('click', () => { if (out) withPassword(commit); });
   $('cancel').addEventListener('click', () => $('lock').classList.remove('show'));
   $('ok').addEventListener('click', () => {
     const p = $('pw').value.trim();
@@ -523,7 +608,9 @@
         if (r.status === 401) { $('lockMsg').textContent = 'неверный пароль'; return; }
         try { localStorage.setItem('voicegen.pw', p); } catch (e) {}
         $('lock').classList.remove('show');
-        commit(p);
+        const fn = pwThen || commit;
+        pwThen = null;
+        fn(p);
       })
       .catch(e => { $('lockMsg').textContent = 'сервер не ответил: ' + e.message; });
   });
@@ -545,6 +632,7 @@
         log('готово: коммит ' + String(d.commit).slice(0, 7) + ' · появится после пересборки', 'ok');
         if (d.failed && d.failed.length) d.failed.forEach(f => log('✗ ' + f.path + ' — ' + f.error, 'err'));
         try { localStorage.removeItem('yeva.malen.list'); } catch (e) {}
+        setTimeout(loadHave, 5000);
         // если заменяли существующую картинку — покажем её новую версию тут же
         setTimeout(() => {
           const probe = new Image();
