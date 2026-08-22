@@ -48,7 +48,9 @@ export default async function handler(req, res) {
     const items = (Array.isArray(data) ? data : [])
       .filter(f => f.type === 'file' && OK_EXT.test(f.name))
       .sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true }))
-      .map(f => ({ file: f.name, name: prettyName(f.name), size: f.size }));
+      // sha меняется при каждой замене файла — по нему игра поймёт,
+      // что картинку пора перечитать, а не брать из кэша
+      .map(f => ({ file: f.name, name: prettyName(f.name), size: f.size, sha: (f.sha || '').slice(0, 10) }));
 
     return res.json({ dir, items });
   } catch (e) {
