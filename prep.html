@@ -345,7 +345,8 @@
 
   /* ── жесты: рисование, ластик, перетаскивание, щипок ── */
   const pts = new Map();
-  let pinchDist = 0, pinchScale = 1, pinchMid = null, didPinch = false, stroking = false, last = null;
+  let pinchDist = 0, pinchScale = 1, pinchMid = null, didPinch = false;
+  let stroking = false, last = null, drew = false;
 
   const toImg = (clientX, clientY) => {
     const r = cv.getBoundingClientRect();
@@ -383,15 +384,25 @@
       pinchScale = zoom.scale;
       pinchMid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
       didPinch = true;
-      stroking = false;
+      // Второй палец = это жест, а не рисование.
+      // Всё, что успел нарисовать первый палец, откатываем.
+      if (stroking) {
+        if (drew && undoStack.length) {
+          const st = undoStack.pop();
+          manual = new Uint8Array(st.manual);
+          compose();
+        } else if (undoStack.length) {
+          undoStack.pop();          // шаг отмены не пригодился
+        }
+        stroking = false; drew = false;
+      }
       return;
     }
     if (mode === 'pen' || mode === 'er') {
       pushUndo();
       stroking = true;
+      drew = false;                 // краску кладём не сразу, а по движению или отпусканию
       last = toImg(e.clientX, e.clientY);
-      paintAt(last.x, last.y, mode === 'pen' ? 1 : 2);
-      compose();
     }
   });
 
@@ -414,7 +425,9 @@
     }
     if (stroking) {
       const cur = toImg(e.clientX, e.clientY);
-      line(last, cur, mode === 'pen' ? 1 : 2);
+      const val = mode === 'pen' ? 1 : 2;
+      if (!drew) { paintAt(last.x, last.y, val); drew = true; }
+      line(last, cur, val);
       last = cur;
       compose();
       return;
@@ -428,7 +441,12 @@
     if (pts.size > 0) return;
     const wasPinch = didPinch;
     didPinch = false; pinchMid = null;
-    if (stroking) { stroking = false; return; }
+    if (stroking) {
+      // одиночный тап без движения — ставим точку здесь, а не при нажатии
+      if (!drew && last) { paintAt(last.x, last.y, mode === 'pen' ? 1 : 2); compose(); }
+      stroking = false; drew = false;
+      return;
+    }
     if (wasPinch || !p || p.moved > 12) return;
     if (mode === 'fill' && testData) doFill(toImg(p.sx, p.sy));
   };
