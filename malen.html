@@ -143,6 +143,11 @@
   const COLORS = YW.colors;
   const EXT = ['svg', 'png', 'jpg', 'jpeg', 'webp'];
 
+  // Адрес malen/1.png не меняется при замене файла, поэтому браузер,
+  // service worker и CDN продолжают отдавать старое изображение.
+  // Добавляем к адресу отпечаток содержимого — он меняется вместе с файлом.
+  const stamp = item => (item && item.sha) ? '?v=' + item.sha : '';
+
   // В list.json легко ошибиться расширением. Пробуем то же имя с другими.
   function resolve(file) {
     return new Promise((ok, fail) => {
@@ -287,7 +292,7 @@
     }
     $('gallery').innerHTML = list.map((p, i) =>
       `<button class="pic" data-i="${i}" id="pic${i}">
-         <img src="${CFG.dir + p.file}" alt="">
+         <img src="${CFG.dir + p.file + stamp(p)}" alt="">
          <span>${p.name || p.file}</span>
        </button>`).join('');
 
@@ -334,7 +339,10 @@
     initAudio();
     COLORS.forEach(loadVoice);
     $('ttl').textContent = item.name || item.file;
-    const url = CFG.dir + item.file;
+    const url = CFG.dir + item.file + stamp(item);
+    const direct = new Image();
+    direct.onload = () => setup(direct);
+    direct.onerror = () => {
     resolve(item.file).then(res => setup(res.img)).catch(() => {
       fetch(url, { cache: 'no-store' })
         .then(r => r.text().then(t => ({ r: r, t: t })))
@@ -350,6 +358,8 @@
         })
         .catch(e => { $('ttl').textContent = url + ' — ' + e.message; });
     });
+    };
+    direct.src = url;
   }
 
   function setup(img) {

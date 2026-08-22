@@ -543,7 +543,15 @@
       .then(({ r, d }) => {
         if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
         log('готово: коммит ' + String(d.commit).slice(0, 7) + ' · появится после пересборки', 'ok');
+        if (d.failed && d.failed.length) d.failed.forEach(f => log('✗ ' + f.path + ' — ' + f.error, 'err'));
         try { localStorage.removeItem('yeva.malen.list'); } catch (e) {}
+        // если заменяли существующую картинку — покажем её новую версию тут же
+        setTimeout(() => {
+          const probe = new Image();
+          probe.onload = () => log('файл на сайте обновился', 'ok');
+          probe.onerror = () => log('на сайте пока старая версия — сборка ещё идёт', 'err');
+          probe.src = '/' + path + '?v=' + Date.now();
+        }, 45000);
       })
       .catch(e => {
         log('не вышло: ' + e.message, 'err');
