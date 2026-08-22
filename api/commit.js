@@ -3,8 +3,9 @@
 // Нужен затем, чтобы 50 озвученных слов не превратились в 50 коммитов
 // и 50 пересборок на Vercel.
 //
-// POST { repo?, branch?, message?, adminToken?, files: [{ path, content }] }
-//   content — base64 без префикса data:
+// POST { repo?, branch?, message?, adminToken?,
+//        files: [{ path, content }],     // content — base64 без префикса data:
+//        deletes: [ "malen/1.png" ] }    // что удалить тем же коммитом
 //
 // Env vars: GITHUB_TOKEN, GITHUB_REPO_DEFAULT, ADMIN_TOKEN (опц.)
 //
@@ -35,6 +36,7 @@ export default async function handler(req, res) {
     branch = 'main',
     message = 'Add generated audio',
     files,
+    deletes,
     adminToken,
   } = req.body || {};
 
@@ -45,11 +47,21 @@ export default async function handler(req, res) {
   const GITHUB_REPO = repo || process.env.GITHUB_REPO_DEFAULT;
   if (!GITHUB_TOKEN) return res.status(500).json({ error: 'GITHUB_TOKEN not set' });
   if (!GITHUB_REPO) return res.status(400).json({ error: 'repo required' });
-  if (!Array.isArray(files) || !files.length) return res.status(400).json({ error: 'files required' });
-  if (files.length > 200) return res.status(400).json({ error: 'too many files' });
+  const dels = Array.isArray(deletes) ? deletes : [];
+  if ((!Array.isArray(files) || !files.length) && !dels.length) {
+    return res.status(400).json({ error: 'files or deletes required' });
+  }
+  if ((files || []).length > 200 || dels.length > 200) return res.status(400).json({ error: 'too many files' });
+
+  const gone = [];
+  for (const d of dels) {
+    const p = safePath(d);
+    if (!p) return res.status(400).json({ error: 'bad path: ' + d });
+    gone.push(p);
+  }
 
   const clean = [];
-  for (const f of files) {
+  for (const f of (files || [])) {
     const p = safePath(f && f.path);
     if (!p) return res.status(400).json({ error: 'bad path: ' + (f && f.path) });
     if (typeof f.content !== 'string' || !f.content.length) {
@@ -104,6 +116,8 @@ export default async function handler(req, res) {
     await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
 
     const good = tree.filter(Boolean);
+    // удаление в Git Data API — запись в дереве с sha: null
+    gone.forEach(p => good.push({ path: p, mode: '100644', type: 'blob', sha: null }));
     if (!good.length) {
       return res.status(502).json({ error: 'ни один файл не залился', failed });
     }
@@ -125,7 +139,8 @@ export default async function handler(req, res) {
     return res.json({
       ok: true,
       commit: commit.sha,
-      count: good.length,
+      count: clean.length ? good.length - gone.length : 0,
+      deleted: gone,
       requested: clean.length,
       failed,                       // что не долетело — видно сразу
       paths: good.map(f => f.path),
