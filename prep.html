@@ -118,7 +118,18 @@
       <input type="range" id="br" min="1" max="30" step="1" value="6">
     </div>
 
-    <label style="margin-top:12px">Порог чёрного <b class="val" id="vThr"></b> <span class="hint">выше — линий больше</span></label>
+    <div class="bar" style="margin-top:12px">
+      <button id="mLine" class="on">уже контур</button>
+      <button id="mColor">цветной рисунок</button>
+    </div>
+
+    <div id="colorBox" style="display:none">
+      <label>Чувствительность к цвету <b class="val" id="vEdge"></b>
+        <span class="hint">ниже — границ больше</span></label>
+      <input type="range" id="edge" min="20" max="160" step="5" value="70">
+    </div>
+
+    <label style="margin-top:12px" id="thrLbl">Порог чёрного <b class="val" id="vThr"></b> <span class="hint">выше — линий больше</span></label>
     <input type="range" id="thr" min="80" max="220" step="5" value="150">
 
     <label>Убрать крапинки <b class="val" id="vDes"></b></label>
@@ -168,7 +179,7 @@
   let manual = null;       // ручные правки: 1 — чёрное, 2 — белое
   let out = null;          // готовая картинка
   let testData = null;
-  let mode = 'res', fileBase = '';
+  let mode = 'res', fileBase = '', srcMode = 'line';
   const undoStack = [];
 
   const log = (m, cls) => {
@@ -225,15 +236,43 @@
   const dilate = m => { const r = new Uint8Array(m); for (let p = 0; p < m.length; p++) if (!m[p] && nb(m, p) >= 1) r[p] = 1; return r; };
   const erode = m => { const r = new Uint8Array(m); for (let p = 0; p < m.length; p++) if (m[p] && nb(m, p) <= 2) r[p] = 0; return r; };
 
+  // Цветной рисунок нельзя перевести в контур порогом яркости:
+  // красный и зелёный различаются по цвету сильно, а по яркости почти нет.
+  // Поэтому ищем границы по разнице цвета с соседом справа и снизу.
+  function edgeMask(src, T) {
+    const n = oW * oH, m = new Uint8Array(n);
+    const T2 = T * T;
+    const diff = (i, j) => {
+      const dr = src[i] - src[j], dg = src[i + 1] - src[j + 1], db = src[i + 2] - src[j + 2];
+      return dr * dr + dg * dg + db * db;
+    };
+    for (let y = 0; y < oH; y++) {
+      for (let x = 0; x < oW; x++) {
+        const p = y * oW + x, i = p * 4;
+        if (src[i + 3] < 32) continue;                       // прозрачное — не граница
+        // чёрные штрихи самого рисунка тоже оставляем линией
+        if (0.2126 * src[i] + 0.7152 * src[i + 1] + 0.0722 * src[i + 2] < 90) { m[p] = 1; continue; }
+        if (x < oW - 1 && diff(i, i + 4) > T2) { m[p] = 1; continue; }
+        if (y < oH - 1 && diff(i, i + oW * 4) > T2) { m[p] = 1; }
+      }
+    }
+    return m;
+  }
+
   function process() {
     if (!orig) return;
     const thr = +$('thr').value, des = +$('des').value, g = +$('gap').value, fat = +$('fat').value;
     const src = orig.data, n = oW * oH;
-    let m = new Uint8Array(n);
-    for (let p = 0; p < n; p++) {
-      const i = p * 4;
-      if (src[i + 3] < 32) { m[p] = 0; continue; }
-      m[p] = (0.2126 * src[i] + 0.7152 * src[i + 1] + 0.0722 * src[i + 2]) < thr ? 1 : 0;
+    let m;
+    if (srcMode === 'color') {
+      m = edgeMask(src, +$('edge').value);
+    } else {
+      m = new Uint8Array(n);
+      for (let p = 0; p < n; p++) {
+        const i = p * 4;
+        if (src[i + 3] < 32) { m[p] = 0; continue; }
+        m[p] = (0.2126 * src[i] + 0.7152 * src[i + 1] + 0.0722 * src[i + 2]) < thr ? 1 : 0;
+      }
     }
     for (let k = 0; k < des; k++) m = despeckle(m);
     for (let k = 0; k < g; k++) m = dilate(m);
@@ -277,6 +316,21 @@
       const score = Math.abs(dark / n - 0.08);
       if (score < bestScore) { bestScore = score; best = t; }
     }
+    // Насыщенность подскажет, цветной это рисунок или уже контур
+    let sat = 0, checked = 0;
+    for (let p = 0; p < n; p += 11) {
+      const i = p * 4;
+      const mx = Math.max(orig.data[i], orig.data[i + 1], orig.data[i + 2]);
+      const mn = Math.min(orig.data[i], orig.data[i + 1], orig.data[i + 2]);
+      if (mx > 40) { checked++; if (mx - mn > 40) sat++; }
+    }
+    const colorful = checked && sat / checked > 0.25;
+    if (colorful && srcMode === 'line') {
+      setSrcMode('color');
+      log('картинка цветная — перешёл в режим «цветной рисунок»', 'ok');
+      return;
+    }
+
     $('thr').value = best;
     // фотографии шумят сильнее рисунков — смотрим на разброс яркости
     let noisy = 0;
@@ -294,6 +348,24 @@
     process();
     log('подобрано: порог ' + best + ', крапинки ' + $('des').value + ', щели ' + $('gap').value, 'ok');
   }
+  function setSrcMode(v) {
+    srcMode = v;
+    $('mLine').className = v === 'line' ? 'on' : '';
+    $('mColor').className = v === 'color' ? 'on' : '';
+    $('colorBox').style.display = v === 'color' ? 'block' : 'none';
+    $('thrLbl').style.display = v === 'color' ? 'none' : 'block';
+    $('thr').style.display = v === 'color' ? 'none' : 'block';
+    if (v === 'color' && +$('gap').value < 1) $('gap').value = 1;   // границы тонкие, щели вероятнее
+    if (v === 'color' && +$('fat').value < 1) $('fat').value = 1;   // и линию стоит утолщить
+    showVals();
+    pushUndo();
+    process();
+  }
+  $('mLine').addEventListener('click', () => setSrcMode('line'));
+  $('mColor').addEventListener('click', () => setSrcMode('color'));
+  $('edge').addEventListener('input', () => { showVals(); process(); });
+  $('edge').addEventListener('change', pushUndo);
+
   $('auto').addEventListener('click', autoTune);
 
   /* ── отмена ── */
@@ -324,6 +396,7 @@
     $('vGap').textContent = $('gap').value;
     $('vFat').textContent = $('fat').value;
     $('vBr').textContent = $('br').value;
+    $('vEdge').textContent = $('edge').value;
   }
   showVals();
 
