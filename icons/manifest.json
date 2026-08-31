@@ -1,7 +1,7 @@
 {
-  "name": "YEVA — Spiele auf Deutsch",
-  "short_name": "YEVA",
-  "description": "Игры для Евы",
+  "name": "Fahrzeit Rechner",
+  "short_name": "Fahrzeit",
+  "description": "Rechner für Fahrzeiten und Routen",
   "id": "/",
   "start_url": "/",
   "scope": "/",
@@ -9,8 +9,8 @@
   "display_override": [
     "standalone"
   ],
-  "background_color": "#5CBFE6",
-  "theme_color": "#5CBFE6",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a1a1a",
   "icons": [
     {
       "src": "/icons/icon-192.png",
