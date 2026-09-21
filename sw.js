@@ -1,28 +1,24 @@
-/* Fahrzeit — Service Worker v1
+/* YEVA — Service Worker v1
 
-   Нужен по двум причинам:
-   1. Без service worker с обработчиком fetch Chrome не присылает
-      beforeinstallprompt — то есть баннер установки на Android не появится.
-   2. Приложение открывается офлайн (список участников лежит в localStorage).
+   Стратегия намеренно разная для разного добра:
 
-   Стратегия намеренно разная:
-     HTML / JS / stations.js — сеть, откат в кэш. Ты правишь приложение часто,
-                               кэш-первым водители работали бы во вчерашней версии.
-     png / svg / шрифты      — кэш, откат в сеть. Не меняются.
-     /api/                   — только сеть, не кэшируется никогда
-                               (расчёт времени, ключи, пароли, GitHub-загрузка).
-     Чужие домены            — не трогаем (Google Maps, Firebase, CDN).
+   HTML и JS      — сеть, откат в кэш. Ты правишь игру каждый день,
+                    и кэш-первым ребёнок играл бы во вчерашнюю версию.
+   mp3 и картинки — кэш, откат в сеть. Имя файла = содержимое,
+                    katze.mp3 никогда не меняется, тянуть её повторно незачем.
+   /api/          — только сеть, не кэшируется вообще.
 
-   ВАЖНО: подними CACHE при изменении списка CORE, иначе старый кэш останется
-   жить. Обычные правки html/js подхватываются сами, поднимать не нужно.
+   ВАЖНО: поднимай CACHE при изменении списка CORE, иначе старый кэш
+   останется жить. Обычные правки html/js подхватываются сами.
 */
 
-const CACHE = 'fahrzeit-v1';
+const CACHE = 'yeva-v1';
 
 const CORE = [
   '/',
   '/index.html',
-  '/stations.js',
+  '/bubbles.html',
+  '/words.js',
   '/console.js',
   '/install.js',
   '/icons/manifest.json',
@@ -49,17 +45,17 @@ self.addEventListener('activate', e => {
   );
 });
 
-const isAsset = url => /\.(png|jpg|jpeg|svg|ico|webp|woff2?)$/i.test(url.pathname);
+const isAsset = url => /\.(mp3|m4a|ogg|png|jpg|jpeg|svg|ico|woff2?)$/i.test(url.pathname);
 
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return;   // Google Maps, Firebase, CDN
-  if (url.pathname.startsWith('/api/')) return;      // расчёты и секреты — только сеть
+  if (url.origin !== self.location.origin) return;   // шрифты Google, cdnjs
+  if (url.pathname.startsWith('/api/')) return;      // озвучка и коммиты — только сеть
 
-  // Иконки и шрифты: сначала кэш
+  // Звуки и картинки: сначала кэш
   if (isAsset(url)) {
     e.respondWith(
       caches.match(req).then(hit => hit || fetch(req).then(r => {
@@ -68,7 +64,7 @@ self.addEventListener('fetch', e => {
           caches.open(CACHE).then(c => c.put(req, copy));
         }
         return r;
-      }))
+      }).catch(() => hit))
     );
     return;
   }
