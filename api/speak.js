@@ -91,15 +91,17 @@ function safePath(p) {
 // ── обрезка mp3 по границе кадра ───────────────────────────────
 // Кадр MP3 самодостаточен, поэтому хвост можно просто выбросить:
 // перекодировать ничего не нужно, качество не меняется.
-function mp3Trim(buf, seconds) {
+// После реза дописываем тишину теми же кадрами — иначе слово
+// обрывается ровно на последнем звуке и это слышно.
+function mp3Frames(buf) {
   const BR1 = [0,32,40,48,56,64,80,96,112,128,160,192,224,256,320,0];   // MPEG1 Layer III
   const BR2 = [0,8,16,24,32,40,48,56,64,80,96,112,128,144,160,0];       // MPEG2 / 2.5
   const SR = { 3: [44100,48000,32000], 2: [22050,24000,16000], 0: [11025,12000,8000] };
+  const out = [];
   let i = 0;
   if (buf.length > 10 && buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) {   // ID3v2
     i = 10 + (((buf[6] & 0x7f) << 21) | ((buf[7] & 0x7f) << 14) | ((buf[8] & 0x7f) << 7) | (buf[9] & 0x7f));
   }
-  let t = 0, xing = null, cut = -1;
   while (i + 4 <= buf.length) {
     if (buf[i] !== 0xFF || (buf[i + 1] & 0xE0) !== 0xE0) { i++; continue; }
     const ver = (buf[i + 1] >> 3) & 3;      // 3 = MPEG1, 2 = MPEG2, 0 = MPEG2.5
@@ -112,22 +114,33 @@ function mp3Trim(buf, seconds) {
     if (layer !== 1 || ver === 1 || !sr || !br) { i++; continue; }
     const spf = ver === 3 ? 1152 : 576;
     const len = Math.floor(spf / 8 * br / sr) + pad;
-    if (len < 24) { i++; continue; }
-
-    // служебный кадр Xing/Info хранит длительность всего файла.
-    // После обрезки она врала бы, поэтому такой кадр выбрасываем.
-    const tagAt = buf.indexOf('Xing', i, 'latin1') >= 0 ? buf.indexOf('Xing', i, 'latin1') : -1;
-    const infoAt = buf.indexOf('Info', i, 'latin1') >= 0 ? buf.indexOf('Info', i, 'latin1') : -1;
-    const hdr = [tagAt, infoAt].filter(x => x > i && x < i + len);
-    if (!xing && hdr.length) { xing = { start: i, end: i + len }; i += len; continue; }
-
-    t += spf / sr;
+    if (len < 24 || i + len > buf.length) { i++; continue; }
+    // служебный кадр Xing/Info хранит длительность всего файла —
+    // после обрезки она врала бы, поэтому такой кадр пропускаем
+    const tag = buf.slice(i + 4, i + len).indexOf('Xing') >= 0 ||
+                buf.slice(i + 4, i + len).indexOf('Info') >= 0;
+    if (!(tag && out.length === 0)) out.push({ start: i, len: len, dur: spf / sr });
     i += len;
-    if (t >= seconds) { cut = i; break; }
   }
-  if (cut < 0) cut = buf.length;              // не дотянули — отдаём всё, что есть
-  if (!xing) return buf.slice(0, cut);
-  return Buffer.concat([buf.slice(0, xing.start), buf.slice(xing.end, cut)]);
+  return out;
+}
+
+function mp3Cut(buf, cutSec, padSec) {
+  const fr = mp3Frames(buf);
+  if (!fr.length) return buf;
+  let t = 0, upto = fr[fr.length - 1].start + fr[fr.length - 1].len;
+  for (const f of fr) {
+    t += f.dur;
+    if (t >= cutSec) { upto = f.start + f.len; break; }
+  }
+  const head = buf.slice(fr[0].start, upto);
+  const need = Math.max(0, Math.round((padSec || 0) / fr[0].dur));
+  if (!need) return head;
+  // кадр тишины: тот же заголовок, тело в нулях
+  const hush = Buffer.concat([buf.slice(fr[0].start, fr[0].start + 4), Buffer.alloc(fr[0].len - 4)]);
+  const tail = [];
+  for (let n = 0; n < Math.min(need, 20); n++) tail.push(hush);
+  return Buffer.concat([head].concat(tail));
 }
 
 export default async function handler(req, res) {
@@ -204,6 +217,9 @@ export default async function handler(req, res) {
   // «elf» английский диктор читает по-английски, «elf Uhr» — уже по-немецки.
   // Хвост произносится, а потом отрезается от mp3, в файл он не попадает.
   const car = String(carrier || '').replace(/[^\p{L}\p{M} -]/gu, '').trim().slice(0, 30);
+  // сколько тишины должно остаться после слова: обрыв сразу за последним
+  // звуком слышно как щелчок, поэтому пауза не меньше этой
+  const PAUSE = num(req.body && req.body.pause, 0.05, 1.2, 0.3);
   const head = car ? outText.replace(/[.!?…]+\s*$/, '') : outText;
   if (car) outText = head + ' ' + car + '.';
 
@@ -249,20 +265,24 @@ export default async function handler(req, res) {
         const chars = al.characters || [];
         const ends = al.character_end_times_seconds || [];
         const starts = al.character_start_times_seconds || [];
-        let cut = 0;
+        let cut = 0, padded = 0;
         if (chars.length && ends.length === chars.length) {
           const idx = chars.join('').lastIndexOf(car);       // начало хвоста
           const wordEnd = idx >= 2 ? ends[idx - 2] : null;   // последняя буква слова
           const carStart = idx >= 0 ? starts[idx] : null;
           if (wordEnd != null && carStart != null && carStart >= wordEnd) {
-            cut = wordEnd + Math.min(0.15, Math.max(0.03, (carStart - wordEnd) * 0.6));
+            // режем ближе к хвосту: забираем естественное затухание и паузу,
+            // но не трогаем начало самого хвоста
+            cut = Math.max(wordEnd + 0.06, Math.min(carStart - 0.04, wordEnd + 0.45));
+            // и дотягиваем паузу после слова до PAUSE секунд тишиной
+            padded = Math.max(0, PAUSE - (cut - wordEnd));
           }
         }
-        const out = cut > 0 ? mp3Trim(raw, cut) : raw;
+        const out = cut > 0 ? mp3Cut(raw, cut, padded) : raw;
         return {
           b64: out.toString('base64'), key: i, keyTail: tail(K[i]),
           trimmed: cut > 0, cutAt: cut ? +cut.toFixed(3) : null,
-          said: outText,
+          pad: +padded.toFixed(3), said: outText,
         };
       }
 
@@ -301,7 +321,7 @@ export default async function handler(req, res) {
       return res.json({
         audio: g.b64, voice: voiceName, model, cached: false,
         key: g.key, keyTail: g.keyTail, keys: K.length,
-        said: g.said || null, trimmed: !!g.trimmed, cutAt: g.cutAt || null,
+        said: g.said || null, trimmed: !!g.trimmed, cutAt: g.cutAt || null, pad: g.pad || 0,
       });
     } catch (e) {
       return res.status(502).json({ error: e.message, details: e.details, code: e.code });

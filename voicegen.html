@@ -106,16 +106,31 @@
   .qnums{font-size:12.5px;color:#5B7A93;font-variant-numeric:tabular-nums;line-height:1.45}
   .qnums b{color:#1E3D57}
   input[type=range]{width:100%;padding:0;height:26px;background:transparent;border:0;accent-color:#2F8FC4}
-  .mdl{display:flex;flex-wrap:wrap;gap:8px}
   .mdl button{
-    flex:1 1 calc(50% - 4px);margin-top:0;padding:10px 8px;
-    background:#F2F7FB;color:#5B7A93;border:1.5px solid #E0EAF2;
-    font-size:13px;line-height:1.25;text-align:center;
+    display:block;width:100%;text-align:left;margin:0 0 8px;padding:11px 13px;
+    background:#F2F7FB;color:#7A8FA3;border:1.5px solid #E0EAF2;border-radius:13px;
+    font-size:12.5px;font-weight:500;line-height:1.35;
   }
-  .mdl button b{display:block;font-size:13.5px;color:#2C6E96}
-  .mdl button i{font-style:normal;font-size:11px;opacity:.75}
+  .mdl button:last-child{margin-bottom:0}
+  .mdl button b{display:block;font-size:14px;font-weight:600;color:#2C6E96;margin-bottom:2px}
   .mdl button.on{background:#E3F1FB;border-color:#4FA8D8;color:#1E3D57}
   .mdl button.on b{color:#1B6FA8}
+  .seg{display:flex;gap:7px}
+  .seg button{
+    flex:1;margin:0;padding:10px 6px;font-size:13px;border-radius:11px;
+    background:#F2F7FB;color:#5B7A93;border:1.5px solid #E0EAF2;
+  }
+  .seg button.on{background:#E3F1FB;border-color:#4FA8D8;color:#1E3D57;font-weight:600}
+  .sub{font-size:12px;font-weight:600;color:#5B7A93;letter-spacing:.02em;margin:15px 0 6px}
+  .sub span{font-weight:500;color:#93A8BA;font-size:11.5px}
+  /* что показывать для выбранной модели */
+  .only-v3,.only-stab,.only-style,.only-ctx{display:none}
+  body[data-mk="v3"] .only-v3{display:block}
+  body[data-mk="classic"] .only-stab,body[data-mk="v4"] .only-stab{display:block}
+  body[data-mk="classic"] .only-style,body[data-mk="v3"] .only-style{display:block}
+  body[data-mk="classic"] .only-ctx{display:block}
+  body[data-mk="v3"] .chk.only-v3,
+  body[data-mk="classic"] .chk.only-ctx{display:flex}
   .de-badge{display:inline-block;margin-left:4px;padding:0 4px;border-radius:5px;
     background:#1F9B6E;color:#fff;font-size:9.5px;vertical-align:1px;letter-spacing:.04em}
   .vlist{margin-top:10px;max-height:300px;overflow:auto}
@@ -234,14 +249,24 @@
       <button class="ghost slim" data-preset="flat">Ровно, для одного слова</button>
       <button class="ghost slim" data-preset="live">Живо, как раньше</button>
     </div>
-    <label style="margin-top:12px">Ровность <b id="vStab"></b> <span class="hint">выше — меньше эмоций и разброса</span></label>
-    <input type="range" id="stab" min="0" max="1" step="0.05">
+    <div class="only-v3">
+      <div class="sub">Характер <span>v3 понимает только три положения</span></div>
+      <div class="seg" id="segStab">
+        <button data-v="0">Творчески</button><button data-v="0.5">Естественно</button><button data-v="1">Стабильно</button>
+      </div>
+    </div>
+    <div class="only-stab">
+      <label style="margin-top:12px">Ровность <b id="vStab"></b> <span class="hint">выше — меньше эмоций и разброса</span></label>
+      <input type="range" id="stab" min="0" max="1" step="0.05">
+    </div>
     <label style="margin-top:10px">Похожесть на голос <b id="vSim"></b></label>
     <input type="range" id="sim" min="0" max="1" step="0.05">
-    <label style="margin-top:10px">Артистичность <b id="vStyle"></b> <span class="hint">для слов держи на нуле</span></label>
-    <input type="range" id="style" min="0" max="1" step="0.05">
-    <label style="margin-top:10px">Скорость <b id="vSpeed"></b></label>
-    <input type="range" id="speed" min="0.7" max="1.2" step="0.02">
+    <div class="only-style">
+      <label style="margin-top:10px">Артистичность <b id="vStyle"></b> <span class="hint">для слов держи на нуле</span></label>
+      <input type="range" id="style" min="0" max="1" step="0.05">
+      <label style="margin-top:10px">Скорость <b id="vSpeed"></b></label>
+      <input type="range" id="speed" min="0.7" max="1.2" step="0.02">
+    </div>
     <div class="chk">
       <input type="checkbox" id="dot">
       <label for="dot" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
@@ -269,19 +294,22 @@
         </div>
       </div>
     </div>
+    <label style="margin-top:10px">Пауза после слова <b id="vPause"></b>
+      <span class="hint">тишина в конце файла, чтобы слово не обрывалось</span></label>
+    <input type="range" id="pause" min="0.1" max="0.8" step="0.05" value="0.3">
     <div class="hint" style="display:block;margin-top:7px;line-height:1.45">
       «elf» английский диктор читает по-английски, «elf Uhr» — уже по-немецки.
       Хвост произносится, а потом вырезается из mp3 по таймингам: в файл попадает
       только само слово. Для чисел больше 24 естественнее «Grad» или «Euro» —
       таких часов не бывает. Хвост тоже тратит символы лимита.
     </div>
-    <div class="chk">
+    <div class="chk only-v3">
       <input type="checkbox" id="acc">
       <label for="acc" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
         Подсказывать немецкий акцент <span class="hint">(только v3)</span>
       </label>
     </div>
-    <div class="chk">
+    <div class="chk only-ctx">
       <input type="checkbox" id="ctx">
       <label for="ctx" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
         Подставлять невидимый контекст фразы
@@ -354,12 +382,18 @@
   // включается принудительно и «elf» перестаёт читаться по-английски.
   // ctx:false — модель не поддерживает невидимый контекст фразы.
   const MODELS = [
-    { id:'eleven_flash_v2_5',      name:'Flash v2.5',       note:'быстрая и ровная',   de:true,  ctx:true  },
-    { id:'eleven_turbo_v2_5',      name:'Turbo v2.5',       note:'быстрая, живее',     de:true,  ctx:true  },
-    { id:'eleven_v3',              name:'v3',               note:'самая живая',        de:true,  ctx:false },
-    { id:'eleven_multilingual_v2', name:'Multilingual v2',  note:'как было раньше',    de:false, ctx:true  },
-    { id:'eleven_v4',              name:'v4',               note:'новая, без скорости', de:false, ctx:false },
-    { id:'eleven_v4_turbo',        name:'v4 Turbo',         note:'новая, быстрая',     de:false, ctx:false }
+    { id:'eleven_flash_v2_5', name:'Flash v2.5 — ровная', kind:'classic', de:true, ctx:true,
+      note:'для одиночных слов самое то: предсказуемая, вдвое дешевле за символ, язык задаётся жёстко' },
+    { id:'eleven_turbo_v2_5', name:'Turbo v2.5 — живее', kind:'classic', de:true, ctx:true,
+      note:'то же, но интонация поживее; язык тоже задаётся жёстко' },
+    { id:'eleven_v3', name:'v3 — эмоции', kind:'v3', de:true, ctx:false,
+      note:'самая живая, понимает подсказки в квадратных скобках; дубли звучат по-разному' },
+    { id:'eleven_multilingual_v2', name:'Multilingual v2 — как было', kind:'classic', de:false, ctx:true,
+      note:'ровная и привычная: этой моделью записаны первые 123 слова. Язык угадывает сама' },
+    { id:'eleven_v4', name:'v4 — новая', kind:'v4', de:false, ctx:false,
+      note:'крепче держит голос, но без артистичности и скорости' },
+    { id:'eleven_v4_turbo', name:'v4 Turbo — новая, быстрая', kind:'v4', de:false, ctx:false,
+      note:'то же самое, но отвечает мгновенно; качество чуть ниже' }
   ];
   const DEFAULT_MODEL = 'eleven_flash_v2_5';
   let model = DEFAULT_MODEL;
@@ -428,6 +462,7 @@
       $('dot').checked = !!sv.dot; $('ctx').checked = !!sv.ctx; $('acc').checked = !!sv.acc;
       if (sv.car !== undefined) $('car').checked = !!sv.car;
       if (sv.carWord) $('carWord').value = sv.carWord;
+      if (sv.pause) $('pause').value = sv.pause;
       $('carAll').checked = !!sv.carAll;
     } else { needPreset = true; }
   } catch (e) { needPreset = true; }
@@ -438,7 +473,8 @@
                   stab: $('stab').value, sim: $('sim').value,
                   style: $('style').value, speed: $('speed').value,
                   dot: $('dot').checked, ctx: $('ctx').checked, acc: $('acc').checked,
-                  car: $('car').checked, carWord: $('carWord').value, carAll: $('carAll').checked };
+                  car: $('car').checked, carWord: $('carWord').value, carAll: $('carAll').checked,
+                  pause: $('pause').value };
       GENDERS.forEach(g => { chosen[g] = $('v-' + g).value; o[g] = chosen[g]; });
       localStorage.setItem('voicegen2', JSON.stringify(o));
     } catch (e) {}
@@ -534,18 +570,30 @@
   });
 
   // ── модель ──────────────────────────────────────────────────
+  // три положения ровности для v3 — как в ОЗВУЧКЕ
+  function paintSeg() {
+    const v = +$('stab').value;
+    const near = v < 0.25 ? '0' : v > 0.75 ? '1' : '0.5';
+    Array.prototype.forEach.call($('segStab').children, b => {
+      b.classList.toggle('on', b.dataset.v === near);
+    });
+  }
+  $('segStab').addEventListener('click', e => {
+    const b = e.target.closest('[data-v]');
+    if (!b) return;
+    $('stab').value = b.dataset.v;
+    showSettings(); paintSeg();
+  });
+
   function paintModels() {
     $('models').innerHTML = MODELS.map(m =>
       '<button class="' + (m.id === model ? 'on' : '') + '" data-model="' + m.id + '">' +
       '<b>' + m.name + (m.de ? '<span class="de-badge">DE</span>' : '') + '</b>' +
-      '<i>' + m.note + '</i></button>').join('');
+      m.note + '</button>').join('');
     const m = modelOf(model);
     const de = $('lang').value === 'de';
-    $('ctx').disabled = !m.ctx;
-    $('ctx').parentNode.style.opacity = m.ctx ? '1' : '.45';
-    const v3 = model === 'eleven_v3';
-    $('acc').disabled = !v3;
-    $('acc').parentNode.style.opacity = v3 ? '1' : '.45';
+    document.body.dataset.mk = m.kind;          // что показывать из настроек
+    paintSeg();
     $('mdlHint').innerHTML = m.de
       ? (de ? 'язык задаётся жёстко (language_code=de) — «elf» и «null» читаются по-немецки, а не по-английски'
             : 'язык задаётся жёстко по выбранному языку')
@@ -678,10 +726,12 @@
     };
   }
   function showSettings() {
+    if ($('segStab')) paintSeg();
     $('vStab').textContent = (+$('stab').value).toFixed(2);
     $('vSim').textContent = (+$('sim').value).toFixed(2);
     $('vStyle').textContent = (+$('style').value).toFixed(2);
     $('vSpeed').textContent = (+$('speed').value).toFixed(2) + '×';
+    $('vPause').textContent = (+$('pause').value).toFixed(2) + ' с';
     remember();
   }
   function applyPreset(name) {
@@ -696,7 +746,7 @@
   }
   document.querySelectorAll('[data-preset]').forEach(b =>
     b.addEventListener('click', () => applyPreset(b.dataset.preset)));
-  ['stab','sim','style','speed'].forEach(id => $(id).addEventListener('input', showSettings));
+  ['stab','sim','style','speed','pause'].forEach(id => $(id).addEventListener('input', showSettings));
   ['dot','ctx','acc','car','carAll'].forEach(id =>
     $(id).addEventListener('change', () => { remember(); paintQuota(); paintCarrier(); }));
   $('carWord').addEventListener('input', () => { remember(); paintQuota(); });
@@ -706,6 +756,7 @@
     $('carBox').style.opacity = on ? '1' : '.45';
     $('carWord').disabled = !on;
     $('carAll').disabled = !on;
+    $('pause').disabled = !on;
   }
   $('lang').addEventListener('change', () => { paintQuota(); paintModels(); });
 
@@ -746,6 +797,7 @@
         accent: ($('acc').checked && model === 'eleven_v3' && $('lang').value === 'de')
           ? 'strong German accent' : undefined,
         carrier: carrierFor(a),
+        pause: +$('pause').value,
         voiceSettings: readSettings(),
         previousText: ($('ctx').checked && modelOf(model).ctx) ? CTX_BEFORE : undefined,
         nextText: ($('ctx').checked && modelOf(model).ctx) ? CTX_AFTER : undefined
