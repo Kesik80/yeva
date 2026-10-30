@@ -218,7 +218,7 @@
 
   /* ── звук ── */
   let actx = null, master = null;
-  const vBuf = {}, vBad = {};
+  const vBuf = {}, vBad = {}, vHot = {};   // готово / нет файла / уже качается
 
   function initAudio() {
     if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
@@ -230,14 +230,27 @@
     master.connect(actx.destination);
   }
 
-  // озвучка есть только для 0–10 (voice/de/eins.mp3 …)
-  const numWord = n => (YW && YW.numbers && YW.numbers[n]) ? YW.numbers[n] : null;
+  // числа 0–10 лежат в words.js как numbers, 11–50 — как numbersBig
+  const NUMW = (() => {
+    const m = {};
+    const add = w => { if (w && typeof w.num === 'number') m[w.num] = w; };
+    if (YW && YW.numbers) YW.numbers.forEach(add);
+    if (YW && YW.numbersBig) YW.numbersBig.forEach(add);
+    return m;
+  })();
+  const numWord = n => NUMW[n] || null;
+
+  // тянем озвучку на пару шагов вперёд, а не все 50 файлов сразу
+  function preload(from) {
+    for (let i = from; i <= N && i < from + 4; i++) loadVoice(numWord(i));
+  }
   const vUrl = w => VOICE + (YW && YW.slug ? YW.slug(w) : w.de) + '.mp3';
 
   function loadVoice(w) {
     if (!actx || !w) return;
     const u = vUrl(w);
-    if (vBuf[u] || vBad[u]) return;
+    if (vBuf[u] || vBad[u] || vHot[u]) return;
+    vHot[u] = 1;
     fetch(u)
       .then(r => r.ok ? r : fetch(u + '?v=' + Date.now(), { cache: 'no-store' }))
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
@@ -399,6 +412,7 @@
     $('time').textContent = '0:00';
     build();
     paintHud();
+    preload(1);
     armHint(7000);
   }
 
@@ -426,6 +440,7 @@
     blip(n - 1);
     say(n, 40);
     next++;
+    preload(next);
     paintHud();
 
     if (next > N) finish();
@@ -508,7 +523,7 @@
   $('btnStart').addEventListener('click', () => {
     goFullscreen();
     initAudio();
-    if (YW && YW.numbers) YW.numbers.forEach(w => loadVoice(w));
+    preload(1);
     $('veil').classList.add('hidden');
     $('result').classList.add('hide');
     $('note').innerHTML = '';

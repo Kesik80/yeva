@@ -60,6 +60,53 @@
     N(10, 'zehn',   '\u{1F51F}')
   ];
 
+  // Числа 11–50 — нужны игре «Der Reihe nach».
+  // e пустое: в карточные игры (wo, memory) они попасть не должны,
+  // туда идёт только pictured. В zahlen.html тоже не идут — там свой NUMBERS.
+  const BN = (n, de) => ({ num: n, de: de, ru: String(n), s: 'ding', e: '' });
+  const BIG = [
+    BN(11, 'elf'),
+    BN(12, 'zwölf'),
+    BN(13, 'dreizehn'),
+    BN(14, 'vierzehn'),
+    BN(15, 'fünfzehn'),
+    BN(16, 'sechzehn'),
+    BN(17, 'siebzehn'),
+    BN(18, 'achtzehn'),
+    BN(19, 'neunzehn'),
+    BN(20, 'zwanzig'),
+    BN(21, 'einundzwanzig'),
+    BN(22, 'zweiundzwanzig'),
+    BN(23, 'dreiundzwanzig'),
+    BN(24, 'vierundzwanzig'),
+    BN(25, 'fünfundzwanzig'),
+    BN(26, 'sechsundzwanzig'),
+    BN(27, 'siebenundzwanzig'),
+    BN(28, 'achtundzwanzig'),
+    BN(29, 'neunundzwanzig'),
+    BN(30, 'dreißig'),
+    BN(31, 'einunddreißig'),
+    BN(32, 'zweiunddreißig'),
+    BN(33, 'dreiunddreißig'),
+    BN(34, 'vierunddreißig'),
+    BN(35, 'fünfunddreißig'),
+    BN(36, 'sechsunddreißig'),
+    BN(37, 'siebenunddreißig'),
+    BN(38, 'achtunddreißig'),
+    BN(39, 'neununddreißig'),
+    BN(40, 'vierzig'),
+    BN(41, 'einundvierzig'),
+    BN(42, 'zweiundvierzig'),
+    BN(43, 'dreiundvierzig'),
+    BN(44, 'vierundvierzig'),
+    BN(45, 'fünfundvierzig'),
+    BN(46, 'sechsundvierzig'),
+    BN(47, 'siebenundvierzig'),
+    BN(48, 'achtundvierzig'),
+    BN(49, 'neunundvierzig'),
+    BN(50, 'fünfzig')
+  ];
+
   // Цвета. Прилагательные, артикля нет — в voicegen уйдут к мужскому голосу.
   // В карточные игры не идут: там цвет должен быть единственным отличием,
   // а эмодзи перекрасить нельзя.
@@ -79,9 +126,10 @@
   ];
 
   window.YEVA_WORDS = {
-    version: 6,
+    version: 7,
     colors: COLORS,
     numbers: NUMBERS,
+    numbersBig: BIG,
     body: BODY,
 
     // фоновые украшения для миров, где вместо облаков что-то своё
@@ -244,6 +292,7 @@
     window.YEVA_WORDS.worlds.forEach(w => w.animals.forEach(add));
     BODY.forEach(add);          // Kopf, Bauch, Haar и прочие без эмодзи тоже нужны озвучке
     NUMBERS.forEach(add);       // числа — только ради озвучки
+    BIG.forEach(add);           // 11–50 — тоже только ради озвучки
     COLORS.forEach(add);        // цвета — тоже только ради озвучки
     return out;
   })();
