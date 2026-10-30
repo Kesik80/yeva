@@ -118,6 +118,16 @@
   .mdl button.on b{color:#1B6FA8}
   .de-badge{display:inline-block;margin-left:4px;padding:0 4px;border-radius:5px;
     background:#1F9B6E;color:#fff;font-size:9.5px;vertical-align:1px;letter-spacing:.04em}
+  .vlist{margin-top:10px;max-height:300px;overflow:auto}
+  .vrow{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid #EDF3F8;font-size:13.5px}
+  .vrow:first-child{border-top:0}
+  .vrow .nm{flex:1;min-width:0}
+  .vrow .nm b{display:block;font-weight:600;color:#1E3D57;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vrow .nm span{font-size:11.5px;color:#93A8BA}
+  .vrow button{width:auto;margin:0;padding:6px 9px;font-size:12px;background:#E9F2F9;color:#2C6E96;border-radius:9px}
+  .vrow button.pick{background:#E3F1FB}
+  .vrow .play{padding:6px 10px}
+  .vde{display:inline-block;margin-left:5px;padding:0 4px;border-radius:5px;background:#1F9B6E;color:#fff;font-size:9.5px}
   .accs{margin-top:7px;border-top:1px solid #EDF3F8;padding-top:6px}
   .accs div{display:flex;gap:7px;align-items:baseline;padding:1px 0}
   .accs span{color:#93A8BA}
@@ -188,6 +198,19 @@
   </div>
 
   <div class="card">
+    <div style="font-size:13px;font-weight:600;color:#5B7A93;margin-bottom:9px">ГОЛОСА</div>
+    <div class="preset">
+      <button class="ghost slim" id="btnMine">Голоса аккаунтов</button>
+      <button class="ghost slim" id="btnLib">Немецкие из библиотеки</button>
+    </div>
+    <div class="hint" style="display:block;margin-top:9px;line-height:1.45">
+      Стандартные Roger, Will, Matilda — английские дикторы. По-немецки они говорят
+      с английским «л», отсюда «нул» и «елф». Возьми голос с пометкой DE.
+    </div>
+    <div class="vlist" id="vlist"></div>
+  </div>
+
+  <div class="card">
     <div class="gen der">
       <h3>der · мужской <span class="cnt" id="cnt-der"></span></h3>
       <select id="v-der"></select>
@@ -223,6 +246,12 @@
       <input type="checkbox" id="dot">
       <label for="dot" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
         Слать «Die Katze.» с заглавной и точкой
+      </label>
+    </div>
+    <div class="chk">
+      <input type="checkbox" id="acc">
+      <label for="acc" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
+        Подсказывать немецкий акцент <span class="hint">(только v3)</span>
       </label>
     </div>
     <div class="chk">
@@ -272,12 +301,28 @@
     return;
   }
 
-  const VOICES = {
-    Roger:'CwhRBWXzGAHq8TQ4Fs17', Laura:'FGY2WhTYpPnrIDTdsKH5', Liam:'TX3LPaxmHKxFdv7VOQHJ',
-    Matilda:'XrExE9yKIg1WjnnlVkGX', Will:'bIHbv24MWmeRgasZH58o', Jessica:'cgSgspJ2msm6clMCkdW9',
-    Eric:'cjVigY5qzO86Huf0OWal', Brian:'nPczCjzI2devNBz1zQrb', Daniel:'onwK4e9ZLuTAKqWW03F9',
-    Lily:'pFZP5JQG7iQjIQuC4Bku', Bill:'pqHfZKP75CvOlQylNhV4'
-  };
+  // Стандартные английские голоса — запасной список на случай,
+  // если /api/voices недоступен. Значение select — это id голоса.
+  const PREMADE = [
+    { id:'CwhRBWXzGAHq8TQ4Fs17', name:'Roger',   gender:'male'   },
+    { id:'FGY2WhTYpPnrIDTdsKH5', name:'Laura',   gender:'female' },
+    { id:'TX3LPaxmHKxFdv7VOQHJ', name:'Liam',    gender:'male'   },
+    { id:'XrExE9yKIg1WjnnlVkGX', name:'Matilda', gender:'female' },
+    { id:'bIHbv24MWmeRgasZH58o', name:'Will',    gender:'male'   },
+    { id:'cgSgspJ2msm6clMCkdW9', name:'Jessica', gender:'female' },
+    { id:'cjVigY5qzO86Huf0OWal', name:'Eric',    gender:'male'   },
+    { id:'nPczCjzI2devNBz1zQrb', name:'Brian',   gender:'male'   },
+    { id:'onwK4e9ZLuTAKqWW03F9', name:'Daniel',  gender:'male'   },
+    { id:'pFZP5JQG7iQjIQuC4Bku', name:'Lily',    gender:'female' },
+    { id:'pqHfZKP75CvOlQylNhV4', name:'Bill',    gender:'male'   }
+  ];
+  let MINE = [];   // голоса, реально живущие на аккаунтах (/api/voices)
+  const voiceList = () => MINE.concat(PREMADE.filter(p => !MINE.some(v => v.id === p.id)));
+  const vOf = id => voiceList().find(v => v.id === id) || null;
+  const vName = id => { const v = vOf(id); return v ? v.name : String(id).slice(0, 8) + '…'; };
+  const isDE = v => !!v && (((v.langs || []).indexOf('de') >= 0) ||
+    /german|deutsch|germany|austri|swiss/i.test((v.accent || '') + ' ' + (v.desc || '') + ' ' + (v.lang || '')));
+  const vFem = v => /female|ж/i.test(v.gender || '');
   // Модели. de:true — принимают language_code, то есть немецкий
   // включается принудительно и «elf» перестаёт читаться по-английски.
   // ctx:false — модель не поддерживает невидимый контекст фразы.
@@ -293,9 +338,13 @@
   let model = DEFAULT_MODEL;
   const modelOf = id => MODELS.find(m => m.id === id) || MODELS[0];
 
-  const FEM = ['Laura','Matilda','Jessica','Lily'];
   const GENDERS = ['der', 'die', 'das'];
-  const DEFAULTS = { der: 'Roger', die: 'Matilda', das: 'Daniel' };
+  const DEFAULTS = {
+    der: 'CwhRBWXzGAHq8TQ4Fs17',   // Roger
+    die: 'XrExE9yKIg1WjnnlVkGX',   // Matilda
+    das: 'onwK4e9ZLuTAKqWW03F9'    // Daniel
+  };
+  const chosen = { der: DEFAULTS.der, die: DEFAULTS.die, das: DEFAULTS.das };
 
   let PW = '';                       // ADMIN_TOKEN, введённый на входе
   const $ = id => document.getElementById(id);
@@ -316,34 +365,143 @@
   const urlFor = a => 'voice/' + $('lang').value + '/' + slug(a) + '.mp3';
 
   // ── голоса в три списка ─────────────────────────────────────
-  const opts = sel => Object.keys(VOICES)
-    .map(n => `<option value="${n}"${n === sel ? ' selected' : ''}>${n} · ${FEM.includes(n) ? 'ж' : 'м'}</option>`)
-    .join('');
-  GENDERS.forEach(g => { $('v-' + g).innerHTML = opts(DEFAULTS[g]); });
+  function paintSelects() {
+    const list = voiceList();
+    GENDERS.forEach(g => {
+      const sel = $('v-' + g);
+      const want = chosen[g] || DEFAULTS[g];
+      // голос может быть выбран раньше, чем загрузился список аккаунтов —
+      // тогда держим его заглушкой, иначе выбор сбросится на Roger
+      const items = list.some(v => v.id === want)
+        ? list
+        : list.concat([{ id: want, name: 'голос ' + String(want).slice(0, 6) + '…', gender: '' }]);
+      sel.innerHTML = items.map(v =>
+        '<option value="' + v.id + '"' + (v.id === want ? ' selected' : '') + '>' +
+        v.name + ' · ' + (vFem(v) ? 'ж' : 'м') + (isDE(v) ? ' · DE' : '') + '</option>').join('');
+      sel.value = want;
+      chosen[g] = want;
+    });
+  }
 
   let needPreset = false;   // применим после того, как всё объявлено
   try {
     const sv = JSON.parse(localStorage.getItem('voicegen2') || '{}');
-    GENDERS.forEach(g => { if (sv[g] && VOICES[sv[g]]) $('v-' + g).value = sv[g]; });
+    GENDERS.forEach(g => {
+      const v = sv[g];
+      if (!v) return;
+      const byName = PREMADE.find(x => x.name === v);        // старый формат — имя
+      chosen[g] = byName ? byName.id : v;
+    });
     if (sv.lang) $('lang').value = sv.lang;
     if (sv.model && MODELS.some(m => m.id === sv.model)) model = sv.model;
     if (sv.repo) $('repo').value = sv.repo;
     if (sv.stab !== undefined) {
       $('stab').value = sv.stab; $('sim').value = sv.sim;
       $('style').value = sv.style; $('speed').value = sv.speed;
-      $('dot').checked = !!sv.dot; $('ctx').checked = !!sv.ctx;
+      $('dot').checked = !!sv.dot; $('ctx').checked = !!sv.ctx; $('acc').checked = !!sv.acc;
     } else { needPreset = true; }
   } catch (e) { needPreset = true; }
+  paintSelects();
   const remember = () => {
     try {
       const o = { lang: $('lang').value, repo: $('repo').value, model: model,
                   stab: $('stab').value, sim: $('sim').value,
                   style: $('style').value, speed: $('speed').value,
-                  dot: $('dot').checked, ctx: $('ctx').checked };
-      GENDERS.forEach(g => { o[g] = $('v-' + g).value; });
+                  dot: $('dot').checked, ctx: $('ctx').checked, acc: $('acc').checked };
+      GENDERS.forEach(g => { chosen[g] = $('v-' + g).value; o[g] = chosen[g]; });
       localStorage.setItem('voicegen2', JSON.stringify(o));
     } catch (e) {}
   };
+  // ── голоса: что есть на аккаунтах и что можно взять ─────────
+  let shown = [];          // то, что сейчас в списке
+  let shownKind = '';      // 'mine' | 'lib'
+  let prevAudio = null;
+
+  async function voicesApi(payload) {
+    const r = await fetch('/api/voices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ adminToken: PW }, payload))
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    return d;
+  }
+
+  function paintVoices() {
+    if (!shown.length) { $('vlist').innerHTML = ''; return; }
+    $('vlist').innerHTML = shown.map((v, n) => {
+      const sub = [v.accent || v.lang || '', v.gender === 'female' ? 'ж' : v.gender === 'male' ? 'м' : '',
+                   v.cat && v.cat !== 'premade' ? v.cat : ''].filter(Boolean).join(' · ');
+      const btns = shownKind === 'lib'
+        ? '<button data-add="' + n + '">＋ взять</button>'
+        : GENDERS.map(g => '<button class="pick" data-pick="' + n + '" data-g="' + g + '">' + g + '</button>').join('');
+      return '<div class="vrow">' +
+        (v.preview ? '<button class="play" data-play="' + n + '">▶</button>' : '') +
+        '<div class="nm"><b>' + v.name + (isDE(v) ? '<span class="vde">DE</span>' : '') + '</b>' +
+        (sub ? '<span>' + sub + '</span>' : '') + '</div>' + btns + '</div>';
+    }).join('');
+  }
+
+  $('vlist').addEventListener('click', async e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const v = shown[+(b.dataset.play ?? b.dataset.pick ?? b.dataset.add)];
+    if (!v) return;
+
+    if (b.dataset.play !== undefined) {
+      try { if (prevAudio) prevAudio.pause(); prevAudio = new Audio(v.preview); prevAudio.play(); } catch (err) {}
+      return;
+    }
+    if (b.dataset.pick !== undefined) {
+      const g = b.dataset.g;
+      chosen[g] = v.id;
+      if (!MINE.some(x => x.id === v.id)) MINE = MINE.concat([v]);
+      paintSelects(); remember();
+      log(g + ' → ' + v.name, 'have');
+      return;
+    }
+    if (b.dataset.add !== undefined) {
+      busy(b, '…');
+      try {
+        const d = await voicesApi({ a: 'add', owner: v.owner, voice: v.id, name: v.name });
+        log('голос «' + v.name + '» добавлен в аккаунт ' + ((d.key || 0) + 1), 'have');
+        await loadMine(true);
+      } catch (err) { log('не вышло добавить «' + v.name + '»: ' + err.message, 'err'); }
+      idle(b);
+    }
+  });
+
+  async function loadMine(quiet) {
+    busy($('btnMine'), 'читаю…');
+    try {
+      const d = await voicesApi({ a: 'mine' });
+      MINE = d.voices || [];
+      shown = MINE.slice().sort((a, b2) => (isDE(b2) ? 1 : 0) - (isDE(a) ? 1 : 0));
+      shownKind = 'mine';
+      paintVoices(); paintSelects();
+      const de = MINE.filter(isDE).length;
+      if (!quiet) log('голосов на аккаунтах: ' + MINE.length + (de ? ', из них немецких: ' + de : ', немецких нет'),
+                      de ? 'have' : 'err');
+    } catch (e) { log('голоса не загрузились: ' + e.message, 'err'); }
+    idle($('btnMine'));
+  }
+
+  $('btnMine').addEventListener('click', () => loadMine(false));
+
+  $('btnLib').addEventListener('click', async () => {
+    busy($('btnLib'), 'ищу…');
+    try {
+      const d = await voicesApi({ a: 'library' });
+      shown = (d.voices || []).map(v => Object.assign({ cat: 'library' }, v));
+      shownKind = 'lib';
+      paintVoices();
+      log(shown.length ? 'немецких голосов в библиотеке: ' + shown.length + ' — послушай ▶ и жми «взять»'
+                       : 'библиотека ничего не вернула', shown.length ? 'have' : 'err');
+    } catch (e) { log('библиотека недоступна: ' + e.message, 'err'); }
+    idle($('btnLib'));
+  });
+
   // ── модель ──────────────────────────────────────────────────
   function paintModels() {
     $('models').innerHTML = MODELS.map(m =>
@@ -354,6 +512,9 @@
     const de = $('lang').value === 'de';
     $('ctx').disabled = !m.ctx;
     $('ctx').parentNode.style.opacity = m.ctx ? '1' : '.45';
+    const v3 = model === 'eleven_v3';
+    $('acc').disabled = !v3;
+    $('acc').parentNode.style.opacity = v3 ? '1' : '.45';
     $('mdlHint').innerHTML = m.de
       ? (de ? 'язык задаётся жёстко (language_code=de) — «elf» и «null» читаются по-немецки, а не по-английски'
             : 'язык задаётся жёстко по выбранному языку')
@@ -468,8 +629,8 @@
 
   // ── как читать ──────────────────────────────────────────────
   const PRESETS = {
-    flat: { stab: 0.85, sim: 0.8,  style: 0,   speed: 0.92, dot: true,  ctx: true  },
-    live: { stab: 0.5,  sim: 0.75, style: 0,   speed: 1,    dot: false, ctx: false }
+    flat: { stab: 0.85, sim: 0.8,  style: 0,   speed: 0.92, dot: true,  ctx: true,  acc: true  },
+    live: { stab: 0.5,  sim: 0.75, style: 0,   speed: 1,    dot: false, ctx: false, acc: false }
   };
   // Контекст читается моделью «в уме» ради ровной интонации,
   // вслух он не произносится.
@@ -497,13 +658,14 @@
     $('stab').value = p.stab; $('sim').value = p.sim;
     $('style').value = p.style; $('speed').value = p.speed;
     $('dot').checked = p.dot; $('ctx').checked = p.ctx;
+    if (p.acc !== undefined) $('acc').checked = p.acc;
     showSettings();
     log('настройки: ' + (name === 'flat' ? 'ровно, для одного слова' : 'живо, как раньше'));
   }
   document.querySelectorAll('[data-preset]').forEach(b =>
     b.addEventListener('click', () => applyPreset(b.dataset.preset)));
   ['stab','sim','style','speed'].forEach(id => $(id).addEventListener('input', showSettings));
-  ['dot','ctx'].forEach(id => $(id).addEventListener('change', () => { remember(); paintQuota(); }));
+  ['dot','ctx','acc'].forEach(id => $(id).addEventListener('change', () => { remember(); paintQuota(); }));
   $('lang').addEventListener('change', () => { paintQuota(); paintModels(); });
 
   // текст, который реально уходит в модель
@@ -517,18 +679,20 @@
   let lastKey = null;   // какой аккаунт ElevenLabs отвечал в прошлый раз
 
   // ── запрос к твоей функции ──────────────────────────────────
-  async function speak(text, voiceName) {
+  async function speak(text, voiceId) {
     const r = await fetch('/api/speak', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text: text,
-        voiceId: VOICES[voiceName],
+        voiceId: voiceId,
         lang: $('lang').value,
         save: false,
         repo: $('repo').value.trim(),
         adminToken: PW,
         modelId: model,
+        accent: ($('acc').checked && model === 'eleven_v3' && $('lang').value === 'de')
+          ? 'strong German accent' : undefined,
         voiceSettings: readSettings(),
         previousText: ($('ctx').checked && modelOf(model).ctx) ? CTX_BEFORE : undefined,
         nextText: ($('ctx').checked && modelOf(model).ctx) ? CTX_AFTER : undefined
@@ -571,7 +735,7 @@
       try {
         const b64 = await speak(phrase(a), $('v-' + g).value);
         playB64(b64);
-        log('проба ' + g + ': ' + (lang === 'de' ? a.de : a.ru) + ' · ' + $('v-' + g).value, 'have');
+        log('проба ' + g + ': ' + (lang === 'de' ? a.de : a.ru) + ' · ' + vName($('v-' + g).value), 'have');
       } catch (e) { log('проба ' + g + ' не вышла: ' + e.message, 'err'); }
       idle(btn);
     });
@@ -670,7 +834,7 @@
         body: JSON.stringify({
           repo: $('repo').value.trim(),
           message: 'Голоса: ' + files.length + ' слов · ' +
-                   GENDERS.map(g => g + '=' + $('v-' + g).value).join(' ') +
+                   GENDERS.map(g => g + '=' + vName($('v-' + g).value)).join(' ') +
                    ' · ровность ' + (+$('stab').value).toFixed(2) +
                    ' скорость ' + (+$('speed').value).toFixed(2),
           files: files,
@@ -704,7 +868,7 @@
     GENDERS.forEach(g => {
       const list = uniq.filter(a => gender(a) === g);
       const missing = list.filter(a => !onSite[slug(a)] && !fresh[slug(a)]).length;
-      html += `<div class="grp">${g} · ${$('v-' + g).value} · нет ${missing} из ${list.length}</div>`;
+      html += `<div class="grp">${g} · ${vName($('v-' + g).value)} · нет ${missing} из ${list.length}</div>`;
       html += list.map(a => {
         const s = slug(a);
         const isFresh = !!fresh[s], isOn = !!onSite[s];
@@ -769,6 +933,7 @@
     if (needPreset) applyPreset('flat');
     showSettings();
     paintModels();
+    loadMine(true);
     render();
     loadQuota();
   }

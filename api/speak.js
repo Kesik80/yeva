@@ -107,6 +107,7 @@ export default async function handler(req, res) {
     previousText,
     nextText,
     modelId,
+    accent,           // только для v3: подсказка вроде 'strong German accent'
     key: keyWanted,   // необязательно: начать с конкретного аккаунта
     pin = false,      // true — не перебирать остальные
   } = req.body || {};
@@ -122,8 +123,12 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'unauthorized' });
   }
 
-  const safeVoiceId = ALLOWED_VOICES[voiceId] ? voiceId : DEFAULT_VOICE;
-  const voiceName = ALLOWED_VOICES[safeVoiceId].toLowerCase();
+  // свои и библиотечные голоса не перечислены в ALLOWED_VOICES,
+  // поэтому пускаем любой id правильного вида
+  const VOICE_RE = /^[A-Za-z0-9]{15,40}$/;
+  const safeVoiceId = ALLOWED_VOICES[voiceId] ? voiceId
+    : (VOICE_RE.test(String(voiceId || '')) ? String(voiceId) : DEFAULT_VOICE);
+  const voiceName = (ALLOWED_VOICES[safeVoiceId] || 'voice').toLowerCase();
   const model = ALLOWED_MODELS.includes(modelId) ? modelId : 'eleven_multilingual_v2';
   const v3 = model === 'eleven_v3';
   const v4 = model.indexOf('eleven_v4') === 0;
@@ -145,7 +150,14 @@ export default async function handler(req, res) {
   const speed = num(vs.speed, 0.7, 1.2, 1);
   if (speed !== 1 && !v4) settings.speed = speed;
 
-  const body = { text, model_id: model, voice_settings: settings };
+  // v3 понимает подсказки в квадратных скобках: «[strong German accent] Null.»
+  // Остальные модели прочитали бы такую скобку вслух, поэтому им её срезаем.
+  let outText = String(text);
+  const tag = String(accent || '').replace(/[^\p{L} ]/gu, '').trim().slice(0, 40);
+  if (v3 && tag) outText = '[' + tag + '] ' + outText;
+  if (!v3) outText = outText.replace(/^\s*\[[^\]]{0,60}\]\s*/, '');
+
+  const body = { text: outText, model_id: model, voice_settings: settings };
   // жёсткий язык — главное лекарство от «elf» по-английски
   if (lang && LANG_MODELS.includes(model)) body.language_code = String(lang).slice(0, 5);
   if (!v3 && !v4) {
