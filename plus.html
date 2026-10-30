@@ -257,19 +257,34 @@
     return buf._cut;
   }
 
-  // фраза из отдельных слов: «drei plus zwei ist gleich fünf»
+  // фраза из отдельных слов: «drei plus zwei» / «ist gleich fünf»
   function say(words, after) {
     // что бы ни случилось со звуком, игра не должна залипнуть:
     // продолжение вызываем ровно один раз
     let fired = false;
     const go = () => { if (!fired) { fired = true; if (after) after(); } };
     if (!actx) { setTimeout(go, 300); return; }
+
     const list = words.filter(Boolean);
     list.forEach(load);
-    const ready = list.every(w => vBuf[vUrl(w)]);
 
-    if (!ready) {
-      // пока файлов нет — читает системный голос, чтобы игра не молчала
+    const play = () => {
+      let t = actx.currentTime + 0.05;
+      list.forEach(w => {
+        const buf = vBuf[vUrl(w)];
+        const cut = edges(buf);
+        const src = actx.createBufferSource(), g = actx.createGain();
+        g.gain.value = 1.25;
+        src.buffer = buf;
+        src.connect(g); g.connect(master);
+        src.start(t, cut[0], cut[1]);
+        t += cut[1] + CFG.gap;
+      });
+      setTimeout(go, (t - actx.currentTime) * 1000 + 60);
+    };
+
+    // пока файлов нет — читает системный голос, чтобы игра не молчала
+    const fallback = () => {
       try {
         if (typeof speechSynthesis !== 'undefined') {
           speechSynthesis.cancel();
@@ -282,21 +297,16 @@
         }
       } catch (e) {}
       setTimeout(go, 400);
-      return;
-    }
+    };
 
-    let t = actx.currentTime + 0.05;
-    list.forEach(w => {
-      const buf = vBuf[vUrl(w)];
-      const cut = edges(buf);
-      const src = actx.createBufferSource(), g = actx.createGain();
-      g.gain.value = 1.25;
-      src.buffer = buf;
-      src.connect(g); g.connect(master);
-      src.start(t, cut[0], cut[1]);
-      t += cut[1] + CFG.gap;
-    });
-    setTimeout(go, (t - actx.currentTime) * 1000 + 60);
+    // первый заход на холодном кэше: даём файлам секунду догрузиться
+    let tries = 0;
+    (function wait() {
+      if (list.every(w => vBuf[vUrl(w)])) { play(); return; }
+      const hopeless = list.some(w => vBad[vUrl(w)]);
+      if (!hopeless && tries++ < 10) { setTimeout(wait, 120); return; }
+      fallback();
+    })();
   }
 
   function tone(type, freq, at, dur, vol, to) {
@@ -318,17 +328,15 @@
   const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
 
   /* ── раунд ── */
-  // та же фраза словами — её же произносит голос
+  // то же, что произносит голос
   function words(withAnswer) {
     const n = v => (NUM[v] ? NUM[v].de : v);
-    return n(a) + ' plus ' + n(b) + ' ist gleich ' + (withAnswer ? n(sum) : '…');
+    return n(a) + ' plus ' + n(b) + (withAnswer ? ' ist gleich ' + n(sum) : '');
   }
 
-  function phrase(withAnswer) {
-    const list = [NUM[a], WPLUS, NUM[b], WEQ];
-    if (withAnswer) list.push(NUM[sum]);
-    return list;
-  }
+  const askPhrase = () => [NUM[a], WPLUS, NUM[b]];              // «eins plus eins»
+  const ansPhrase = () => [WEQ, NUM[sum]];                      // «ist gleich zwei»
+  const fullPhrase = () => [NUM[a], WPLUS, NUM[b], WEQ, NUM[sum]];
 
   function sizeFor(total) {
     const w = Math.min(window.innerWidth, window.innerHeight * 0.62);
@@ -402,7 +410,7 @@
 
     // отвечать можно сразу: ребёнок не должен ждать, пока договорит голос
     locked = false;
-    say(phrase(false));
+    say(askPhrase());
     hintT = setTimeout(showHint, 9000);
   }
 
@@ -439,13 +447,12 @@
     $('say').textContent = words(true);
     yay(); buzz(30);
 
-    // полная фраза с ответом
-    setTimeout(() => say(phrase(true)), 260);
-
     done++;
     paintStars();
-    if (done >= CFG.goal) setTimeout(party, 2600);
-    else setTimeout(round, 2600);
+
+    // «ist gleich пять» — и только когда голос договорит, следующий пример
+    const next = () => { if (done >= CFG.goal) party(); else round(); };
+    setTimeout(() => say(ansPhrase(), () => setTimeout(next, 900)), 260);
   }
 
   $('choices').addEventListener('click', e => {
@@ -454,7 +461,7 @@
   });
   $('btnAgain').addEventListener('click', () => {
     initAudio();
-    say(phrase($('ans').classList.contains('done')));
+    say($('ans').classList.contains('done') ? fullPhrase() : askPhrase());
   });
 
   /* ── звёзды и салют ── */
@@ -479,7 +486,7 @@
     setTimeout(() => { box.innerHTML = ''; }, 4200);
     done = 0;
     paintStars();
-    setTimeout(round, 2600);
+    setTimeout(round, 3200);
   }
 
   /* ── выбор диапазона ── */
