@@ -106,6 +106,22 @@
   .qnums{font-size:12.5px;color:#5B7A93;font-variant-numeric:tabular-nums;line-height:1.45}
   .qnums b{color:#1E3D57}
   input[type=range]{width:100%;padding:0;height:26px;background:transparent;border:0;accent-color:#2F8FC4}
+  .mdl{display:flex;flex-wrap:wrap;gap:8px}
+  .mdl button{
+    flex:1 1 calc(50% - 4px);margin-top:0;padding:10px 8px;
+    background:#F2F7FB;color:#5B7A93;border:1.5px solid #E0EAF2;
+    font-size:13px;line-height:1.25;text-align:center;
+  }
+  .mdl button b{display:block;font-size:13.5px;color:#2C6E96}
+  .mdl button i{font-style:normal;font-size:11px;opacity:.75}
+  .mdl button.on{background:#E3F1FB;border-color:#4FA8D8;color:#1E3D57}
+  .mdl button.on b{color:#1B6FA8}
+  .de-badge{display:inline-block;margin-left:4px;padding:0 4px;border-radius:5px;
+    background:#1F9B6E;color:#fff;font-size:9.5px;vertical-align:1px;letter-spacing:.04em}
+  .accs{margin-top:7px;border-top:1px solid #EDF3F8;padding-top:6px}
+  .accs div{display:flex;gap:7px;align-items:baseline;padding:1px 0}
+  .accs span{color:#93A8BA}
+  .accs .bad{color:#C0392B}
   .preset{display:flex;gap:9px}
   .preset button{margin-top:0}
   .hint{font-weight:500;color:#93A8BA;font-size:11.5px}
@@ -163,6 +179,12 @@
         <input id="repo" value="Kesik80/yeva" autocomplete="off">
       </div>
     </div>
+  </div>
+
+  <div class="card">
+    <div style="font-size:13px;font-weight:600;color:#5B7A93;margin-bottom:9px">МОДЕЛЬ ELEVENLABS</div>
+    <div class="mdl" id="models"></div>
+    <div class="hint" id="mdlHint" style="display:block;margin-top:9px;line-height:1.45"></div>
   </div>
 
   <div class="card">
@@ -256,6 +278,21 @@
     Eric:'cjVigY5qzO86Huf0OWal', Brian:'nPczCjzI2devNBz1zQrb', Daniel:'onwK4e9ZLuTAKqWW03F9',
     Lily:'pFZP5JQG7iQjIQuC4Bku', Bill:'pqHfZKP75CvOlQylNhV4'
   };
+  // Модели. de:true — принимают language_code, то есть немецкий
+  // включается принудительно и «elf» перестаёт читаться по-английски.
+  // ctx:false — модель не поддерживает невидимый контекст фразы.
+  const MODELS = [
+    { id:'eleven_flash_v2_5',      name:'Flash v2.5',       note:'быстрая и ровная',   de:true,  ctx:true  },
+    { id:'eleven_turbo_v2_5',      name:'Turbo v2.5',       note:'быстрая, живее',     de:true,  ctx:true  },
+    { id:'eleven_v3',              name:'v3',               note:'самая живая',        de:true,  ctx:false },
+    { id:'eleven_multilingual_v2', name:'Multilingual v2',  note:'как было раньше',    de:false, ctx:true  },
+    { id:'eleven_v4',              name:'v4',               note:'новая, без скорости', de:false, ctx:false },
+    { id:'eleven_v4_turbo',        name:'v4 Turbo',         note:'новая, быстрая',     de:false, ctx:false }
+  ];
+  const DEFAULT_MODEL = 'eleven_flash_v2_5';
+  let model = DEFAULT_MODEL;
+  const modelOf = id => MODELS.find(m => m.id === id) || MODELS[0];
+
   const FEM = ['Laura','Matilda','Jessica','Lily'];
   const GENDERS = ['der', 'die', 'das'];
   const DEFAULTS = { der: 'Roger', die: 'Matilda', das: 'Daniel' };
@@ -289,6 +326,7 @@
     const sv = JSON.parse(localStorage.getItem('voicegen2') || '{}');
     GENDERS.forEach(g => { if (sv[g] && VOICES[sv[g]]) $('v-' + g).value = sv[g]; });
     if (sv.lang) $('lang').value = sv.lang;
+    if (sv.model && MODELS.some(m => m.id === sv.model)) model = sv.model;
     if (sv.repo) $('repo').value = sv.repo;
     if (sv.stab !== undefined) {
       $('stab').value = sv.stab; $('sim').value = sv.sim;
@@ -298,7 +336,7 @@
   } catch (e) { needPreset = true; }
   const remember = () => {
     try {
-      const o = { lang: $('lang').value, repo: $('repo').value,
+      const o = { lang: $('lang').value, repo: $('repo').value, model: model,
                   stab: $('stab').value, sim: $('sim').value,
                   style: $('style').value, speed: $('speed').value,
                   dot: $('dot').checked, ctx: $('ctx').checked };
@@ -306,6 +344,30 @@
       localStorage.setItem('voicegen2', JSON.stringify(o));
     } catch (e) {}
   };
+  // ── модель ──────────────────────────────────────────────────
+  function paintModels() {
+    $('models').innerHTML = MODELS.map(m =>
+      '<button class="' + (m.id === model ? 'on' : '') + '" data-model="' + m.id + '">' +
+      '<b>' + m.name + (m.de ? '<span class="de-badge">DE</span>' : '') + '</b>' +
+      '<i>' + m.note + '</i></button>').join('');
+    const m = modelOf(model);
+    const de = $('lang').value === 'de';
+    $('ctx').disabled = !m.ctx;
+    $('ctx').parentNode.style.opacity = m.ctx ? '1' : '.45';
+    $('mdlHint').innerHTML = m.de
+      ? (de ? 'язык задаётся жёстко (language_code=de) — «elf» и «null» читаются по-немецки, а не по-английски'
+            : 'язык задаётся жёстко по выбранному языку')
+      : 'язык модель угадывает по самому слову. Для одиночных слов держи включённым «невидимый контекст фразы» ниже, иначе «elf» звучит по-английски'
+        + (m.ctx ? '' : ' — а эта модель контекст не поддерживает, лучше возьми модель со значком DE');
+  }
+  $('models').addEventListener('click', e => {
+    const b = e.target.closest('[data-model]');
+    if (!b) return;
+    model = b.dataset.model;
+    paintModels(); remember();
+    log('модель: ' + modelOf(model).name);
+  });
+
   GENDERS.forEach(g => $('v-' + g).addEventListener('change', remember));
   $('repo').addEventListener('change', remember);
   $('lang').addEventListener('change', () => {
@@ -382,14 +444,24 @@
     }
 
     const enough = need <= quota.left;
+    const acc = quota.accounts || [];
+    const many = acc.length > 1;
+    const list = many
+      ? '<div class="accs">' + acc.map(a => a.ok
+          ? ('<div><b>' + (a.i + 1) + '</b> <span>' + a.tail + '</span> ' +
+             nf(a.left) + ' из ' + nf(a.limit) + ' <span>· ' + a.tier + '</span></div>')
+          : ('<div class="bad"><b>' + (a.i + 1) + '</b> <span>' + a.tail + '</span> ' +
+             (a.error || 'не отвечает') + '</div>')).join('') + '</div>'
+      : '';
     $('qNums').innerHTML =
       'осталось <b>' + nf(quota.left) + '</b> из ' + nf(quota.limit) +
-      ' · тариф ' + quota.tier + when + '<br>' +
+      (many ? ' по ' + (quota.alive || acc.length) + ' аккаунтам' : ' · тариф ' + quota.tier) + when + '<br>' +
       (need > 0
         ? ('на недостающие слова нужно <b>' + nf(need) + '</b> символов — ' +
            (enough ? 'хватает' : '<b style="color:#C0392B">не хватает ' + nf(need - quota.left) + '</b>'))
-        : 'все слова уже озвучены');
-    $('qTitle').textContent = 'Лимит ElevenLabs · использовано ' + quota.percent + '%';
+        : 'все слова уже озвучены') + list;
+    $('qTitle').textContent = 'Лимит ElevenLabs · использовано ' + quota.percent + '%' +
+      (many ? ' · ' + (quota.alive || acc.length) + ' акк.' : '');
   }
 
   $('qRefresh').addEventListener('click', loadQuota);
@@ -432,7 +504,7 @@
     b.addEventListener('click', () => applyPreset(b.dataset.preset)));
   ['stab','sim','style','speed'].forEach(id => $(id).addEventListener('input', showSettings));
   ['dot','ctx'].forEach(id => $(id).addEventListener('change', () => { remember(); paintQuota(); }));
-  $('lang').addEventListener('change', paintQuota);
+  $('lang').addEventListener('change', () => { paintQuota(); paintModels(); });
 
   // текст, который реально уходит в модель
   function phrase(a) {
@@ -441,6 +513,8 @@
     if ($('dot').checked) t = t.charAt(0).toUpperCase() + t.slice(1) + '.';
     return t;
   }
+
+  let lastKey = null;   // какой аккаунт ElevenLabs отвечал в прошлый раз
 
   // ── запрос к твоей функции ──────────────────────────────────
   async function speak(text, voiceName) {
@@ -454,13 +528,18 @@
         save: false,
         repo: $('repo').value.trim(),
         adminToken: PW,
+        modelId: model,
         voiceSettings: readSettings(),
-        previousText: $('ctx').checked ? CTX_BEFORE : undefined,
-        nextText: $('ctx').checked ? CTX_AFTER : undefined
+        previousText: ($('ctx').checked && modelOf(model).ctx) ? CTX_BEFORE : undefined,
+        nextText: ($('ctx').checked && modelOf(model).ctx) ? CTX_AFTER : undefined
       })
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    if (Number.isInteger(d.key) && d.key !== lastKey) {
+      lastKey = d.key;
+      if ((d.keys || 1) > 1) log('аккаунт ' + (d.key + 1) + ' (' + (d.keyTail || '') + ')', 'have');
+    }
     return d.audio;
   }
 
@@ -689,6 +768,7 @@
     $('app').hidden = false;
     if (needPreset) applyPreset('flat');
     showSettings();
+    paintModels();
     render();
     loadQuota();
   }
