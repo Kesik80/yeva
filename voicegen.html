@@ -763,6 +763,8 @@
   // немецкий «хвост»: какое слово подставить к этому слову (или ничего)
   function carrierFor(a) {
     if (!$('car').checked || $('lang').value !== 'de') return undefined;
+    // у слова может быть свой хвост (plus -> «plus zwei»)
+    if (a && a.tail) return a.tail;
     const w = ($('carWord').value || '').trim();
     if (!w) return undefined;
     const isNum = !!a && typeof a.num === 'number';

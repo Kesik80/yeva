@@ -107,6 +107,16 @@
     BN(50, 'fünfzig')
   ];
 
+  // Склейки для игры в сложение: «eins plus eins ist gleich zwei».
+  // Числа уже есть выше, не хватает только связок.
+  // tail — немецкий «хвост» для voicegen: его произносят вместе со словом
+  // и вырезают из mp3, иначе «plus» читается по-английски.
+  const MATH = [
+    { de: 'plus',       ru: 'плюс',  s: 'ding', e: '', tail: 'zwei' },
+    { de: 'ist gleich', ru: 'равно', s: 'ding', e: '', tail: 'zwei' },
+    { de: 'minus',      ru: 'минус', s: 'ding', e: '', tail: 'zwei' }
+  ];
+
   // Цвета. Прилагательные, артикля нет — в voicegen уйдут к мужскому голосу.
   // В карточные игры не идут: там цвет должен быть единственным отличием,
   // а эмодзи перекрасить нельзя.
@@ -126,10 +136,11 @@
   ];
 
   window.YEVA_WORDS = {
-    version: 7,
+    version: 8,
     colors: COLORS,
     numbers: NUMBERS,
     numbersBig: BIG,
+    math: MATH,
     body: BODY,
 
     // фоновые украшения для миров, где вместо облаков что-то своё
@@ -294,6 +305,7 @@
     NUMBERS.forEach(add);       // числа — только ради озвучки
     BIG.forEach(add);           // 11–50 — тоже только ради озвучки
     COLORS.forEach(add);        // цвета — тоже только ради озвучки
+    MATH.forEach(add);          // plus / ist gleich / minus — связки для сложения
     return out;
   })();
 
