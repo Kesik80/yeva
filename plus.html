@@ -59,10 +59,11 @@
     width:100%;max-width:100%;flex-wrap:nowrap;overflow:hidden;
   }
   .grp{
-    display:grid;gap:4px;justify-content:center;align-content:center;
-    background:rgba(255,255,255,.5);border-radius:20px;padding:9px;
-    box-shadow:0 6px 18px rgba(46,35,88,.1);
+    display:grid;place-items:center;
+    background:rgba(255,255,255,.34);border-radius:22px;padding:7px;
+    box-shadow:0 5px 14px rgba(46,35,88,.07);
   }
+  .grp svg{display:block;animation:pop .34s cubic-bezier(.3,1.5,.5,1) backwards}
   .grp span{line-height:1;display:block;animation:pop .3s cubic-bezier(.3,1.5,.5,1) backwards}
   @keyframes pop{from{transform:scale(.3);opacity:0}}
   .op{font-size:clamp(22px,7vw,40px);font-weight:600;color:rgba(46,35,88,.55);flex:none}
@@ -145,6 +146,7 @@
 <body>
 
 <script src="words.js"></script>
+<script src="blocks.js"></script>
 
 <div class="top">
   <div class="stars" id="stars"></div>
@@ -197,7 +199,6 @@
   const CFG = { goal: 8, gap: 0.07, voice: 'voice/de/' };
   const SIZES = [5, 10, 20];
   const K_MAX = 'yeva.plus.max';
-  const THINGS = ['\u{1F34E}', '\u{1F34C}', '\u{1F425}', '\u{2B50}', '\u{26BD}', '\u{1F353}', '\u{1F41E}', '\u{1F697}', '\u{1F36A}', '\u{1F41F}'];
 
   const rand = (a, b) => a + Math.random() * (b - a);
   const irand = (a, b) => Math.floor(rand(a, b + 1));
@@ -209,7 +210,7 @@
   const WPLUS = YW.math.find(w => w.de === 'plus');
   const WEQ = YW.math.find(w => w.de === 'ist gleich');
 
-  let max = 10, a = 1, b = 1, sum = 2, done = 0, locked = true, wrongs = 0, hintT = 0;
+  let max = 10, a = 1, b = 1, sum = 2, done = 0, locked = true, wrongs = 0, hintT = 0, cube = 40;
 
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
@@ -338,38 +339,53 @@
   const ansPhrase = () => [WEQ, NUM[sum]];                      // «ist gleich zwei»
   const fullPhrase = () => [NUM[a], WPLUS, NUM[b], WEQ, NUM[sum]];
 
+  // сторона кубика в пикселях
   function sizeFor(total) {
     const w = Math.min(window.innerWidth, window.innerHeight * 0.62);
-    const k = Math.max(0.8, Math.min(1.5, w / 390));   // на планшете крупнее
-    if (total <= 4) return Math.round(62 * k);
-    if (total <= 6) return Math.round(54 * k);
-    if (total <= 10) return Math.round(44 * k);
-    if (total <= 14) return Math.round(36 * k);
-    if (total <= 20) return Math.round(30 * k);
-    return Math.round(25 * k);
+    const k = Math.max(0.8, Math.min(1.6, w / 390));
+    if (total <= 4) return Math.round(50 * k);
+    if (total <= 6) return Math.round(44 * k);
+    if (total <= 10) return Math.round(38 * k);
+    if (total <= 14) return Math.round(32 * k);
+    if (total <= 20) return Math.round(27 * k);
+    return Math.round(23 * k);
   }
 
   // строка должна помещаться целиком: ужимаем предметы, пока не влезет
   function fit() {
     const board = document.querySelector('.board');
     const stage = document.querySelector('.stage');
-    let size = parseFloat($('g1').style.fontSize) || 40;
+    let size = cube;
     let guard = 0;
-    while (guard++ < 24 && size > 13 &&
+    while (guard++ < 26 && size > 11 &&
            (board.scrollWidth > board.clientWidth + 1 || stage.scrollHeight > stage.clientHeight + 1)) {
-      size = Math.max(13, size * 0.9);
-      $('g1').style.fontSize = size + 'px';
-      $('g2').style.fontSize = size + 'px';
+      size = Math.max(11, size * 0.9);
+      resize(size);
     }
+    cube = size;
   }
 
-  function fill(box, n, em, size, delay) {
+  function fill(box, n, size, delay) {
+    if (window.YEVA_BLOCKS) {
+      box.innerHTML = YEVA_BLOCKS.svg(n);
+      const el = box.firstChild;
+      YEVA_BLOCKS.size(el, size);
+      el.style.animationDelay = delay + 's';
+      return;
+    }
+    // запасной вариант, если blocks.js не подключён
     const cols = Math.ceil(Math.sqrt(n));
     box.style.gridTemplateColumns = 'repeat(' + cols + ', auto)';
     box.style.fontSize = size + 'px';
     let h = '';
-    for (let i = 0; i < n; i++) h += '<span style="animation-delay:' + (delay + i * 0.05).toFixed(2) + 's">' + em + '</span>';
+    for (let i = 0; i < n; i++) h += '<span>\u2b1b</span>';
     box.innerHTML = h;
+  }
+
+  function resize(size) {
+    if (!window.YEVA_BLOCKS) { $('g1').style.fontSize = size + 'px'; $('g2').style.fontSize = size + 'px'; return; }
+    YEVA_BLOCKS.size($('g1').firstChild, size);
+    YEVA_BLOCKS.size($('g2').firstChild, size);
   }
 
   function round() {
@@ -379,13 +395,14 @@
     b = irand(1, max - a);
     sum = a + b;
 
-    const em = pick(THINGS);
-    const size = sizeFor(sum);
-    fill($('g1'), a, em, size, 0);
-    fill($('g2'), b, em, size, a * 0.05);
+    cube = sizeFor(sum);
+    fill($('g1'), a, cube, 0);
+    fill($('g2'), b, cube, 0.12);
 
     $('ans').textContent = '?';
     $('ans').classList.remove('done');
+    $('ans').style.background = '';
+    $('ans').style.color = '';
     $('digits').textContent = a + ' + ' + b + ' = ?';
     $('say').textContent = words(false);
     fit();
@@ -443,6 +460,10 @@
     btn.classList.add('right');
     $('ans').textContent = sum;
     $('ans').classList.add('done');
+    if (window.YEVA_BLOCKS) {
+      $('ans').style.background = YEVA_BLOCKS.color(sum);
+      $('ans').style.color = '#fff';
+    }
     $('digits').textContent = a + ' + ' + b + ' = ' + sum;
     $('say').textContent = words(true);
     yay(); buzz(30);
@@ -526,18 +547,10 @@
     round();
   });
 
-  window.addEventListener('resize', () => setTimeout(() => {
-    const size = sizeFor(sum);
-    $('g1').style.fontSize = size + 'px';
-    $('g2').style.fontSize = size + 'px';
-    fit();
-  }, 80));
-  window.addEventListener('orientationchange', () => setTimeout(() => {
-    const size = sizeFor(sum);
-    $('g1').style.fontSize = size + 'px';
-    $('g2').style.fontSize = size + 'px';
-    fit();
-  }, 260));
+  const relayout = () => { cube = sizeFor(sum); resize(cube); fit(); };
+  window.addEventListener('resize', () => setTimeout(relayout, 80));
+  window.addEventListener('orientationchange', () => setTimeout(relayout, 260));
+  document.addEventListener('fullscreenchange', () => setTimeout(relayout, 160));
 
   document.addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('gesturestart', e => e.preventDefault());
