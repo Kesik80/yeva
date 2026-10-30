@@ -249,6 +249,33 @@
       </label>
     </div>
     <div class="chk">
+      <input type="checkbox" id="car" checked>
+      <label for="car" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
+        Произносить с немецким хвостом и отрезать его
+      </label>
+    </div>
+    <div class="row" id="carBox" style="margin-top:8px">
+      <div style="flex:0 0 110px">
+        <label for="carWord">Хвост</label>
+        <input id="carWord" value="Uhr" autocomplete="off">
+      </div>
+      <div style="flex:1">
+        <label>Кому</label>
+        <div class="chk" style="margin-top:9px">
+          <input type="checkbox" id="carAll">
+          <label for="carAll" style="margin:0;font-size:13.5px;font-weight:500;color:#1E3D57">
+            всем словам, не только числам
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="hint" style="display:block;margin-top:7px;line-height:1.45">
+      «elf» английский диктор читает по-английски, «elf Uhr» — уже по-немецки.
+      Хвост произносится, а потом вырезается из mp3 по таймингам: в файл попадает
+      только само слово. Для чисел больше 24 естественнее «Grad» или «Euro» —
+      таких часов не бывает. Хвост тоже тратит символы лимита.
+    </div>
+    <div class="chk">
       <input type="checkbox" id="acc">
       <label for="acc" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
         Подсказывать немецкий акцент <span class="hint">(только v3)</span>
@@ -399,6 +426,9 @@
       $('stab').value = sv.stab; $('sim').value = sv.sim;
       $('style').value = sv.style; $('speed').value = sv.speed;
       $('dot').checked = !!sv.dot; $('ctx').checked = !!sv.ctx; $('acc').checked = !!sv.acc;
+      if (sv.car !== undefined) $('car').checked = !!sv.car;
+      if (sv.carWord) $('carWord').value = sv.carWord;
+      $('carAll').checked = !!sv.carAll;
     } else { needPreset = true; }
   } catch (e) { needPreset = true; }
   paintSelects();
@@ -407,7 +437,8 @@
       const o = { lang: $('lang').value, repo: $('repo').value, model: model,
                   stab: $('stab').value, sim: $('sim').value,
                   style: $('style').value, speed: $('speed').value,
-                  dot: $('dot').checked, ctx: $('ctx').checked, acc: $('acc').checked };
+                  dot: $('dot').checked, ctx: $('ctx').checked, acc: $('acc').checked,
+                  car: $('car').checked, carWord: $('carWord').value, carAll: $('carAll').checked };
       GENDERS.forEach(g => { chosen[g] = $('v-' + g).value; o[g] = chosen[g]; });
       localStorage.setItem('voicegen2', JSON.stringify(o));
     } catch (e) {}
@@ -550,10 +581,10 @@
 
   // сколько символов уйдёт на то, что осталось озвучить
   function needChars(onlyMissing) {
-    const extra = ($('ctx').checked ? 0 : 0);   // контекст не тарифицируется как речь
     return uniq.reduce((n, a) => {
       if (onlyMissing && (onSite[slug(a)] || fresh[slug(a)])) return n;
-      return n + phrase(a).length + extra;
+      const car = carrierFor(a);
+      return n + phrase(a).length + (car ? car.length + 2 : 0);
     }, 0);
   }
 
@@ -629,8 +660,8 @@
 
   // ── как читать ──────────────────────────────────────────────
   const PRESETS = {
-    flat: { stab: 0.85, sim: 0.8,  style: 0,   speed: 0.92, dot: true,  ctx: true,  acc: true  },
-    live: { stab: 0.5,  sim: 0.75, style: 0,   speed: 1,    dot: false, ctx: false, acc: false }
+    flat: { stab: 0.85, sim: 0.8,  style: 0,   speed: 0.92, dot: true,  ctx: true,  acc: true,  car: true  },
+    live: { stab: 0.5,  sim: 0.75, style: 0,   speed: 1,    dot: false, ctx: false, acc: false, car: false }
   };
   // Контекст читается моделью «в уме» ради ровной интонации,
   // вслух он не произносится.
@@ -659,14 +690,33 @@
     $('style').value = p.style; $('speed').value = p.speed;
     $('dot').checked = p.dot; $('ctx').checked = p.ctx;
     if (p.acc !== undefined) $('acc').checked = p.acc;
+    if (p.car !== undefined) { $('car').checked = p.car; paintCarrier(); }
     showSettings();
     log('настройки: ' + (name === 'flat' ? 'ровно, для одного слова' : 'живо, как раньше'));
   }
   document.querySelectorAll('[data-preset]').forEach(b =>
     b.addEventListener('click', () => applyPreset(b.dataset.preset)));
   ['stab','sim','style','speed'].forEach(id => $(id).addEventListener('input', showSettings));
-  ['dot','ctx','acc'].forEach(id => $(id).addEventListener('change', () => { remember(); paintQuota(); }));
+  ['dot','ctx','acc','car','carAll'].forEach(id =>
+    $(id).addEventListener('change', () => { remember(); paintQuota(); paintCarrier(); }));
+  $('carWord').addEventListener('input', () => { remember(); paintQuota(); });
+
+  function paintCarrier() {
+    const on = $('car').checked;
+    $('carBox').style.opacity = on ? '1' : '.45';
+    $('carWord').disabled = !on;
+    $('carAll').disabled = !on;
+  }
   $('lang').addEventListener('change', () => { paintQuota(); paintModels(); });
+
+  // немецкий «хвост»: какое слово подставить к этому слову (или ничего)
+  function carrierFor(a) {
+    if (!$('car').checked || $('lang').value !== 'de') return undefined;
+    const w = ($('carWord').value || '').trim();
+    if (!w) return undefined;
+    const isNum = !!a && typeof a.num === 'number';
+    return ($('carAll').checked || isNum) ? w : undefined;
+  }
 
   // текст, который реально уходит в модель
   function phrase(a) {
@@ -676,10 +726,12 @@
     return t;
   }
 
-  let lastKey = null;   // какой аккаунт ElevenLabs отвечал в прошлый раз
+  let lastKey = null;    // какой аккаунт ElevenLabs отвечал в прошлый раз
+  let lastSaid = null;   // что на самом деле произнесла модель (со хвостом)
+  let lastTrim = null;   // на какой секунде отрезали хвост
 
   // ── запрос к твоей функции ──────────────────────────────────
-  async function speak(text, voiceId) {
+  async function speak(text, voiceId, a) {
     const r = await fetch('/api/speak', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -693,6 +745,7 @@
         modelId: model,
         accent: ($('acc').checked && model === 'eleven_v3' && $('lang').value === 'de')
           ? 'strong German accent' : undefined,
+        carrier: carrierFor(a),
         voiceSettings: readSettings(),
         previousText: ($('ctx').checked && modelOf(model).ctx) ? CTX_BEFORE : undefined,
         nextText: ($('ctx').checked && modelOf(model).ctx) ? CTX_AFTER : undefined
@@ -700,6 +753,8 @@
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    lastSaid = d.said || null;
+    lastTrim = d.trimmed ? d.cutAt : null;
     if (Number.isInteger(d.key) && d.key !== lastKey) {
       lastKey = d.key;
       if ((d.keys || 1) > 1) log('аккаунт ' + (d.key + 1) + ' (' + (d.keyTail || '') + ')', 'have');
@@ -733,9 +788,11 @@
       const lang = $('lang').value;
       busy(btn, 'генерирую…');
       try {
-        const b64 = await speak(phrase(a), $('v-' + g).value);
+        const b64 = await speak(phrase(a), $('v-' + g).value, a);
         playB64(b64);
-        log('проба ' + g + ': ' + (lang === 'de' ? a.de : a.ru) + ' · ' + vName($('v-' + g).value), 'have');
+        log('проба ' + g + ': ' + (lastSaid || (lang === 'de' ? a.de : a.ru)) +
+            (lastTrim ? ' → хвост отрезан на ' + lastTrim + ' с' : '') +
+            ' · ' + vName($('v-' + g).value), 'have');
       } catch (e) { log('проба ' + g + ' не вышла: ' + e.message, 'err'); }
       idle(btn);
     });
@@ -791,13 +848,13 @@
     for (const a of todo) {
       const g = gender(a);
       try {
-        fresh[slug(a)] = await speak(phrase(a), $('v-' + g).value);
+        fresh[slug(a)] = await speak(phrase(a), $('v-' + g).value, a);
         ok++;
       } catch (e) {
         // одна повторная попытка: чаще всего это 429 из-за темпа
         await new Promise(r => setTimeout(r, 1200));
         try {
-          fresh[slug(a)] = await speak(phrase(a), $('v-' + g).value);
+          fresh[slug(a)] = await speak(phrase(a), $('v-' + g).value, a);
           ok++;
           log('↻ ' + a.de + ' — со второй попытки', 'fresh');
         } catch (e2) {
@@ -902,7 +959,7 @@
     redo.disabled = true;
     redo.textContent = '…';
     try {
-      const b64 = await speak(phrase(a), $('v-' + gender(a)).value);
+      const b64 = await speak(phrase(a), $('v-' + gender(a)).value, a);
       fresh[slug(a)] = b64;
       playB64(b64);                       // сразу слышно, что получилось
       log('↻ переозвучено: ' + a.de + ' — послушай и жми «Записать»', 'fresh');
@@ -933,6 +990,7 @@
     if (needPreset) applyPreset('flat');
     showSettings();
     paintModels();
+    paintCarrier();
     loadMine(true);
     render();
     loadQuota();

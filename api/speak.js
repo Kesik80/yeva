@@ -88,6 +88,48 @@ function safePath(p) {
   return clean;
 }
 
+// ── обрезка mp3 по границе кадра ───────────────────────────────
+// Кадр MP3 самодостаточен, поэтому хвост можно просто выбросить:
+// перекодировать ничего не нужно, качество не меняется.
+function mp3Trim(buf, seconds) {
+  const BR1 = [0,32,40,48,56,64,80,96,112,128,160,192,224,256,320,0];   // MPEG1 Layer III
+  const BR2 = [0,8,16,24,32,40,48,56,64,80,96,112,128,144,160,0];       // MPEG2 / 2.5
+  const SR = { 3: [44100,48000,32000], 2: [22050,24000,16000], 0: [11025,12000,8000] };
+  let i = 0;
+  if (buf.length > 10 && buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) {   // ID3v2
+    i = 10 + (((buf[6] & 0x7f) << 21) | ((buf[7] & 0x7f) << 14) | ((buf[8] & 0x7f) << 7) | (buf[9] & 0x7f));
+  }
+  let t = 0, xing = null, cut = -1;
+  while (i + 4 <= buf.length) {
+    if (buf[i] !== 0xFF || (buf[i + 1] & 0xE0) !== 0xE0) { i++; continue; }
+    const ver = (buf[i + 1] >> 3) & 3;      // 3 = MPEG1, 2 = MPEG2, 0 = MPEG2.5
+    const layer = (buf[i + 1] >> 1) & 3;    // 1 = Layer III
+    const brIdx = (buf[i + 2] >> 4) & 0xF;
+    const srIdx = (buf[i + 2] >> 2) & 3;
+    const pad = (buf[i + 2] >> 1) & 1;
+    const sr = (SR[ver] || [])[srIdx];
+    const br = (ver === 3 ? BR1[brIdx] : BR2[brIdx]) * 1000;
+    if (layer !== 1 || ver === 1 || !sr || !br) { i++; continue; }
+    const spf = ver === 3 ? 1152 : 576;
+    const len = Math.floor(spf / 8 * br / sr) + pad;
+    if (len < 24) { i++; continue; }
+
+    // служебный кадр Xing/Info хранит длительность всего файла.
+    // После обрезки она врала бы, поэтому такой кадр выбрасываем.
+    const tagAt = buf.indexOf('Xing', i, 'latin1') >= 0 ? buf.indexOf('Xing', i, 'latin1') : -1;
+    const infoAt = buf.indexOf('Info', i, 'latin1') >= 0 ? buf.indexOf('Info', i, 'latin1') : -1;
+    const hdr = [tagAt, infoAt].filter(x => x > i && x < i + len);
+    if (!xing && hdr.length) { xing = { start: i, end: i + len }; i += len; continue; }
+
+    t += spf / sr;
+    i += len;
+    if (t >= seconds) { cut = i; break; }
+  }
+  if (cut < 0) cut = buf.length;              // не дотянули — отдаём всё, что есть
+  if (!xing) return buf.slice(0, cut);
+  return Buffer.concat([buf.slice(0, xing.start), buf.slice(xing.end, cut)]);
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -108,6 +150,8 @@ export default async function handler(req, res) {
     nextText,
     modelId,
     accent,           // только для v3: подсказка вроде 'strong German accent'
+    carrier,          // немецкий «хвост» («Uhr»): произносится вместе со словом
+                      //  и отрезается от mp3 — так модель точно читает по-немецки
     key: keyWanted,   // необязательно: начать с конкретного аккаунта
     pin = false,      // true — не перебирать остальные
   } = req.body || {};
@@ -157,6 +201,12 @@ export default async function handler(req, res) {
   if (v3 && tag) outText = '[' + tag + '] ' + outText;
   if (!v3) outText = outText.replace(/^\s*\[[^\]]{0,60}\]\s*/, '');
 
+  // «elf» английский диктор читает по-английски, «elf Uhr» — уже по-немецки.
+  // Хвост произносится, а потом отрезается от mp3, в файл он не попадает.
+  const car = String(carrier || '').replace(/[^\p{L}\p{M} -]/gu, '').trim().slice(0, 30);
+  const head = car ? outText.replace(/[.!?…]+\s*$/, '') : outText;
+  if (car) outText = head + ' ' + car + '.';
+
   const body = { text: outText, model_id: model, voice_settings: settings };
   // жёсткий язык — главное лекарство от «elf» по-английски
   if (lang && LANG_MODELS.includes(model)) body.language_code = String(lang).slice(0, 5);
@@ -176,12 +226,14 @@ export default async function handler(req, res) {
     for (const i of order) {
       const budget = 56000 - (Date.now() - t0);
       if (budget < 6000) { last = 'не хватило времени на перебор аккаунтов'; break; }
+      // с хвостом нужны тайминги символов, чтобы знать, где резать
       const r = await fetchT(
-        'https://api.elevenlabs.io/v1/text-to-speech/' + safeVoiceId + '?output_format=mp3_44100_128',
+        'https://api.elevenlabs.io/v1/text-to-speech/' + safeVoiceId +
+          (car ? '/with-timestamps' : '') + '?output_format=mp3_44100_128',
         {
           method: 'POST',
           headers: {
-            'Accept': 'audio/mpeg',
+            'Accept': car ? 'application/json' : 'audio/mpeg',
             'Content-Type': 'application/json',
             'xi-api-key': K[i],
           },
@@ -189,6 +241,30 @@ export default async function handler(req, res) {
         },
         Math.min(45000, budget)
       );
+
+      if (r.ok && car) {
+        const j = await r.json();
+        const raw = Buffer.from(j.audio_base_64 || j.audio_base64 || '', 'base64');
+        const al = j.alignment || j.normalized_alignment || {};
+        const chars = al.characters || [];
+        const ends = al.character_end_times_seconds || [];
+        const starts = al.character_start_times_seconds || [];
+        let cut = 0;
+        if (chars.length && ends.length === chars.length) {
+          const idx = chars.join('').lastIndexOf(car);       // начало хвоста
+          const wordEnd = idx >= 2 ? ends[idx - 2] : null;   // последняя буква слова
+          const carStart = idx >= 0 ? starts[idx] : null;
+          if (wordEnd != null && carStart != null && carStart >= wordEnd) {
+            cut = wordEnd + Math.min(0.15, Math.max(0.03, (carStart - wordEnd) * 0.6));
+          }
+        }
+        const out = cut > 0 ? mp3Trim(raw, cut) : raw;
+        return {
+          b64: out.toString('base64'), key: i, keyTail: tail(K[i]),
+          trimmed: cut > 0, cutAt: cut ? +cut.toFixed(3) : null,
+          said: outText,
+        };
+      }
 
       if (r.ok) {
         const b64 = Buffer.from(await r.arrayBuffer()).toString('base64');
@@ -225,6 +301,7 @@ export default async function handler(req, res) {
       return res.json({
         audio: g.b64, voice: voiceName, model, cached: false,
         key: g.key, keyTail: g.keyTail, keys: K.length,
+        said: g.said || null, trimmed: !!g.trimmed, cutAt: g.cutAt || null,
       });
     } catch (e) {
       return res.status(502).json({ error: e.message, details: e.details, code: e.code });
