@@ -488,6 +488,13 @@
     box.innerHTML = h;
   }
 
+  // короткая реакция фигурок на ответ
+  function react(kind) {
+    if (!window.YEVA_BLOCKS || !YEVA_BLOCKS.react) return;
+    YEVA_BLOCKS.react($('g1').firstChild, kind);
+    YEVA_BLOCKS.react($('g2').firstChild, kind);
+  }
+
   function resize(size) {
     if (!window.YEVA_BLOCKS) { $('g1').style.fontSize = size + 'px'; $('g2').style.fontSize = size + 'px'; return; }
     YEVA_BLOCKS.size($('g1').firstChild, size);
@@ -553,6 +560,7 @@
       btn.classList.add('wrong');
       setTimeout(() => btn.classList.remove('wrong'), 420);
       nope(); buzz(40);
+      react('hmm');
       bump('bad');
       if (wrongs >= 2) showHint();
       return;
@@ -574,6 +582,7 @@
     $('digits').textContent = a + ' + ' + b + ' = ' + sum;
     $('say').textContent = words(true);
     yay(); buzz(30);
+    react('yay');
     bump('ok');
 
     done++;

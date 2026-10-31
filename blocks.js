@@ -33,6 +33,40 @@
 
   var uid = 0;
 
+  // Стили живут здесь же, чтобы любая игра, подключившая blocks.js,
+  // получила анимацию без своей вёрстки.
+  var CSS = [
+    '.nblock{overflow:visible}',
+    '.nblock .nb-all{transform-box:fill-box;transform-origin:50% 100%;',
+    '  animation:nb-bob 3.4s ease-in-out infinite}',
+    '.nblock .nb-cube{transform-box:fill-box;transform-origin:50% 50%;',
+    '  animation:nb-in .4s cubic-bezier(.3,1.5,.5,1) backwards}',
+    '.nblock .nb-eye{transform-box:fill-box;transform-origin:50% 50%;',
+    '  animation:nb-blink 6.5s ease-in-out infinite}',
+    '@keyframes nb-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5%)}}',
+    '@keyframes nb-in{from{transform:scale(.3);opacity:0}}',
+    '@keyframes nb-blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.06)}}',
+    // радость: подпрыгнуть и слегка присесть
+    '.nblock.nb-yay .nb-all{animation:nb-jump .62s cubic-bezier(.3,1.4,.5,1) 2}',
+    '@keyframes nb-jump{0%,100%{transform:translateY(0) scaleY(1)}',
+    '  22%{transform:translateY(-13%) scaleY(1.06)}',
+    '  52%{transform:translateY(0) scaleY(.92)}',
+    '  70%{transform:translateY(-4%) scaleY(1.02)}}',
+    // недоумение: качнуться из стороны в сторону
+    '.nblock.nb-hmm .nb-all{animation:nb-tilt .5s ease-in-out}',
+    '@keyframes nb-tilt{0%,100%{transform:rotate(0)}30%{transform:rotate(-5deg)}70%{transform:rotate(5deg)}}',
+    '@media (prefers-reduced-motion:reduce){',
+    '  .nblock .nb-all,.nblock .nb-cube,.nblock .nb-eye{animation:none}}'
+  ].join('\n');
+
+  function ensureCss() {
+    if (document.getElementById('yeva-blocks-css')) return;
+    var st = document.createElement('style');
+    st.id = 'yeva-blocks-css';
+    st.textContent = CSS;
+    (document.head || document.documentElement).appendChild(st);
+  }
+
   // сколько столбцов у фигурки: до трёх — башенка, дальше прямоугольник
   function cols(n) {
     if (n <= 3) return 1;
@@ -59,7 +93,8 @@
     var p = 0.055 * s;                 // зазор между кубиками
     var X = x * s + p, Y = y * s + p, S = s - 2 * p;
     var r = S * 0.22;
-    return '' +
+    // кубики выкладываются снизу вверх, поэтому и появляются по очереди
+    return '<g class="nb-cube" style="animation-delay:' + (k * 0.055).toFixed(3) + 's">' +
       '<rect x="' + X + '" y="' + Y + '" width="' + S + '" height="' + S + '" rx="' + r + '"' +
       ' fill="' + fill + '"/>' +
       // блик сверху и тень снизу — кубик выглядит объёмным
@@ -69,7 +104,8 @@
       ' rx="' + r + '" fill="#000" opacity=".1"/>' +
       // «пупырышек», как у счётных кубиков
       '<circle cx="' + (X + S / 2) + '" cy="' + (Y + S / 2) + '" r="' + (S * 0.17) + '" fill="#000" opacity=".12"/>' +
-      '<circle cx="' + (X + S / 2) + '" cy="' + (Y + S * 0.47) + '" r="' + (S * 0.17) + '" fill="' + fill + '"/>';
+      '<circle cx="' + (X + S / 2) + '" cy="' + (Y + S * 0.47) + '" r="' + (S * 0.17) + '" fill="' + fill + '"/>' +
+      '</g>';
   }
 
   // мордочка поверх верхнего ряда: два глаза и улыбка
@@ -78,11 +114,13 @@
     var cx = x0 + w / 2, cy = y0 + s * 0.42;
     var e = s * 0.17, gap = Math.min(w * 0.22, s * 0.34);
     var g = '';
-    [-1, 1].forEach(function (d) {
+    [-1, 1].forEach(function (d, i) {
       var ex = cx + d * gap;
-      g += '<circle cx="' + ex + '" cy="' + cy + '" r="' + e + '" fill="#fff"/>' +
+      g += '<g class="nb-eye" style="animation-delay:' + (i * 0.06) + 's">' +
+           '<circle cx="' + ex + '" cy="' + cy + '" r="' + e + '" fill="#fff"/>' +
            '<circle cx="' + (ex + d * e * 0.12) + '" cy="' + (cy + e * 0.12) + '" r="' + (e * 0.52) + '" fill="#2B2B3A"/>' +
-           '<circle cx="' + (ex - d * e * 0.25) + '" cy="' + (cy - e * 0.3) + '" r="' + (e * 0.18) + '" fill="#fff"/>';
+           '<circle cx="' + (ex - d * e * 0.25) + '" cy="' + (cy - e * 0.3) + '" r="' + (e * 0.18) + '" fill="#fff"/>' +
+           '</g>';
     });
     var my = cy + s * 0.42, mw = Math.min(w * 0.3, s * 0.46);
     g += '<path d="M' + (cx - mw) + ' ' + my + ' q ' + mw + ' ' + (s * 0.3) + ' ' + (2 * mw) + ' 0"' +
@@ -108,10 +146,13 @@
 
     if (o.face !== false) body += face(top, s);
 
+    ensureCss();
     var W = g.cols * s, H = g.rows * s;
+    // покачивание у каждой фигурки своё, иначе они дышат в такт
+    var shift = -((n % 7) * 0.47).toFixed(2);
     return '<svg class="nblock" viewBox="0 0 ' + W + ' ' + H + '" data-cols="' + g.cols +
       '" data-rows="' + g.rows + '" xmlns="http://www.w3.org/2000/svg" aria-label="' + n + '">' +
-      body + '</svg>';
+      '<g class="nb-all" style="animation-delay:' + shift + 's">' + body + '</g></svg>';
   }
 
   // поставить размер кубика в пикселях
@@ -122,9 +163,20 @@
     el.style.height = (r * px) + 'px';
   }
 
+  // короткая реакция: 'yay' — обрадоваться, 'hmm' — не понять
+  function react(el, kind) {
+    if (!el || !el.classList) return;
+    var cls = kind === 'hmm' ? 'nb-hmm' : 'nb-yay';
+    el.classList.remove('nb-yay', 'nb-hmm');
+    void el.getBoundingClientRect();     // перезапуск анимации
+    el.classList.add(cls);
+    setTimeout(function () { el.classList.remove(cls); }, kind === 'hmm' ? 600 : 1400);
+  }
+
   window.YEVA_BLOCKS = {
     svg: svg,
     size: size,
+    react: react,
     color: function (n) { return PAL[(Math.round(n) - 1) % PAL.length]; },
     palette: PAL
   };
