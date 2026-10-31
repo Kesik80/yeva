@@ -34,13 +34,25 @@
 
   .top{display:flex;align-items:center;gap:8px;flex:none}
   .stars{
-    display:flex;gap:4px;flex:1;min-width:0;overflow:hidden;
-    background:rgba(255,255,255,.66);border-radius:999px;padding:9px 14px;
+    display:flex;gap:3px;flex:1;min-width:0;overflow:hidden;
+    background:rgba(255,255,255,.66);border-radius:999px;padding:9px 11px;
     -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
     box-shadow:0 5px 16px rgba(46,35,88,.13);
   }
-  .stars i{width:17px;height:17px;flex:none;border-radius:50%;background:rgba(46,35,88,.14);transition:transform .3s,background .3s}
+  /* кружки сами ужимаются, если экран узкий */
+  .stars i{flex:1 1 8px;max-width:15px;min-width:6px;aspect-ratio:1;border-radius:50%;
+    background:rgba(46,35,88,.14);transition:transform .3s,background .3s}
   .stars i.on{background:linear-gradient(160deg,#FFD86E,#F2913A);transform:scale(1.12)}
+  .score{
+    flex:none;display:flex;gap:7px;align-items:center;
+    background:rgba(255,255,255,.66);border-radius:999px;padding:9px 11px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(46,35,88,.13);
+    font-size:14.5px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;
+  }
+  .score .ok{color:#2E9E86}
+  .score .bad{color:#C0616B}
+
   .btn{
     width:44px;height:44px;flex:none;border:0;border-radius:50%;
     background:rgba(255,255,255,.66);color:#2E2358;text-decoration:none;
@@ -116,6 +128,17 @@
   }
   .panel h1{font-size:clamp(24px,7vw,32px);font-weight:600}
   .panel .ru{font-size:14px;color:rgba(46,35,88,.58);margin-top:2px}
+  .stats{
+    margin-top:14px;font-size:13.5px;line-height:1.55;color:rgba(46,35,88,.62);
+    background:rgba(255,255,255,.55);border-radius:16px;padding:10px 12px;
+  }
+  .stats b{color:#2E2358;font-weight:600}
+  .stats .hard{font-size:12.5px;color:rgba(46,35,88,.5)}
+  .stats button{
+    width:auto;margin:8px auto 0;padding:6px 12px;font-size:12px;border-radius:9px;
+    border:0;background:rgba(46,35,88,.07);color:rgba(46,35,88,.6);
+    font-family:inherit;cursor:pointer;display:block;
+  }
   .sizes{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:18px}
   .size{
     border:0;cursor:pointer;font-family:inherit;font-weight:600;font-size:16px;
@@ -150,6 +173,7 @@
 
 <div class="top">
   <div class="stars" id="stars"></div>
+  <div class="score" id="score" aria-label="Ответы"></div>
   <button class="btn" id="btnAgain" aria-label="Повторить">
     <svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M16 9.2a4 4 0 0 1 0 5.6"/><path d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8"/></svg>
   </button>
@@ -175,6 +199,7 @@
   <div class="panel">
     <h1>Plus</h1>
     <div class="ru">Сложение по-немецки</div>
+    <div class="stats" id="stats"></div>
     <div class="sizes" id="sizes"></div>
     <button class="big" id="btnStart" aria-label="Играть">
       <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
@@ -220,6 +245,69 @@
     get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   };
+
+  /* ── статистика: сколько верно и сколько мимо ── */
+  const K_STATS = 'yeva.plus.stats';
+  const today = () => {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') +
+           '-' + String(d.getDate()).padStart(2, '0');
+  };
+  let stats = (() => {
+    try { return JSON.parse(store.get(K_STATS, '')) || null; } catch (e) { return null; }
+  })() || { ok: 0, bad: 0, days: {}, tasks: {} };
+  const ses = { ok: 0, bad: 0 };
+
+  function bump(kind) {
+    stats[kind] = (stats[kind] || 0) + 1;
+    ses[kind]++;
+    const d = stats.days[today()] || (stats.days[today()] = { ok: 0, bad: 0 });
+    d[kind]++;
+    const key = a + '+' + b;
+    const t = stats.tasks[key] || (stats.tasks[key] = { ok: 0, bad: 0 });
+    t[kind]++;
+    // дольше месяца дни не храним, незачем
+    const keep = Object.keys(stats.days).sort().slice(-30);
+    const days = {};
+    keep.forEach(k => { days[k] = stats.days[k]; });
+    stats.days = days;
+    try { store.set(K_STATS, JSON.stringify(stats)); } catch (e) {}
+    paintScore();
+  }
+
+  function paintScore() {
+    $('score').innerHTML = '<span class="ok">\u2713 ' + ses.ok + '</span>' +
+                           '<span class="bad">\u2715 ' + ses.bad + '</span>';
+  }
+
+  function paintStats() {
+    const d = stats.days[today()] || { ok: 0, bad: 0 };
+    const hard = Object.keys(stats.tasks)
+      .filter(k => stats.tasks[k].bad > 0)
+      .sort((x, y) => stats.tasks[y].bad - stats.tasks[x].bad)
+      .slice(0, 3);
+    let h = '';
+    if (!stats.ok && !stats.bad) {
+      h = 'Пока ни одного ответа — счёт появится после первой игры';
+    } else {
+      h = 'Сегодня: <b>' + d.ok + '</b> верных · <b>' + d.bad + '</b> мимо<br>' +
+          'Всего: <b>' + stats.ok + '</b> верных · <b>' + stats.bad + '</b> мимо';
+      if (hard.length) {
+        h += '<div class="hard">труднее всего: ' +
+             hard.map(k => k + ' (' + stats.tasks[k].bad + ')').join(', ') + '</div>';
+      }
+      h += '<button id="btnClear">очистить статистику</button>';
+    }
+    $('stats').innerHTML = h;
+  }
+
+  $('stats').addEventListener('click', e => {
+    if (!e.target.closest('#btnClear')) return;
+    stats = { ok: 0, bad: 0, days: {}, tasks: {} };
+    ses.ok = 0; ses.bad = 0;
+    try { store.set(K_STATS, JSON.stringify(stats)); } catch (e2) {}
+    paintStats(); paintScore();
+  });
 
   /* ── звук ── */
   let actx = null, master = null;
@@ -465,6 +553,7 @@
       btn.classList.add('wrong');
       setTimeout(() => btn.classList.remove('wrong'), 420);
       nope(); buzz(40);
+      bump('bad');
       if (wrongs >= 2) showHint();
       return;
     }
@@ -485,6 +574,7 @@
     $('digits').textContent = a + ' + ' + b + ' = ' + sum;
     $('say').textContent = words(true);
     yay(); buzz(30);
+    bump('ok');
 
     done++;
     paintStars();
@@ -580,6 +670,8 @@
   max = SIZES.indexOf(+store.get(K_MAX, 10)) >= 0 ? +store.get(K_MAX, 10) : 10;
   paintSizes();
   paintStars();
+  paintScore();
+  paintStats();
 })();
 </script>
 <script src="install.js"></script>
