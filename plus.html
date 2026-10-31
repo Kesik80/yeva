@@ -210,6 +210,10 @@
   const WPLUS = YW.math.find(w => w.de === 'plus');
   const WEQ = YW.math.find(w => w.de === 'ist gleich');
 
+  // целые фразы «eins plus eins ist gleich» — по записи на каждый порядок
+  const PHRASE = {};
+  (YW.plus || []).forEach(p => { PHRASE[p.a + '_' + p.b] = p; });
+
   let max = 10, a = 1, b = 1, sum = 2, done = 0, locked = true, wrongs = 0, hintT = 0, cube = 40;
 
   const store = {
@@ -332,12 +336,26 @@
   // то же, что произносит голос
   function words(withAnswer) {
     const n = v => (NUM[v] ? NUM[v].de : v);
-    return n(a) + ' plus ' + n(b) + (withAnswer ? ' ist gleich ' + n(sum) : '');
+    return n(a) + ' plus ' + n(b) + ' ist gleich' + (withAnswer ? ' ' + n(sum) : ' …');
   }
 
-  const askPhrase = () => [NUM[a], WPLUS, NUM[b]];              // «eins plus eins»
-  const ansPhrase = () => [WEQ, NUM[sum]];                      // «ist gleich zwei»
-  const fullPhrase = () => [NUM[a], WPLUS, NUM[b], WEQ, NUM[sum]];
+  const stitch = () => [NUM[a], WPLUS, NUM[b], WEQ];   // запасная склейка из слов
+  const ansPhrase = () => [NUM[sum]];                  // ответ — только число
+
+  // вопрос: цельная запись, если она есть; иначе склейка
+  function speakAsk(after) {
+    const p = PHRASE[a + '_' + b];
+    if (!p) { say(stitch(), after); return; }
+    load(p);
+    let tries = 0;
+    (function wait() {
+      const u = vUrl(p);
+      if (vBuf[u]) { say([p], after); return; }
+      if (vBad[u]) { say(stitch(), after); return; }     // записи нет — склеим
+      if (tries++ < 10) { setTimeout(wait, 120); return; }
+      say(stitch(), after);
+    })();
+  }
 
   // сторона кубика в пикселях
   function sizeFor(total) {
@@ -422,12 +440,12 @@
       '<button class="choice" data-v="' + v + '">' + v + '</button>').join('');
 
     // слова этого раунда и соседних чисел — заранее
-    [NUM[a], NUM[b], NUM[sum], WPLUS, WEQ].forEach(load);
+    [NUM[a], NUM[b], NUM[sum], WPLUS, WEQ, PHRASE[a + '_' + b]].forEach(load);
     opts.forEach(v => load(NUM[v]));
 
     // отвечать можно сразу: ребёнок не должен ждать, пока договорит голос
     locked = false;
-    say(askPhrase());
+    speakAsk();
     hintT = setTimeout(showHint, 9000);
   }
 
@@ -482,7 +500,8 @@
   });
   $('btnAgain').addEventListener('click', () => {
     initAudio();
-    say($('ans').classList.contains('done') ? fullPhrase() : askPhrase());
+    if ($('ans').classList.contains('done')) speakAsk(() => say(ansPhrase()));
+    else speakAsk();
   });
 
   /* ── звёзды и салют ── */
