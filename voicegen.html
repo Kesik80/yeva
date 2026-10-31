@@ -48,6 +48,8 @@
   .die{background:#FFF0F4;border-color:#F6CBD8}
   .die h3{color:#B03A63}
   .das{background:#EFFAF3;border-color:#C4E8D3}
+  .num{background:#F3F0FF;border-color:#DCD3F7}
+  .num h3{color:#5B45C8}
   .das h3{color:#1F7A50}
 
   .bar{height:9px;border-radius:999px;background:#E6EEF6;overflow:hidden;margin-top:12px}
@@ -230,16 +232,25 @@
       <h3>der · мужской <span class="cnt" id="cnt-der"></span></h3>
       <select id="v-der"></select>
       <button class="ghost slim" data-sample="der">Послушать пробу</button>
+      <button class="ghost slim" data-redo-group="der">Переозвучить группу</button>
     </div>
     <div class="gen die">
       <h3>die · женский <span class="cnt" id="cnt-die"></span></h3>
       <select id="v-die"></select>
       <button class="ghost slim" data-sample="die">Послушать пробу</button>
+      <button class="ghost slim" data-redo-group="die">Переозвучить группу</button>
     </div>
     <div class="gen das">
       <h3>das · средний <span class="cnt" id="cnt-das"></span></h3>
       <select id="v-das"></select>
       <button class="ghost slim" data-sample="das">Послушать пробу</button>
+      <button class="ghost slim" data-redo-group="das">Переозвучить группу</button>
+    </div>
+    <div class="gen num">
+      <h3>123 · числа и примеры <span class="cnt" id="cnt-num"></span></h3>
+      <select id="v-num"></select>
+      <button class="ghost slim" data-sample="num">Послушать пробу</button>
+      <button class="ghost slim" data-redo-group="num">Переозвучить группу</button>
     </div>
   </div>
 
@@ -399,13 +410,16 @@
   let model = DEFAULT_MODEL;
   const modelOf = id => MODELS.find(m => m.id === id) || MODELS[0];
 
-  const GENDERS = ['der', 'die', 'das'];
+  const GENDERS = ['der', 'die', 'das', 'num'];   // num — числа и примеры, свой голос
+  // к какой группе относится слово: у чисел и примеров стоит g:'num'
+  const grp = a => (a && a.g) || gender(a);
   const DEFAULTS = {
     der: 'CwhRBWXzGAHq8TQ4Fs17',   // Roger
     die: 'XrExE9yKIg1WjnnlVkGX',   // Matilda
-    das: 'onwK4e9ZLuTAKqWW03F9'    // Daniel
+    das: 'onwK4e9ZLuTAKqWW03F9',   // Daniel
+    num: 'CwhRBWXzGAHq8TQ4Fs17'    // числа — пока тот же, выбери свой
   };
-  const chosen = { der: DEFAULTS.der, die: DEFAULTS.die, das: DEFAULTS.das };
+  const chosen = { der: DEFAULTS.der, die: DEFAULTS.die, das: DEFAULTS.das, num: DEFAULTS.num };
 
   let PW = '';                       // ADMIN_TOKEN, введённый на входе
   const $ = id => document.getElementById(id);
@@ -502,7 +516,7 @@
                    v.cat && v.cat !== 'premade' ? v.cat : ''].filter(Boolean).join(' · ');
       const btns = shownKind === 'lib'
         ? '<button data-add="' + n + '">＋ взять</button>'
-        : GENDERS.map(g => '<button class="pick" data-pick="' + n + '" data-g="' + g + '">' + g + '</button>').join('');
+        : GENDERS.map(g => '<button class="pick" data-pick="' + n + '" data-g="' + g + '">' + (g === 'num' ? '123' : g) + '</button>').join('');
       return '<div class="vrow">' +
         (v.preview ? '<button class="play" data-play="' + n + '">▶</button>' : '') +
         '<div class="nm"><b>' + v.name + (isDE(v) ? '<span class="vde">DE</span>' : '') + '</b>' +
@@ -618,7 +632,7 @@
   });
 
   GENDERS.forEach(g => {
-    const n = uniq.filter(a => gender(a) === g).length;
+    const n = uniq.filter(a => grp(a) === g).length;
     $('cnt-' + g).textContent = n + ' слов';
   });
 
@@ -763,7 +777,9 @@
   // немецкий «хвост»: какое слово подставить к этому слову (или ничего)
   function carrierFor(a) {
     if (!$('car').checked || $('lang').value !== 'de') return undefined;
-    // у слова может быть свой хвост (plus -> «plus zwei»)
+    // у слова может быть свой хвост (plus -> «plus zwei»),
+    // а целым фразам хвост не нужен вовсе
+    if (a && a.noTail) return undefined;
     if (a && a.tail) return a.tail;
     const w = ($('carWord').value || '').trim();
     if (!w) return undefined;
@@ -838,7 +854,8 @@
   document.querySelectorAll('[data-sample]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const g = btn.dataset.sample;
-      const a = uniq.find(x => gender(x) === g);
+      // для чисел пробуем сразу на целом примере — так слышно главное
+      const a = (g === 'num' && uniq.find(x => x.a === 3 && x.b === 4)) || uniq.find(x => grp(x) === g);
       const lang = $('lang').value;
       busy(btn, 'генерирую…');
       try {
@@ -890,17 +907,12 @@
   });
 
   // ── озвучка ─────────────────────────────────────────────────
-  $('btnGen').addEventListener('click', async () => {
-    const lang = $('lang').value;
-    const redo = $('redo').checked;
-    const todo = uniq.filter(a => redo || (!onSite[slug(a)] && !fresh[slug(a)]));
-    if (!todo.length) { log('нечего озвучивать — всё уже есть', 'have'); return; }
-
+  async function generate(todo, btn, label) {
     let ok = 0, bad = 0, n = 0;
-    busy($('btnGen'), 'озвучиваю…');
+    busy(btn, 'озвучиваю…');
     $('bar').classList.remove('busy');   // тут прогресс настоящий
     for (const a of todo) {
-      const g = gender(a);
+      const g = grp(a);
       try {
         fresh[slug(a)] = await speak(phrase(a), $('v-' + g).value, a);
         ok++;
@@ -918,14 +930,32 @@
       }
       n++;
       $('fill').style.width = (n / todo.length * 100).toFixed(1) + '%';
-      $('btnGen').textContent = 'озвучиваю… ' + n + ' / ' + todo.length;
+      btn.textContent = 'озвучиваю… ' + n + ' / ' + todo.length;
       render();
       await new Promise(r => setTimeout(r, 250));
     }
-    log('озвучено ' + ok + ', ошибок ' + bad, bad ? 'err' : 'have');
+    log('озвучено ' + ok + (label ? ' (' + label + ')' : '') + ', ошибок ' + bad, bad ? 'err' : 'have');
     loadQuota();
-    idle($('btnGen'));
-    $('btnPub').disabled = ok === 0;
+    idle(btn);
+    if (ok) $('btnPub').disabled = false;
+  }
+
+  $('btnGen').addEventListener('click', () => {
+    const redo = $('redo').checked;
+    const todo = uniq.filter(a => redo || (!onSite[slug(a)] && !fresh[slug(a)]));
+    if (!todo.length) { log('нечего озвучивать — всё уже есть', 'have'); return; }
+    generate(todo, $('btnGen'));
+  });
+
+  // переозвучить всю группу — нужно, когда у группы сменили голос
+  document.querySelectorAll('[data-redo-group]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const g = btn.dataset.redoGroup;
+      const todo = uniq.filter(a => grp(a) === g);
+      const chars = todo.reduce((n, a) => n + phrase(a).length + (carrierFor(a) ? carrierFor(a).length + 2 : 0), 0);
+      if (!confirm('Переозвучить всю группу «' + g + '»: ' + todo.length + ' слов, ' + chars + ' символов лимита. Продолжить?')) return;
+      generate(todo, btn, g);
+    });
   });
 
   // ── публикация ──────────────────────────────────────────────
@@ -977,7 +1007,7 @@
     const lang = $('lang').value;
     let html = '';
     GENDERS.forEach(g => {
-      const list = uniq.filter(a => gender(a) === g);
+      const list = uniq.filter(a => grp(a) === g);
       const missing = list.filter(a => !onSite[slug(a)] && !fresh[slug(a)]).length;
       html += `<div class="grp">${g} · ${vName($('v-' + g).value)} · нет ${missing} из ${list.length}</div>`;
       html += list.map(a => {
@@ -1013,7 +1043,7 @@
     redo.disabled = true;
     redo.textContent = '…';
     try {
-      const b64 = await speak(phrase(a), $('v-' + gender(a)).value, a);
+      const b64 = await speak(phrase(a), $('v-' + grp(a)).value, a);
       fresh[slug(a)] = b64;
       playB64(b64);                       // сразу слышно, что получилось
       log('↻ переозвучено: ' + a.de + ' — послушай и жми «Записать»', 'fresh');

@@ -45,7 +45,8 @@
 
   // Числа. Артикля нет, поэтому в voicegen они попадут к мужскому голосу.
   // e не задаём — в карточные игры и пузыри числа не идут.
-  const N = (n, de, e) => ({ num: n, de: de, ru: String(n), s: 'ding', e: e });
+  // g: 'num' — в voicegen у чисел и примеров свой голос, отдельный от родов
+  const N = (n, de, e) => ({ num: n, de: de, ru: String(n), s: 'ding', e: e, g: 'num' });
   const NUMBERS = [
     N(0,  'null',   '\u0030\u{FE0F}\u{20E3}'),
     N(1,  'eins',   '\u0031\u{FE0F}\u{20E3}'),
@@ -63,7 +64,7 @@
   // Числа 11–50 — нужны игре «Der Reihe nach».
   // e пустое: в карточные игры (wo, memory) они попасть не должны,
   // туда идёт только pictured. В zahlen.html тоже не идут — там свой NUMBERS.
-  const BN = (n, de) => ({ num: n, de: de, ru: String(n), s: 'ding', e: '' });
+  const BN = (n, de) => ({ num: n, de: de, ru: String(n), s: 'ding', e: '', g: 'num' });
   const BIG = [
     BN(11, 'elf'),
     BN(12, 'zwölf'),
@@ -112,10 +113,34 @@
   // tail — немецкий «хвост» для voicegen: его произносят вместе со словом
   // и вырезают из mp3, иначе «plus» читается по-английски.
   const MATH = [
-    { de: 'plus',       ru: 'плюс',  s: 'ding', e: '', tail: 'zwei' },
-    { de: 'ist gleich', ru: 'равно', s: 'ding', e: '', tail: 'zwei' },
-    { de: 'minus',      ru: 'минус', s: 'ding', e: '', tail: 'zwei' }
+    { de: 'plus',       ru: 'плюс',  s: 'ding', e: '', tail: 'zwei', g: 'num' },
+    { de: 'ist gleich', ru: 'равно', s: 'ding', e: '', tail: 'zwei', g: 'num' },
+    { de: 'minus',      ru: 'минус', s: 'ding', e: '', tail: 'zwei', g: 'num' }
   ];
+
+  // Фразы для игры в сложение: «eins plus eins ist gleich».
+  // Склейка из отдельных слов звучит рвано, поэтому каждая фраза —
+  // отдельная запись. Оба порядка (1+2 и 2+1) записываются отдельно,
+  // потому что и звучат они по-разному.
+  // Список строится сам, чтобы ничего не разъехалось с числами.
+  const PLUS = (function () {
+    const all = {};
+    NUMBERS.forEach(function (w) { all[w.num] = w.de; });
+    BIG.forEach(function (w) { all[w.num] = w.de; });
+    const out = [];
+    for (var s2 = 2; s2 <= 20; s2++) {          // сначала маленькие суммы
+      for (var x = 1; x < s2; x++) {
+        var y = s2 - x;
+        out.push({
+          a: x, b: y, sum: s2,
+          de: all[x] + ' plus ' + all[y] + ' ist gleich',
+          ru: x + ' плюс ' + y + ' равно',
+          s: 'ding', e: '', noTail: true, g: 'num'   // это уже целая немецкая фраза
+        });
+      }
+    }
+    return out;
+  })();
 
   // Цвета. Прилагательные, артикля нет — в voicegen уйдут к мужскому голосу.
   // В карточные игры не идут: там цвет должен быть единственным отличием,
@@ -136,11 +161,12 @@
   ];
 
   window.YEVA_WORDS = {
-    version: 8,
+    version: 10,
     colors: COLORS,
     numbers: NUMBERS,
     numbersBig: BIG,
     math: MATH,
+    plus: PLUS,
     body: BODY,
 
     // фоновые украшения для миров, где вместо облаков что-то своё
@@ -306,6 +332,7 @@
     BIG.forEach(add);           // 11–50 — тоже только ради озвучки
     COLORS.forEach(add);        // цвета — тоже только ради озвучки
     MATH.forEach(add);          // plus / ist gleich / minus — связки для сложения
+    PLUS.forEach(add);          // «eins plus eins ist gleich» — фразы целиком
     return out;
   })();
 
