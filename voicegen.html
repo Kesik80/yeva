@@ -312,6 +312,12 @@
         </select>
       </div>
     </div>
+    <div class="chk">
+      <input type="checkbox" id="comma">
+      <label for="comma" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
+        Запятая перед «ist gleich» <span class="hint">пауза перед ответом</span>
+      </label>
+    </div>
     <div class="hint" style="display:block;margin-top:7px;line-height:1.45">
       Незаконченные фразы (примеры сложения) не получают точку: иначе голос
       роняет интонацию, как в конце предложения. Вдобавок модели невидимо
@@ -532,6 +538,7 @@
       if (sv.pause) $('pause').value = sv.pause;
       if (sv.endOpen !== undefined) $('endOpen').value = sv.endOpen;
       if (sv.seedOn !== undefined) $('seedOn').checked = !!sv.seedOn;
+      if (sv.comma !== undefined) $('comma').checked = !!sv.comma;
       if (sv.seed) $('seed').value = sv.seed;
       $('carAll').checked = !!sv.carAll;
     } else { needPreset = true; }
@@ -545,7 +552,8 @@
                   dot: $('dot').checked, ctx: $('ctx').checked, acc: $('acc').checked,
                   car: $('car').checked, carWord: $('carWord').value, carAll: $('carAll').checked,
                   pause: $('pause').value, endOpen: $('endOpen').value,
-                  seedOn: $('seedOn').checked, seed: $('seed').value };
+                  seedOn: $('seedOn').checked, seed: $('seed').value,
+                  comma: $('comma').checked };
       GENDERS.forEach(g => { chosen[g] = $('v-' + g).value; o[g] = chosen[g]; });
       localStorage.setItem('voicegen2', JSON.stringify(o));
     } catch (e) {}
@@ -659,7 +667,7 @@
       stab: +$('stab').value, sim: +$('sim').value,
       style: +$('style').value, speed: +$('speed').value,
       dot: $('dot').checked, ctx: $('ctx').checked, acc: $('acc').checked,
-      endOpen: $('endOpen').value,
+      endOpen: $('endOpen').value, comma: $('comma').checked,
       car: $('car').checked, carWord: $('carWord').value, carAll: $('carAll').checked,
       pause: +$('pause').value,
       seedOn: $('seedOn').checked, seed: $('seed').value,
@@ -688,6 +696,7 @@
       (r.dot ? ' · с точкой' : '') + (r.ctx ? ' · контекст' : '') +
       (r.acc ? ' · немецкий акцент' : '') +
       ' · конец ' + (END_NAME[r.endOpen] !== undefined ? END_NAME[r.endOpen] : r.endOpen) +
+      (r.comma ? ' · запятая перед ist gleich' : '') +
       (r.car ? ' · хвост ' + (r.carWord || 'Uhr') + (r.carAll ? ' всем' : ' числам') +
                ' · пауза ' + n2(r.pause) + ' с' : '');
   }
@@ -715,6 +724,7 @@
     $('style').value = r.style; $('speed').value = r.speed;
     $('dot').checked = !!r.dot; $('ctx').checked = !!r.ctx; $('acc').checked = !!r.acc;
     if (r.endOpen !== undefined) $('endOpen').value = r.endOpen;
+    $('comma').checked = !!r.comma;
     $('car').checked = !!r.car; $('carAll').checked = !!r.carAll;
     if (r.carWord) $('carWord').value = r.carWord;
     if (r.pause) $('pause').value = r.pause;
@@ -925,7 +935,7 @@
     b.addEventListener('click', () => applyPreset(b.dataset.preset)));
   ['stab','sim','style','speed','pause'].forEach(id => $(id).addEventListener('input', showSettings));
   $('endOpen').addEventListener('change', () => { remember(); paintQuota(); });
-  ['dot','ctx','acc','car','carAll'].forEach(id =>
+  ['dot','ctx','acc','car','carAll','comma'].forEach(id =>
     $(id).addEventListener('change', () => { remember(); paintQuota(); paintCarrier(); }));
   $('carWord').addEventListener('input', () => { remember(); paintQuota(); });
   const rollSeed = () => { $('seed').value = Math.floor(Math.random() * 90000000) + 10000000; remember(); };
@@ -968,7 +978,13 @@
     const cap = $('dot').checked;
     if (cap) t = t.charAt(0).toUpperCase() + t.slice(1);
     // незаконченная мысль: точка её «закрывает», поэтому у неё свой знак
-    if (a && a.open) return t + $('endOpen').value;
+    if (a && a.open) {
+      // запятая перед «ist gleich» — короткая пауза перед ответом
+      const mid = lang === 'de' ? ' ist gleich' : ' равно';
+      const at = t.lastIndexOf(mid);
+      if ($('comma').checked && at > 0) t = t.slice(0, at) + ',' + t.slice(at);
+      return t + $('endOpen').value;
+    }
     return cap ? t + '.' : t;
   }
 
