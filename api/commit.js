@@ -7,6 +7,13 @@
 //        files: [{ path, content }],     // content — base64 без префикса data:
 //        deletes: [ "malen/1.png" ] }    // что удалить тем же коммитом
 //
+// У Vercel тело запроса ограничено (~4,5 МБ), а две сотни mp3 в base64
+// в него не влезают — приходил HTTP 413. Поэтому большую пачку можно
+// залить в два приёма, и коммит всё равно останется один:
+//   POST { stage: 'blobs',  files: [...] }            -> { blobs: [{path, sha}] }
+//   POST { stage: 'commit', blobs: [{path, sha}],
+//          deletes: [...], message }                  -> { ok, commit }
+//
 // Env vars: GITHUB_TOKEN, GITHUB_REPO_DEFAULT, ADMIN_TOKEN (опц.)
 //
 // Блобы заливаются пачками по 6 параллельно: 85 файлов подряд по одному
@@ -38,6 +45,8 @@ export default async function handler(req, res) {
     files,
     deletes,
     adminToken,
+    stage,          // 'blobs' | 'commit' | ничего (как раньше, одним запросом)
+    blobs,          // для stage:'commit' — уже залитые блобы [{path, sha}]
   } = req.body || {};
 
   const ADMIN = process.env.ADMIN_TOKEN;
@@ -48,7 +57,8 @@ export default async function handler(req, res) {
   if (!GITHUB_TOKEN) return res.status(500).json({ error: 'GITHUB_TOKEN not set' });
   if (!GITHUB_REPO) return res.status(400).json({ error: 'repo required' });
   const dels = Array.isArray(deletes) ? deletes : [];
-  if ((!Array.isArray(files) || !files.length) && !dels.length) {
+  const staged = Array.isArray(blobs) ? blobs : [];
+  if ((!Array.isArray(files) || !files.length) && !dels.length && !staged.length) {
     return res.status(400).json({ error: 'files or deletes required' });
   }
   if ((files || []).length > 200 || dels.length > 200) return res.status(400).json({ error: 'too many files' });
@@ -70,6 +80,18 @@ export default async function handler(req, res) {
     clean.push({ path: p, content: f.content });
   }
 
+  // блобы, залитые прошлыми запросами
+  const ready = [];
+  for (const b of staged) {
+    const p = safePath(b && b.path);
+    if (!p) return res.status(400).json({ error: 'bad path: ' + (b && b.path) });
+    if (!/^[0-9a-f]{40}$/.test(String(b.sha || ''))) {
+      return res.status(400).json({ error: 'bad sha for ' + p });
+    }
+    ready.push({ path: p, mode: '100644', type: 'blob', sha: b.sha });
+  }
+  if (ready.length > 600) return res.status(400).json({ error: 'too many files' });
+
   const H = {
     'Authorization': `Bearer ${GITHUB_TOKEN}`,
     'Accept': 'application/vnd.github.v3+json',
@@ -88,17 +110,11 @@ export default async function handler(req, res) {
     return r.json();
   }
 
-  try {
-    // 1. где сейчас ветка
-    const ref = await gh(`${base}/git/ref/heads/${branch}`);
-    const headSha = ref.object.sha;
-    const headCommit = await gh(`${base}/git/commits/${headSha}`);
-
-    // 2. заливаем файлы как blob'ы, по 6 одновременно
-    const tree = new Array(clean.length);
-    const queue = clean.map((f, i) => ({ f, i }));
+  // заливка блобов, по 6 одновременно
+  async function upload(list) {
+    const out = new Array(list.length);
     const failed = [];
-
+    const queue = list.map((f, i) => ({ f, i }));
     async function worker() {
       while (queue.length) {
         const { f, i } = queue.shift();
@@ -107,15 +123,39 @@ export default async function handler(req, res) {
             method: 'POST',
             body: JSON.stringify({ content: f.content, encoding: 'base64' }),
           });
-          tree[i] = { path: f.path, mode: '100644', type: 'blob', sha: blob.sha };
+          out[i] = { path: f.path, mode: '100644', type: 'blob', sha: blob.sha };
         } catch (e) {
           failed.push({ path: f.path, error: e.message });
         }
       }
     }
     await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
+    return { tree: out.filter(Boolean), failed };
+  }
 
-    const good = tree.filter(Boolean);
+  try {
+    // приём первый: только залить файлы, коммита пока нет
+    if (stage === 'blobs') {
+      if (!clean.length) return res.status(400).json({ error: 'files required' });
+      const { tree, failed } = await upload(clean);
+      return res.json({
+        ok: true,
+        blobs: tree.map(t => ({ path: t.path, sha: t.sha })),
+        failed,
+        count: tree.length,
+        requested: clean.length,
+      });
+    }
+
+    // 1. где сейчас ветка
+    const ref = await gh(`${base}/git/ref/heads/${branch}`);
+    const headSha = ref.object.sha;
+    const headCommit = await gh(`${base}/git/commits/${headSha}`);
+
+    // 2. заливаем файлы как blob'ы, по 6 одновременно
+    const { tree, failed } = await upload(clean);
+
+    const good = tree.concat(ready);
     // удаление в Git Data API — запись в дереве с sha: null
     gone.forEach(p => good.push({ path: p, mode: '100644', type: 'blob', sha: null }));
     if (!good.length) {
@@ -139,7 +179,7 @@ export default async function handler(req, res) {
     return res.json({
       ok: true,
       commit: commit.sha,
-      count: clean.length ? good.length - gone.length : 0,
+      count: good.length - gone.length,
       deleted: gone,
       requested: clean.length,
       failed,                       // что не долетело — видно сразу

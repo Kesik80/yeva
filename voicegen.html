@@ -676,6 +676,65 @@
   };
   let accOpen = store.get('voicegen.accOpen', '0') === '1';
 
+  // ── несохранённые записи переживают перезагрузку ────────────
+  // Сгенерировать двести слов и потерять их из-за случайного обновления
+  // страницы — слишком дорого, поэтому каждый кусок сразу ложится в базу
+  // браузера и достаётся обратно при входе.
+  const IDB = (() => {
+    let dbp = null;
+    const open = () => {
+      if (dbp) return dbp;
+      dbp = new Promise((res, rej) => {
+        try {
+          const rq = indexedDB.open('yeva-voicegen', 1);
+          rq.onupgradeneeded = () => { rq.result.createObjectStore('fresh'); };
+          rq.onsuccess = () => res(rq.result);
+          rq.onerror = () => rej(rq.error);
+        } catch (e) { rej(e); }
+      }).catch(() => null);
+      return dbp;
+    };
+    const tx = async (mode, fn) => {
+      const db = await open();
+      if (!db) return null;
+      return new Promise(res => {
+        try {
+          const t = db.transaction('fresh', mode);
+          const r = fn(t.objectStore('fresh'));
+          t.oncomplete = () => res(r && 'result' in r ? r.result : true);
+          t.onerror = () => res(null);
+          t.onabort = () => res(null);
+        } catch (e) { res(null); }
+      });
+    };
+    return {
+      put: (k, v) => tx('readwrite', st => st.put(v, k)),
+      clear: () => tx('readwrite', st => st.clear()),
+      all: () => tx('readonly', st => (st.getAll ? st.getAll() : null))
+    };
+  })();
+
+  const keep = (slug0, b64) => {
+    const lang = $('lang').value;
+    IDB.put(lang + '/' + slug0, { lang: lang, slug: slug0, b64: b64 });
+  };
+
+  async function restoreFresh() {
+    let rows = null;
+    try { rows = await IDB.all(); } catch (e) {}
+    if (!rows || !rows.length) return;
+    const lang = $('lang').value;
+    let n = 0;
+    rows.forEach(r => {
+      if (r && r.lang === lang && r.slug && r.b64 && !fresh[r.slug]) { fresh[r.slug] = r.b64; n++; }
+    });
+    if (n) {
+      $('btnPub').disabled = false;
+      render();
+      log('восстановлено ' + n + ' незаписанных кусков — можно сразу жать «3 · Записать»', 'fresh');
+    }
+  }
+
   // ── настроение: подсказки в квадратных скобках ──────────────
   const MOODS = [
     { code: '[cheerful]', label: '\u{1F60A} Весело' },
@@ -1188,12 +1247,14 @@
       const g = grp(a);
       try {
         fresh[slug(a)] = await speak(phrase(a), $('v-' + g).value, a);
+        keep(slug(a), fresh[slug(a)]);
         ok++;
       } catch (e) {
         // одна повторная попытка: чаще всего это 429 из-за темпа
         await new Promise(r => setTimeout(r, 1200));
         try {
           fresh[slug(a)] = await speak(phrase(a), $('v-' + g).value, a);
+          keep(slug(a), fresh[slug(a)]);
           ok++;
           log('↻ ' + a.de + ' — со второй попытки', 'fresh');
         } catch (e2) {
@@ -1237,37 +1298,81 @@
   });
 
   // ── публикация ──────────────────────────────────────────────
+  // Тело запроса у Vercel ограничено (~4,5 МБ), а двести mp3 в base64
+  // в него не влезают — приходил HTTP 413. Поэтому файлы едут частями,
+  // а коммит всё равно собирается один, из уже залитых блобов.
+  const PART_BYTES = 2500000;
+
+  async function commitApi(payload) {
+    const r = await fetch('/api/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({
+        repo: $('repo').value.trim(),
+        adminToken: PW
+      }, payload))
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      throw new Error(d.error || (r.status === 413
+        ? 'кусок всё ещё слишком большой (413)'
+        : 'HTTP ' + r.status));
+    }
+    return d;
+  }
+
   $('btnPub').addEventListener('click', async () => {
     const lang = $('lang').value;
-    const files = Object.keys(fresh).map(s => ({
-      path: 'voice/' + lang + '/' + s + '.mp3',
-      content: fresh[s]
+    const files = Object.keys(fresh).map(s2 => ({
+      path: 'voice/' + lang + '/' + s2 + '.mp3',
+      content: fresh[s2]
     }));
     if (!files.length) return;
-    busy($('btnPub'), 'записываю ' + files.length + ' файлов…');
-    log('отправляю ' + files.length + ' файлов в ' + $('repo').value.trim() + ', это займёт несколько секунд');
-    try {
-      const r = await fetch('/api/commit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          repo: $('repo').value.trim(),
-          message: 'Голоса: ' + files.length + ' слов · ' +
-                   GENDERS.map(g => g + '=' + vName($('v-' + g).value)).join(' ') +
-                   ' · ровность ' + (+$('stab').value).toFixed(2) +
-                   ' скорость ' + (+$('speed').value).toFixed(2),
-          files: files,
-          adminToken: PW
-        })
-      });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
-      log('коммит ' + String(d.commit).slice(0, 7) + ' · файлов ' + d.count +
-          (d.requested && d.count < d.requested ? ' из ' + d.requested : '') +
-          ' · появятся на сайте после пересборки', d.count < (d.requested || d.count) ? 'err' : 'have');
-      if (d.failed && d.failed.length) {
-        d.failed.forEach(f => log('✗ не залился ' + f.path + ' — ' + f.error, 'err'));
+
+    // режем на части по объёму
+    const parts = [];
+    let cur = [], size = 0;
+    files.forEach(f => {
+      if (cur.length && (size + f.content.length > PART_BYTES || cur.length >= 80)) {
+        parts.push(cur); cur = []; size = 0;
       }
+      cur.push(f); size += f.content.length;
+    });
+    if (cur.length) parts.push(cur);
+
+    const mb = (files.reduce((n, f) => n + f.content.length, 0) * 3 / 4 / 1048576).toFixed(1);
+    busy($('btnPub'), 'записываю ' + files.length + ' файлов…');
+    log('отправляю ' + files.length + ' файлов (' + mb + ' МБ) в ' + $('repo').value.trim() +
+        (parts.length > 1 ? ' — ' + parts.length + ' частями, коммит будет один' : ''));
+
+    try {
+      const blobs = [], failed = [];
+      for (let i = 0; i < parts.length; i++) {
+        busy($('btnPub'), 'заливаю часть ' + (i + 1) + ' из ' + parts.length + '…');
+        $('fill').style.width = (i / parts.length * 100).toFixed(1) + '%';
+        const d0 = await commitApi({ stage: 'blobs', files: parts[i] });
+        (d0.blobs || []).forEach(b => blobs.push(b));
+        (d0.failed || []).forEach(f => failed.push(f));
+      }
+      $('fill').style.width = '100%';
+      if (!blobs.length) throw new Error('ни один файл не залился');
+
+      busy($('btnPub'), 'собираю коммит…');
+      const d = await commitApi({
+        stage: 'commit',
+        blobs: blobs,
+        message: 'Голоса: ' + blobs.length + ' слов · ' +
+                 GENDERS.map(g => g + '=' + vName($('v-' + g).value)).join(' ') +
+                 ' · ровность ' + (+$('stab').value).toFixed(2) +
+                 ' скорость ' + (+$('speed').value).toFixed(2)
+      });
+
+      log('коммит ' + String(d.commit).slice(0, 7) + ' · файлов ' + blobs.length +
+          (blobs.length < files.length ? ' из ' + files.length : '') +
+          ' · появятся на сайте после пересборки', blobs.length < files.length ? 'err' : 'have');
+      failed.forEach(f => log('✗ не залился ' + f.path + ' — ' + f.error, 'err'));
+
+      IDB.clear();          // записанное больше незачем держать в браузере
       // Раньше здесь стояло onSite[s] = true для всего отправленного.
       // Из-за этого список показывал «есть» у слов, которых на сайте нет:
       // коммит мог пройти частично, или сборка ещё не закончилась.
@@ -1276,7 +1381,10 @@
       log('проверю через 40 секунд и ещё раз через полторы минуты — сборке нужно время');
       setTimeout(() => $('btnCheck').click(), 40000);
       setTimeout(() => $('btnCheck').click(), 95000);
-    } catch (e) { log('коммит не прошёл: ' + e.message, 'err'); }
+    } catch (e) {
+      log('коммит не прошёл: ' + e.message, 'err');
+      log('куски никуда не делись — они сохранены в браузере, можно жать «Записать» ещё раз', 'fresh');
+    }
     idle($('btnPub'));
   });
 
@@ -1323,6 +1431,7 @@
     try {
       const b64 = await speak(phrase(a), $('v-' + grp(a)).value, a);
       fresh[slug(a)] = b64;
+      keep(slug(a), b64);
       playB64(b64);                       // сразу слышно, что получилось
       log('↻ переозвучено: ' + a.de + ' — послушай и жми «Записать»', 'fresh');
       saveRecipe(grp(a));                 // запомнили, чем это сделано
@@ -1356,6 +1465,7 @@
     paintModels();
     paintCarrier();
     paintMood();
+    restoreFresh();
     if (!$('seed').value) $('seed').value = Math.floor(Math.random() * 90000000) + 10000000;
     $('seedBox').style.opacity = $('seedOn').checked ? '1' : '.45';
     $('seed').disabled = !$('seedOn').checked;
