@@ -278,6 +278,24 @@
       <label style="margin-top:10px">Скорость <b id="vSpeed"></b></label>
       <input type="range" id="speed" min="0.7" max="1.2" step="0.02">
     </div>
+    <div class="row" id="endBox" style="margin-top:12px">
+      <div style="flex:1">
+        <label for="endOpen">Конец примера <span class="hint">«drei plus zwei ist gleich …»</span></label>
+        <select id="endOpen">
+          <option value="…">многоточие — мысль не закончена</option>
+          <option value="?">вопрос — «сколько будет?»</option>
+          <option value="">без знака</option>
+          <option value=",">запятая — короткая зависающая пауза</option>
+        </select>
+      </div>
+    </div>
+    <div class="hint" style="display:block;margin-top:7px;line-height:1.45">
+      Незаконченные фразы (примеры сложения) не получают точку: иначе голос
+      роняет интонацию, как в конце предложения. Вдобавок модели невидимо
+      подсовывается продолжение — само число ответа, — поэтому она читает
+      фразу так, будто сейчас скажет результат. Продолжение не произносится
+      и символов лимита не тратит.
+    </div>
     <div class="chk">
       <input type="checkbox" id="dot">
       <label for="dot" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
@@ -477,6 +495,7 @@
       if (sv.car !== undefined) $('car').checked = !!sv.car;
       if (sv.carWord) $('carWord').value = sv.carWord;
       if (sv.pause) $('pause').value = sv.pause;
+      if (sv.endOpen !== undefined) $('endOpen').value = sv.endOpen;
       $('carAll').checked = !!sv.carAll;
     } else { needPreset = true; }
   } catch (e) { needPreset = true; }
@@ -488,7 +507,7 @@
                   style: $('style').value, speed: $('speed').value,
                   dot: $('dot').checked, ctx: $('ctx').checked, acc: $('acc').checked,
                   car: $('car').checked, carWord: $('carWord').value, carAll: $('carAll').checked,
-                  pause: $('pause').value };
+                  pause: $('pause').value, endOpen: $('endOpen').value };
       GENDERS.forEach(g => { chosen[g] = $('v-' + g).value; o[g] = chosen[g]; });
       localStorage.setItem('voicegen2', JSON.stringify(o));
     } catch (e) {}
@@ -761,6 +780,7 @@
   document.querySelectorAll('[data-preset]').forEach(b =>
     b.addEventListener('click', () => applyPreset(b.dataset.preset)));
   ['stab','sim','style','speed','pause'].forEach(id => $(id).addEventListener('input', showSettings));
+  $('endOpen').addEventListener('change', () => { remember(); paintQuota(); });
   ['dot','ctx','acc','car','carAll'].forEach(id =>
     $(id).addEventListener('change', () => { remember(); paintQuota(); paintCarrier(); }));
   $('carWord').addEventListener('input', () => { remember(); paintQuota(); });
@@ -791,8 +811,11 @@
   function phrase(a) {
     const lang = $('lang').value;
     let t = lang === 'de' ? a.de : a.ru;
-    if ($('dot').checked) t = t.charAt(0).toUpperCase() + t.slice(1) + '.';
-    return t;
+    const cap = $('dot').checked;
+    if (cap) t = t.charAt(0).toUpperCase() + t.slice(1);
+    // незаконченная мысль: точка её «закрывает», поэтому у неё свой знак
+    if (a && a.open) return t + $('endOpen').value;
+    return cap ? t + '.' : t;
   }
 
   let lastKey = null;    // какой аккаунт ElevenLabs отвечал в прошлый раз
@@ -817,8 +840,10 @@
         carrier: carrierFor(a),
         pause: +$('pause').value,
         voiceSettings: readSettings(),
-        previousText: ($('ctx').checked && modelOf(model).ctx) ? CTX_BEFORE : undefined,
-        nextText: ($('ctx').checked && modelOf(model).ctx) ? CTX_AFTER : undefined
+        previousText: modelOf(model).ctx
+          ? ((a && a.prevText) || ($('ctx').checked ? CTX_BEFORE : undefined)) : undefined,
+        nextText: modelOf(model).ctx
+          ? ((a && a.nextText) || ($('ctx').checked ? CTX_AFTER : undefined)) : undefined
       })
     });
     const d = await r.json().catch(() => ({}));

@@ -135,7 +135,9 @@
           a: x, b: y, sum: s2,
           de: all[x] + ' plus ' + all[y] + ' ist gleich',
           ru: x + ' плюс ' + y + ' равно',
-          s: 'ding', e: '', noTail: true, g: 'num'   // это уже целая немецкая фраза
+          s: 'ding', e: '', noTail: true, g: 'num',  // это уже целая немецкая фраза
+          open: true,                 // мысль не закончена — точку в конце не ставим
+          nextText: all[s2] + '.'     // модель «видит» продолжение и не роняет интонацию
         });
       }
     }
@@ -161,7 +163,7 @@
   ];
 
   window.YEVA_WORDS = {
-    version: 10,
+    version: 11,
     colors: COLORS,
     numbers: NUMBERS,
     numbersBig: BIG,
