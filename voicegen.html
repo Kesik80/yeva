@@ -371,6 +371,14 @@
       <input id="seed" inputmode="numeric" autocomplete="off" aria-label="Зерно">
       <button class="ghost" id="seedRoll" style="flex:0 0 58px;margin:0;padding:11px 0" aria-label="Новое зерно">🎲</button>
     </div>
+    <button class="ghost slim" id="seedTest">Проверить зерно: два дубля подряд</button>
+    <div class="hint" style="display:block;margin-top:6px;line-height:1.45">
+      Зерно — это просьба к ElevenLabs читать одинаково, а не гарантия:
+      модель может всё равно прочитать по-своему, особенно v3. Проверка
+      делает подряд два дубля одной фразы с одним зерном и сравнивает их
+      байт в байт — сразу видно, держит модель зерно или нет.
+      Стоит два коротких дубля лимита.
+    </div>
 
     <div class="chk only-v3">
       <input type="checkbox" id="acc">
@@ -654,6 +662,29 @@
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   };
   let accOpen = store.get('voicegen.accOpen', '0') === '1';
+
+  // ── проверка зерна: два дубля одной фразы ───────────────────
+  $('seedTest').addEventListener('click', async () => {
+    const a = uniq.find(x => x.a === 3 && x.b === 4) ||
+              uniq.find(x => x.num === 3) || uniq[0];
+    const v = $('v-' + grp(a)).value;
+    busy($('seedTest'), 'проверяю…');
+    try {
+      const one1 = await speak(phrase(a), v, a);
+      const two = await speak(phrase(a), v, a);
+      const same = one1 === two;
+      const kb = n => (n * 3 / 4 / 1024).toFixed(1) + ' КБ';
+      log((same ? '✓ дубли совпали байт в байт — зерно работает'
+                : '✗ дубли разные — ElevenLabs не держит зерно на этой модели') +
+          ' (' + kb(one1.length) + ' и ' + kb(two.length) + ', зерно ' +
+          ($('seedOn').checked ? $('seed').value : 'выключено') + ')', same ? 'have' : 'err');
+      playB64(two);
+      loadQuota();
+    } catch (e) {
+      log('проверка зерна не вышла: ' + e.message, 'err');
+    }
+    idle($('seedTest'));
+  });
 
   // ── чем записана группа: снимок настроек ────────────────────
   const RK = 'voicegen.recipes';
@@ -1010,6 +1041,9 @@
         carrier: carrierFor(a),
         pause: +$('pause').value,
         seed: ($('seedOn').checked && $('seed').value) ? +$('seed').value : undefined,
+        // с зерном держимся того же аккаунта: разные аккаунты могут
+        // отдать разный звук даже на одном зерне
+        key: ($('seedOn').checked && Number.isInteger(lastKey)) ? lastKey : undefined,
         voiceSettings: readSettings(),
         previousText: modelOf(model).ctx
           ? ((a && a.prevText) || ($('ctx').checked ? CTX_BEFORE : undefined)) : undefined,
