@@ -163,6 +163,7 @@ export default async function handler(req, res) {
     nextText,
     modelId,
     accent,           // только для v3: подсказка вроде 'strong German accent'
+    seed,             // зерно: с ним один и тот же текст читается одинаково
     carrier,          // немецкий «хвост» («Uhr»): произносится вместе со словом
                       //  и отрезается от mp3 — так модель точно читает по-немецки
     key: keyWanted,   // необязательно: начать с конкретного аккаунта
@@ -224,6 +225,8 @@ export default async function handler(req, res) {
   if (car) outText = head + ' ' + car + '.';
 
   const body = { text: outText, model_id: model, voice_settings: settings };
+  const sd = parseInt(seed, 10);
+  if (Number.isFinite(sd) && sd >= 0) body.seed = Math.min(4294967295, sd);
   // жёсткий язык — главное лекарство от «elf» по-английски
   if (lang && LANG_MODELS.includes(model)) body.language_code = String(lang).slice(0, 5);
   if (!v3 && !v4) {
@@ -322,6 +325,7 @@ export default async function handler(req, res) {
         audio: g.b64, voice: voiceName, model, cached: false,
         key: g.key, keyTail: g.keyTail, keys: K.length,
         said: g.said || null, trimmed: !!g.trimmed, cutAt: g.cutAt || null, pad: g.pad || 0,
+        seed: body.seed === undefined ? null : body.seed,
       });
     } catch (e) {
       return res.status(502).json({ error: e.message, details: e.details, code: e.code });

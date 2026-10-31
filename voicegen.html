@@ -145,6 +145,24 @@
   .vrow button.pick{background:#E3F1FB}
   .vrow .play{padding:6px 10px}
   .vde{display:inline-block;margin-left:5px;padding:0 4px;border-radius:5px;background:#1F9B6E;color:#fff;font-size:9.5px}
+  .fold{
+    margin-top:7px;width:auto;padding:6px 11px;border-radius:999px;
+    background:rgba(255,255,255,.7);color:#2C6E96;font-size:12px;
+  }
+  .accs.hide{display:none}
+  .mdl.fold-on button:not(.on){display:none}
+  .mdl .more{
+    display:block;margin-top:4px;font-size:11.5px;color:#93A8BA;font-weight:500;
+  }
+  .recipe{
+    margin-top:8px;font-size:11.5px;line-height:1.45;color:#5B7A93;
+    background:rgba(255,255,255,.55);border-radius:12px;padding:8px 10px;
+  }
+  .recipe b{color:#1E3D57;font-weight:600}
+  .recipe button{
+    width:auto;margin:6px 0 0;padding:6px 11px;font-size:12px;border-radius:9px;
+    background:#E3F1FB;color:#2C6E96;
+  }
   .accs{margin-top:7px;border-top:1px solid #EDF3F8;padding-top:6px}
   .accs div{display:flex;gap:7px;align-items:baseline;padding:1px 0}
   .accs span{color:#93A8BA}
@@ -190,6 +208,7 @@
     </div>
     <div class="qbar"><i id="qFill"></i><b id="qNeed"></b></div>
     <div class="qnums" id="qNums">загружаю…</div>
+    <button class="fold" id="accFold" hidden></button>
   </div>
 
   <div class="card">
@@ -233,24 +252,28 @@
       <select id="v-der"></select>
       <button class="ghost slim" data-sample="der">Послушать пробу</button>
       <button class="ghost slim" data-redo-group="der">Переозвучить группу</button>
+      <div class="recipe" id="rc-der" hidden></div>
     </div>
     <div class="gen die">
       <h3>die · женский <span class="cnt" id="cnt-die"></span></h3>
       <select id="v-die"></select>
       <button class="ghost slim" data-sample="die">Послушать пробу</button>
       <button class="ghost slim" data-redo-group="die">Переозвучить группу</button>
+      <div class="recipe" id="rc-die" hidden></div>
     </div>
     <div class="gen das">
       <h3>das · средний <span class="cnt" id="cnt-das"></span></h3>
       <select id="v-das"></select>
       <button class="ghost slim" data-sample="das">Послушать пробу</button>
       <button class="ghost slim" data-redo-group="das">Переозвучить группу</button>
+      <div class="recipe" id="rc-das" hidden></div>
     </div>
     <div class="gen num">
       <h3>123 · числа и примеры <span class="cnt" id="cnt-num"></span></h3>
       <select id="v-num"></select>
       <button class="ghost slim" data-sample="num">Послушать пробу</button>
       <button class="ghost slim" data-redo-group="num">Переозвучить группу</button>
+      <div class="recipe" id="rc-num" hidden></div>
     </div>
   </div>
 
@@ -332,6 +355,17 @@
       только само слово. Для чисел больше 24 естественнее «Grad» или «Euro» —
       таких часов не бывает. Хвост тоже тратит символы лимита.
     </div>
+    <div class="chk">
+      <input type="checkbox" id="seedOn">
+      <label for="seedOn" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
+        Одно зерно на всю запись <span class="hint">повтор звучит так же</span>
+      </label>
+    </div>
+    <div class="row" id="seedBox" style="margin-top:8px">
+      <input id="seed" inputmode="numeric" autocomplete="off" aria-label="Зерно">
+      <button class="ghost" id="seedRoll" style="flex:0 0 58px;margin:0;padding:11px 0" aria-label="Новое зерно">🎲</button>
+    </div>
+
     <div class="chk only-v3">
       <input type="checkbox" id="acc">
       <label for="acc" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
@@ -426,6 +460,7 @@
   ];
   const DEFAULT_MODEL = 'eleven_flash_v2_5';
   let model = DEFAULT_MODEL;
+  let mdlOpen = false;   // список моделей свёрнут до выбранной
   const modelOf = id => MODELS.find(m => m.id === id) || MODELS[0];
 
   const GENDERS = ['der', 'die', 'das', 'num'];   // num — числа и примеры, свой голос
@@ -496,6 +531,8 @@
       if (sv.carWord) $('carWord').value = sv.carWord;
       if (sv.pause) $('pause').value = sv.pause;
       if (sv.endOpen !== undefined) $('endOpen').value = sv.endOpen;
+      if (sv.seedOn !== undefined) $('seedOn').checked = !!sv.seedOn;
+      if (sv.seed) $('seed').value = sv.seed;
       $('carAll').checked = !!sv.carAll;
     } else { needPreset = true; }
   } catch (e) { needPreset = true; }
@@ -507,7 +544,8 @@
                   style: $('style').value, speed: $('speed').value,
                   dot: $('dot').checked, ctx: $('ctx').checked, acc: $('acc').checked,
                   car: $('car').checked, carWord: $('carWord').value, carAll: $('carAll').checked,
-                  pause: $('pause').value, endOpen: $('endOpen').value };
+                  pause: $('pause').value, endOpen: $('endOpen').value,
+                  seedOn: $('seedOn').checked, seed: $('seed').value };
       GENDERS.forEach(g => { chosen[g] = $('v-' + g).value; o[g] = chosen[g]; });
       localStorage.setItem('voicegen2', JSON.stringify(o));
     } catch (e) {}
@@ -602,6 +640,92 @@
     idle($('btnLib'));
   });
 
+  // ── мелкое хранилище настроек ───────────────────────────────
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+  let accOpen = store.get('voicegen.accOpen', '0') === '1';
+
+  // ── чем записана группа: снимок настроек ────────────────────
+  const RK = 'voicegen.recipes';
+  let recipes = (() => { try { return JSON.parse(store.get(RK, '{}')) || {}; } catch (e) { return {}; } })();
+
+  function snap(g) {
+    return {
+      when: Date.now(),
+      voice: chosen[g], voiceName: vName(chosen[g]),
+      model: model, modelName: modelOf(model).name,
+      stab: +$('stab').value, sim: +$('sim').value,
+      style: +$('style').value, speed: +$('speed').value,
+      dot: $('dot').checked, ctx: $('ctx').checked, acc: $('acc').checked,
+      endOpen: $('endOpen').value,
+      car: $('car').checked, carWord: $('carWord').value, carAll: $('carAll').checked,
+      pause: +$('pause').value,
+      seedOn: $('seedOn').checked, seed: $('seed').value,
+      lang: $('lang').value
+    };
+  }
+
+  function saveRecipe(g) {
+    recipes[g] = snap(g);
+    try { store.set(RK, JSON.stringify(recipes)); } catch (e) {}
+    paintRecipes();
+  }
+
+  const END_NAME = { '…': 'многоточие', '?': 'вопрос', ',': 'запятая', '': 'без знака' };
+
+  function recipeText(r) {
+    const n2 = v => (+v).toFixed(2);
+    const d = new Date(r.when);
+    const when = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) + ' ' +
+                 d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    return 'записано <b>' + when + '</b><br>' +
+      '<b>' + (r.voiceName || r.voice) + '</b> · ' + (r.modelName || r.model) + ' · ' +
+      'ровность ' + n2(r.stab) + ' · похожесть ' + n2(r.sim) + ' · стиль ' + n2(r.style) +
+      ' · ' + n2(r.speed) + '×' +
+      (r.seedOn && r.seed ? ' · зерно ' + r.seed : '') +
+      (r.dot ? ' · с точкой' : '') + (r.ctx ? ' · контекст' : '') +
+      (r.acc ? ' · немецкий акцент' : '') +
+      ' · конец ' + (END_NAME[r.endOpen] !== undefined ? END_NAME[r.endOpen] : r.endOpen) +
+      (r.car ? ' · хвост ' + (r.carWord || 'Uhr') + (r.carAll ? ' всем' : ' числам') +
+               ' · пауза ' + n2(r.pause) + ' с' : '');
+  }
+
+  function paintRecipes() {
+    GENDERS.forEach(g => {
+      const box = $('rc-' + g);
+      if (!box) return;
+      const r = recipes[g];
+      if (!r) { box.hidden = true; box.innerHTML = ''; return; }
+      box.hidden = false;
+      box.innerHTML = recipeText(r) +
+        '<button data-recipe="' + g + '">Вернуть эти настройки</button>';
+    });
+  }
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-recipe]');
+    if (!b) return;
+    const r = recipes[b.dataset.recipe];
+    if (!r) return;
+    if (r.model && MODELS.some(m => m.id === r.model)) { model = r.model; }
+    chosen[b.dataset.recipe] = r.voice || chosen[b.dataset.recipe];
+    $('stab').value = r.stab; $('sim').value = r.sim;
+    $('style').value = r.style; $('speed').value = r.speed;
+    $('dot').checked = !!r.dot; $('ctx').checked = !!r.ctx; $('acc').checked = !!r.acc;
+    if (r.endOpen !== undefined) $('endOpen').value = r.endOpen;
+    $('car').checked = !!r.car; $('carAll').checked = !!r.carAll;
+    if (r.carWord) $('carWord').value = r.carWord;
+    if (r.pause) $('pause').value = r.pause;
+    $('seedOn').checked = !!r.seedOn;
+    if (r.seed) $('seed').value = r.seed;
+    $('seed').disabled = !r.seedOn; $('seedRoll').disabled = !r.seedOn;
+    $('seedBox').style.opacity = r.seedOn ? '1' : '.45';
+    paintSelects(); paintModels(); showSettings(); paintCarrier(); remember(); paintQuota();
+    log('настройки группы «' + b.dataset.recipe + '» возвращены', 'have');
+  });
+
   // ── модель ──────────────────────────────────────────────────
   // три положения ровности для v3 — как в ОЗВУЧКЕ
   function paintSeg() {
@@ -619,10 +743,13 @@
   });
 
   function paintModels() {
+    $('models').className = 'mdl' + (mdlOpen ? '' : ' fold-on');
     $('models').innerHTML = MODELS.map(m =>
       '<button class="' + (m.id === model ? 'on' : '') + '" data-model="' + m.id + '">' +
       '<b>' + m.name + (m.de ? '<span class="de-badge">DE</span>' : '') + '</b>' +
-      m.note + '</button>').join('');
+      m.note +
+      (m.id === model ? '<span class="more">' + (mdlOpen ? 'свернуть список' : 'нажми, чтобы сменить модель') + '</span>' : '') +
+      '</button>').join('');
     const m = modelOf(model);
     const de = $('lang').value === 'de';
     document.body.dataset.mk = m.kind;          // что показывать из настроек
@@ -636,7 +763,15 @@
   $('models').addEventListener('click', e => {
     const b = e.target.closest('[data-model]');
     if (!b) return;
+    if (b.dataset.model === model) {      // по выбранной — раскрыть/свернуть список
+      mdlOpen = !mdlOpen;
+      store.set('voicegen.mdlOpen', mdlOpen ? '1' : '0');
+      paintModels();
+      return;
+    }
     model = b.dataset.model;
+    mdlOpen = false;
+    store.set('voicegen.mdlOpen', '0');
     paintModels(); remember();
     log('модель: ' + modelOf(model).name);
   });
@@ -720,7 +855,7 @@
     const acc = quota.accounts || [];
     const many = acc.length > 1;
     const list = many
-      ? '<div class="accs">' + acc.map(a => a.ok
+      ? '<div class="accs' + (accOpen ? '' : ' hide') + '">' + acc.map(a => a.ok
           ? ('<div><b>' + (a.i + 1) + '</b> <span>' + a.tail + '</span> ' +
              nf(a.left) + ' из ' + nf(a.limit) + ' <span>· ' + a.tier + '</span></div>')
           : ('<div class="bad"><b>' + (a.i + 1) + '</b> <span>' + a.tail + '</span> ' +
@@ -735,7 +870,16 @@
         : 'все слова уже озвучены') + list;
     $('qTitle').textContent = 'Лимит ElevenLabs · использовано ' + quota.percent + '%' +
       (many ? ' · ' + (quota.alive || acc.length) + ' акк.' : '');
+    const fb = $('accFold');
+    fb.hidden = !many;
+    if (many) fb.textContent = (accOpen ? 'скрыть' : 'показать') + ' аккаунты (' + acc.length + ')';
   }
+
+  $('accFold').addEventListener('click', () => {
+    accOpen = !accOpen;
+    store.set('voicegen.accOpen', accOpen ? '1' : '0');
+    paintQuota();
+  });
 
   $('qRefresh').addEventListener('click', loadQuota);
 
@@ -784,6 +928,16 @@
   ['dot','ctx','acc','car','carAll'].forEach(id =>
     $(id).addEventListener('change', () => { remember(); paintQuota(); paintCarrier(); }));
   $('carWord').addEventListener('input', () => { remember(); paintQuota(); });
+  const rollSeed = () => { $('seed').value = Math.floor(Math.random() * 90000000) + 10000000; remember(); };
+  $('seedRoll').addEventListener('click', rollSeed);
+  $('seed').addEventListener('change', remember);
+  $('seedOn').addEventListener('change', () => {
+    if ($('seedOn').checked && !$('seed').value) rollSeed();
+    $('seedBox').style.opacity = $('seedOn').checked ? '1' : '.45';
+    $('seed').disabled = !$('seedOn').checked;
+    $('seedRoll').disabled = !$('seedOn').checked;
+    remember();
+  });
 
   function paintCarrier() {
     const on = $('car').checked;
@@ -839,6 +993,7 @@
           ? 'strong German accent' : undefined,
         carrier: carrierFor(a),
         pause: +$('pause').value,
+        seed: ($('seedOn').checked && $('seed').value) ? +$('seed').value : undefined,
         voiceSettings: readSettings(),
         previousText: modelOf(model).ctx
           ? ((a && a.prevText) || ($('ctx').checked ? CTX_BEFORE : undefined)) : undefined,
@@ -959,6 +1114,11 @@
       render();
       await new Promise(r => setTimeout(r, 250));
     }
+    if (ok) {
+      const groups = {};
+      todo.forEach(a => { groups[grp(a)] = 1; });
+      Object.keys(groups).forEach(saveRecipe);
+    }
     log('озвучено ' + ok + (label ? ' (' + label + ')' : '') + ', ошибок ' + bad, bad ? 'err' : 'have');
     loadQuota();
     idle(btn);
@@ -1072,6 +1232,7 @@
       fresh[slug(a)] = b64;
       playB64(b64);                       // сразу слышно, что получилось
       log('↻ переозвучено: ' + a.de + ' — послушай и жми «Записать»', 'fresh');
+      saveRecipe(grp(a));                 // запомнили, чем это сделано
       $('btnPub').disabled = false;
       paintQuota();
       render();
@@ -1097,9 +1258,15 @@
     $('lock').classList.add('hidden');
     $('app').hidden = false;
     if (needPreset) applyPreset('flat');
+    mdlOpen = store.get('voicegen.mdlOpen', '0') === '1';
     showSettings();
     paintModels();
     paintCarrier();
+    if (!$('seed').value) $('seed').value = Math.floor(Math.random() * 90000000) + 10000000;
+    $('seedBox').style.opacity = $('seedOn').checked ? '1' : '.45';
+    $('seed').disabled = !$('seedOn').checked;
+    $('seedRoll').disabled = !$('seedOn').checked;
+    paintRecipes();
     loadMine(true);
     render();
     loadQuota();
