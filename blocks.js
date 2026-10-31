@@ -42,10 +42,15 @@
     '.nblock .nb-cube{transform-box:fill-box;transform-origin:50% 50%;',
     '  animation:nb-in .4s cubic-bezier(.3,1.5,.5,1) backwards}',
     '.nblock .nb-eye{transform-box:fill-box;transform-origin:50% 50%;',
-    '  animation:nb-blink 6.5s ease-in-out infinite}',
+    '  animation:nb-blink 7s ease-in-out infinite}',
     '@keyframes nb-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5%)}}',
     '@keyframes nb-in{from{transform:scale(.3);opacity:0}}',
-    '@keyframes nb-blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.06)}}',
+    // два моргания за цикл, в неровных местах — на глаз это читается как случайность
+    '@keyframes nb-blink{0%,16%,20%,61%,65%,100%{transform:scaleY(1)}',
+    '  18%{transform:scaleY(.06)}63%{transform:scaleY(.06)}}',
+    // иногда моргают дважды подряд
+    '@keyframes nb-blink2{0%,23%,27%,31%,35%,74%,78%,100%{transform:scaleY(1)}',
+    '  25%{transform:scaleY(.06)}33%{transform:scaleY(.05)}76%{transform:scaleY(.06)}}',
     // радость: подпрыгнуть и слегка присесть
     '.nblock.nb-yay .nb-all{animation:nb-jump .62s cubic-bezier(.3,1.4,.5,1) 2}',
     '@keyframes nb-jump{0%,100%{transform:translateY(0) scaleY(1)}',
@@ -108,15 +113,33 @@
       '</g>';
   }
 
+  // Когда фигурка моргнёт в первый раз и с каким ритмом.
+  // Ребёнок смотрит на экран пару секунд, поэтому первое моргание
+  // подгадываем в ближайшие 0,4–2 секунды, а дальше — вразнобой.
+  function blinkStyle() {
+    var two = Math.random() < 0.35;                 // треть фигурок моргает дважды
+    var name = two ? 'nb-blink2' : 'nb-blink';
+    var dur = 6 + Math.random() * 3.5;              // 6–9,5 с
+    var marks = two ? [0.25, 0.76] : [0.18, 0.63];  // где в цикле моргание
+    var soon = 0.4 + Math.random() * 1.6;           // через сколько хотим увидеть
+    var at = marks[0] * dur;
+    if (at < soon) at = marks[1] * dur;             // берём то, что ещё впереди
+    var delay = -(at - soon);
+    return 'animation-name:' + name +
+           ';animation-duration:' + dur.toFixed(2) + 's' +
+           ';animation-delay:' + delay.toFixed(2) + 's';
+  }
+
   // мордочка поверх верхнего ряда: два глаза и улыбка
   function face(top, s) {
     var w = top.w * s, x0 = top.x * s, y0 = top.y * s;
     var cx = x0 + w / 2, cy = y0 + s * 0.42;
     var e = s * 0.17, gap = Math.min(w * 0.22, s * 0.34);
     var g = '';
+    var blink = blinkStyle();        // оба глаза одной фигурки моргают вместе
     [-1, 1].forEach(function (d, i) {
       var ex = cx + d * gap;
-      g += '<g class="nb-eye" style="animation-delay:' + (i * 0.06) + 's">' +
+      g += '<g class="nb-eye" style="' + blink + '">' +
            '<circle cx="' + ex + '" cy="' + cy + '" r="' + e + '" fill="#fff"/>' +
            '<circle cx="' + (ex + d * e * 0.12) + '" cy="' + (cy + e * 0.12) + '" r="' + (e * 0.52) + '" fill="#2B2B3A"/>' +
            '<circle cx="' + (ex - d * e * 0.25) + '" cy="' + (cy - e * 0.3) + '" r="' + (e * 0.18) + '" fill="#fff"/>' +
