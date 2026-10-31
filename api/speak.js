@@ -162,7 +162,8 @@ export default async function handler(req, res) {
     previousText,
     nextText,
     modelId,
-    accent,           // только для v3: подсказка вроде 'strong German accent'
+    accent,           // старое поле: одна подсказка без скобок
+    tags,             // теги настроения «[cheerful] [friendly]» — понимают v3 и v4
     seed,             // зерно: с ним один и тот же текст читается одинаково
     carrier,          // немецкий «хвост» («Uhr»): произносится вместе со словом
                       //  и отрезается от mp3 — так модель точно читает по-немецки
@@ -208,12 +209,15 @@ export default async function handler(req, res) {
   const speed = num(vs.speed, 0.7, 1.2, 1);
   if (speed !== 1 && !v4) settings.speed = speed;
 
-  // v3 понимает подсказки в квадратных скобках: «[strong German accent] Null.»
+  // Подсказки в квадратных скобках понимают v3 и v4: «[cheerful] Null.»
   // Остальные модели прочитали бы такую скобку вслух, поэтому им её срезаем.
+  const tagModel = v3 || v4;
   let outText = String(text);
-  const tag = String(accent || '').replace(/[^\p{L} ]/gu, '').trim().slice(0, 40);
-  if (v3 && tag) outText = '[' + tag + '] ' + outText;
-  if (!v3) outText = outText.replace(/^\s*\[[^\]]{0,60}\]\s*/, '');
+  const rawTags = String(tags || '').trim() ||
+    (accent ? '[' + String(accent).replace(/[\[\]]/g, '').trim() + ']' : '');
+  const tagList = (rawTags.match(/\[[\p{L} ]{1,40}\]/gu) || []).slice(0, 4);
+  if (tagModel && tagList.length) outText = tagList.join(' ') + ' ' + outText;
+  if (!tagModel) outText = outText.replace(/^(\s*\[[^\]]{0,60}\]\s*)+/, '');
 
   // «elf» английский диктор читает по-английски, «elf Uhr» — уже по-немецки.
   // Хвост произносится, а потом отрезается от mp3, в файл он не попадает.

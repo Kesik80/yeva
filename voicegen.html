@@ -117,6 +117,12 @@
   .mdl button b{display:block;font-size:14px;font-weight:600;color:#2C6E96;margin-bottom:2px}
   .mdl button.on{background:#E3F1FB;border-color:#4FA8D8;color:#1E3D57}
   .mdl button.on b{color:#1B6FA8}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chips button{
+    width:auto;margin:0;padding:8px 11px;font-size:12.5px;border-radius:999px;
+    background:#F2F7FB;color:#5B7A93;border:1.5px solid #E0EAF2;
+  }
+  .chips button.on{background:#E3F1FB;border-color:#4FA8D8;color:#1E3D57;font-weight:600}
   .seg{display:flex;gap:7px}
   .seg button{
     flex:1;margin:0;padding:10px 6px;font-size:13px;border-radius:11px;
@@ -128,6 +134,8 @@
   /* что показывать для выбранной модели */
   .only-v3,.only-stab,.only-style,.only-ctx{display:none}
   body[data-mk="v3"] .only-v3{display:block}
+  .only-tags{display:none}
+  body[data-mk="v3"] .only-tags,body[data-mk="v4"] .only-tags{display:block}
   body[data-mk="classic"] .only-stab,body[data-mk="v4"] .only-stab{display:block}
   body[data-mk="classic"] .only-style,body[data-mk="v3"] .only-style{display:block}
   body[data-mk="classic"] .only-ctx{display:block}
@@ -380,11 +388,15 @@
       Стоит два коротких дубля лимита.
     </div>
 
-    <div class="chk only-v3">
-      <input type="checkbox" id="acc">
-      <label for="acc" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
-        Подсказывать немецкий акцент <span class="hint">(только v3)</span>
-      </label>
+    <div class="only-tags">
+      <div class="sub">Настроение <span>понимают v3 и v4, остальные модели — нет</span></div>
+      <div class="chips" id="mood"></div>
+      <input id="tags" placeholder="[cheerful] [friendly]" autocomplete="off" style="margin-top:8px">
+      <div class="hint" style="display:block;margin-top:6px;line-height:1.45">
+        Подсказка в квадратных скобках идёт перед словом и вслух не читается.
+        Можно дописать свою, например <code>[proudly]</code>. Для одиночных слов
+        хватает одной-двух, иначе модель начинает переигрывать.
+      </div>
     </div>
     <div class="chk only-ctx">
       <input type="checkbox" id="ctx">
@@ -463,13 +475,13 @@
       note:'для одиночных слов самое то: предсказуемая, вдвое дешевле за символ, язык задаётся жёстко' },
     { id:'eleven_turbo_v2_5', name:'Turbo v2.5 — живее', kind:'classic', de:true, ctx:true,
       note:'то же, но интонация поживее; язык тоже задаётся жёстко' },
-    { id:'eleven_v3', name:'v3 — эмоции', kind:'v3', de:true, ctx:false,
+    { id:'eleven_v3', name:'v3 — эмоции', kind:'v3', de:true, ctx:false, tags:true,
       note:'самая живая, понимает подсказки в квадратных скобках; дубли звучат по-разному' },
     { id:'eleven_multilingual_v2', name:'Multilingual v2 — как было', kind:'classic', de:false, ctx:true,
       note:'ровная и привычная: этой моделью записаны первые 123 слова. Язык угадывает сама' },
-    { id:'eleven_v4', name:'v4 — новая', kind:'v4', de:false, ctx:false,
+    { id:'eleven_v4', name:'v4 — новая', kind:'v4', de:false, ctx:false, tags:true,
       note:'крепче держит голос, но без артистичности и скорости' },
-    { id:'eleven_v4_turbo', name:'v4 Turbo — новая, быстрая', kind:'v4', de:false, ctx:false,
+    { id:'eleven_v4_turbo', name:'v4 Turbo — новая, быстрая', kind:'v4', de:false, ctx:false, tags:true,
       note:'то же самое, но отвечает мгновенно; качество чуть ниже' }
   ];
   const DEFAULT_MODEL = 'eleven_flash_v2_5';
@@ -540,7 +552,8 @@
     if (sv.stab !== undefined) {
       $('stab').value = sv.stab; $('sim').value = sv.sim;
       $('style').value = sv.style; $('speed').value = sv.speed;
-      $('dot').checked = !!sv.dot; $('ctx').checked = !!sv.ctx; $('acc').checked = !!sv.acc;
+      $('dot').checked = !!sv.dot; $('ctx').checked = !!sv.ctx;
+      if (sv.tags !== undefined) $('tags').value = sv.tags;
       if (sv.car !== undefined) $('car').checked = !!sv.car;
       if (sv.carWord) $('carWord').value = sv.carWord;
       if (sv.pause) $('pause').value = sv.pause;
@@ -557,7 +570,7 @@
       const o = { lang: $('lang').value, repo: $('repo').value, model: model,
                   stab: $('stab').value, sim: $('sim').value,
                   style: $('style').value, speed: $('speed').value,
-                  dot: $('dot').checked, ctx: $('ctx').checked, acc: $('acc').checked,
+                  dot: $('dot').checked, ctx: $('ctx').checked, tags: $('tags').value,
                   car: $('car').checked, carWord: $('carWord').value, carAll: $('carAll').checked,
                   pause: $('pause').value, endOpen: $('endOpen').value,
                   seedOn: $('seedOn').checked, seed: $('seed').value,
@@ -663,6 +676,37 @@
   };
   let accOpen = store.get('voicegen.accOpen', '0') === '1';
 
+  // ── настроение: подсказки в квадратных скобках ──────────────
+  const MOODS = [
+    { code: '[cheerful]', label: '\u{1F60A} Весело' },
+    { code: '[friendly]', label: '\u{1F642} Дружелюбно' },
+    { code: '[warmly]', label: '\u{1F917} Тепло' },
+    { code: '[calm]', label: '\u{1F60C} Спокойно' },
+    { code: '[playfully]', label: '\u{1F61C} Игриво' },
+    { code: '[curious]', label: '\u{1F914} С интересом' },
+    { code: '[excited]', label: '\u{1F929} Восторженно' },
+    { code: '[softly]', label: '\u{1FAB6} Мягко' },
+    { code: '[strong German accent]', label: '\u{1F1E9}\u{1F1EA} Немецкий акцент' }
+  ];
+  const tagList = () => ($('tags').value.match(/\[[^\]]+\]/g) || []);
+
+  function paintMood() {
+    const have = tagList();
+    $('mood').innerHTML = MOODS.map(m =>
+      '<button class="' + (have.indexOf(m.code) >= 0 ? 'on' : '') + '" data-tag="' + m.code + '">' +
+      m.label + '</button>').join('');
+  }
+  $('mood').addEventListener('click', e => {
+    const b = e.target.closest('[data-tag]');
+    if (!b) return;
+    const code = b.dataset.tag;
+    let have = tagList();
+    have = have.indexOf(code) >= 0 ? have.filter(x => x !== code) : have.concat([code]);
+    $('tags').value = have.join(' ');
+    paintMood(); remember();
+  });
+  $('tags').addEventListener('input', () => { paintMood(); remember(); });
+
   // ── проверка зерна: два дубля одной фразы ───────────────────
   $('seedTest').addEventListener('click', async () => {
     const a = uniq.find(x => x.a === 3 && x.b === 4) ||
@@ -697,7 +741,7 @@
       model: model, modelName: modelOf(model).name,
       stab: +$('stab').value, sim: +$('sim').value,
       style: +$('style').value, speed: +$('speed').value,
-      dot: $('dot').checked, ctx: $('ctx').checked, acc: $('acc').checked,
+      dot: $('dot').checked, ctx: $('ctx').checked, tags: $('tags').value,
       endOpen: $('endOpen').value, comma: $('comma').checked,
       car: $('car').checked, carWord: $('carWord').value, carAll: $('carAll').checked,
       pause: +$('pause').value,
@@ -725,7 +769,7 @@
       ' · ' + n2(r.speed) + '×' +
       (r.seedOn && r.seed ? ' · зерно ' + r.seed : '') +
       (r.dot ? ' · с точкой' : '') + (r.ctx ? ' · контекст' : '') +
-      (r.acc ? ' · немецкий акцент' : '') +
+      (r.tags ? ' · ' + r.tags : '') +
       ' · конец ' + (END_NAME[r.endOpen] !== undefined ? END_NAME[r.endOpen] : r.endOpen) +
       (r.comma ? ' · запятая перед ist gleich' : '') +
       (r.car ? ' · хвост ' + (r.carWord || 'Uhr') + (r.carAll ? ' всем' : ' числам') +
@@ -753,7 +797,8 @@
     chosen[b.dataset.recipe] = r.voice || chosen[b.dataset.recipe];
     $('stab').value = r.stab; $('sim').value = r.sim;
     $('style').value = r.style; $('speed').value = r.speed;
-    $('dot').checked = !!r.dot; $('ctx').checked = !!r.ctx; $('acc').checked = !!r.acc;
+    $('dot').checked = !!r.dot; $('ctx').checked = !!r.ctx;
+    if (r.tags !== undefined) $('tags').value = r.tags;
     if (r.endOpen !== undefined) $('endOpen').value = r.endOpen;
     $('comma').checked = !!r.comma;
     $('car').checked = !!r.car; $('carAll').checked = !!r.carAll;
@@ -763,7 +808,7 @@
     if (r.seed) $('seed').value = r.seed;
     $('seed').disabled = !r.seedOn; $('seedRoll').disabled = !r.seedOn;
     $('seedBox').style.opacity = r.seedOn ? '1' : '.45';
-    paintSelects(); paintModels(); showSettings(); paintCarrier(); remember(); paintQuota();
+    paintSelects(); paintModels(); showSettings(); paintCarrier(); paintMood(); remember(); paintQuota();
     log('настройки группы «' + b.dataset.recipe + '» возвращены', 'have');
   });
 
@@ -926,8 +971,8 @@
 
   // ── как читать ──────────────────────────────────────────────
   const PRESETS = {
-    flat: { stab: 0.85, sim: 0.8,  style: 0,   speed: 0.92, dot: true,  ctx: true,  acc: true,  car: true  },
-    live: { stab: 0.5,  sim: 0.75, style: 0,   speed: 1,    dot: false, ctx: false, acc: false, car: false }
+    flat: { stab: 0.85, sim: 0.8,  style: 0,   speed: 0.92, dot: true,  ctx: true,  car: true  },
+    live: { stab: 0.5,  sim: 0.75, style: 0,   speed: 1,    dot: false, ctx: false, car: false }
   };
   // Контекст читается моделью «в уме» ради ровной интонации,
   // вслух он не произносится.
@@ -957,7 +1002,6 @@
     $('stab').value = p.stab; $('sim').value = p.sim;
     $('style').value = p.style; $('speed').value = p.speed;
     $('dot').checked = p.dot; $('ctx').checked = p.ctx;
-    if (p.acc !== undefined) $('acc').checked = p.acc;
     if (p.car !== undefined) { $('car').checked = p.car; paintCarrier(); }
     showSettings();
     log('настройки: ' + (name === 'flat' ? 'ровно, для одного слова' : 'живо, как раньше'));
@@ -966,7 +1010,7 @@
     b.addEventListener('click', () => applyPreset(b.dataset.preset)));
   ['stab','sim','style','speed','pause'].forEach(id => $(id).addEventListener('input', showSettings));
   $('endOpen').addEventListener('change', () => { remember(); paintQuota(); });
-  ['dot','ctx','acc','car','carAll','comma'].forEach(id =>
+  ['dot','ctx','car','carAll','comma'].forEach(id =>
     $(id).addEventListener('change', () => { remember(); paintQuota(); paintCarrier(); }));
   $('carWord').addEventListener('input', () => { remember(); paintQuota(); });
   const rollSeed = () => { $('seed').value = Math.floor(Math.random() * 90000000) + 10000000; remember(); };
@@ -1036,8 +1080,7 @@
         repo: $('repo').value.trim(),
         adminToken: PW,
         modelId: model,
-        accent: ($('acc').checked && model === 'eleven_v3' && $('lang').value === 'de')
-          ? 'strong German accent' : undefined,
+        tags: modelOf(model).tags ? $('tags').value : undefined,
         carrier: carrierFor(a),
         pause: +$('pause').value,
         seed: ($('seedOn').checked && $('seed').value) ? +$('seed').value : undefined,
@@ -1312,6 +1355,7 @@
     showSettings();
     paintModels();
     paintCarrier();
+    paintMood();
     if (!$('seed').value) $('seed').value = Math.floor(Math.random() * 90000000) + 10000000;
     $('seedBox').style.opacity = $('seedOn').checked ? '1' : '.45';
     $('seed').disabled = !$('seedOn').checked;
