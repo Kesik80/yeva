@@ -204,7 +204,7 @@
 
 <div class="wrap" id="app" hidden>
   <div class="top">
-    <h1>Голоса для игр</h1>
+    <h1>Голоса для игр <span id="ver" style="font-size:11px;font-weight:500;color:#93A8BA;letter-spacing:0"></span></h1>
     <a class="back" href="prep.html" style="margin-right:12px">картинки</a>
     <button class="back" id="btnLock" style="background:none;border:0;padding:0;width:auto;margin:0;cursor:pointer">выйти</button>
   </div>
@@ -499,6 +499,10 @@
     num: 'CwhRBWXzGAHq8TQ4Fs17'    // числа — пока тот же, выбери свой
   };
   const chosen = { der: DEFAULTS.der, die: DEFAULTS.die, das: DEFAULTS.das, num: DEFAULTS.num };
+
+  // Видно в заголовке и в логе: сразу ясно, та ли сборка открыта.
+  // Меняется при каждой правке страницы.
+  const VERSION = '31.10 12.30';
 
   let PW = '';                       // ADMIN_TOKEN, введённый на входе
   const $ = id => document.getElementById(id);
@@ -1302,6 +1306,7 @@
   // в него не влезают — приходил HTTP 413. Поэтому файлы едут частями,
   // а коммит всё равно собирается один, из уже залитых блобов.
   const PART_BYTES = 2500000;
+  const PART_FILES = 40;
 
   async function commitApi(payload) {
     const r = await fetch('/api/commit', {
@@ -1314,11 +1319,29 @@
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) {
-      throw new Error(d.error || (r.status === 413
-        ? 'кусок всё ещё слишком большой (413)'
-        : 'HTTP ' + r.status));
+      const e = new Error(d.error || ('HTTP ' + r.status));
+      e.status = r.status;
+      throw e;
     }
     return d;
+  }
+
+  // Если сервер всё же ответил 413, делим кусок пополам и пробуем снова:
+  // предел тела у хостинга может оказаться меньше, чем мы думали.
+  async function sendBlobs(list, depth) {
+    try {
+      return await commitApi({ stage: 'blobs', files: list });
+    } catch (e) {
+      if (e.status !== 413 || list.length < 2 || (depth || 0) > 6) throw e;
+      log('кусок из ' + list.length + ' файлов не принят (413) — делю пополам', 'err');
+      const half = Math.ceil(list.length / 2);
+      const a1 = await sendBlobs(list.slice(0, half), (depth || 0) + 1);
+      const a2 = await sendBlobs(list.slice(half), (depth || 0) + 1);
+      return {
+        blobs: (a1.blobs || []).concat(a2.blobs || []),
+        failed: (a1.failed || []).concat(a2.failed || [])
+      };
+    }
   }
 
   $('btnPub').addEventListener('click', async () => {
@@ -1333,7 +1356,7 @@
     const parts = [];
     let cur = [], size = 0;
     files.forEach(f => {
-      if (cur.length && (size + f.content.length > PART_BYTES || cur.length >= 80)) {
+      if (cur.length && (size + f.content.length > PART_BYTES || cur.length >= PART_FILES)) {
         parts.push(cur); cur = []; size = 0;
       }
       cur.push(f); size += f.content.length;
@@ -1350,7 +1373,7 @@
       for (let i = 0; i < parts.length; i++) {
         busy($('btnPub'), 'заливаю часть ' + (i + 1) + ' из ' + parts.length + '…');
         $('fill').style.width = (i / parts.length * 100).toFixed(1) + '%';
-        const d0 = await commitApi({ stage: 'blobs', files: parts[i] });
+        const d0 = await sendBlobs(parts[i], 0);
         (d0.blobs || []).forEach(b => blobs.push(b));
         (d0.failed || []).forEach(f => failed.push(f));
       }
@@ -1464,6 +1487,8 @@
     showSettings();
     paintModels();
     paintCarrier();
+    $('ver').textContent = 'сборка ' + VERSION;
+    log('voicegen, сборка ' + VERSION);
     paintMood();
     restoreFresh();
     if (!$('seed').value) $('seed').value = Math.floor(Math.random() * 90000000) + 10000000;
