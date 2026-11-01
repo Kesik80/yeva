@@ -502,7 +502,7 @@
 
   // Видно в заголовке и в логе: сразу ясно, та ли сборка открыта.
   // Меняется при каждой правке страницы.
-  const VERSION = '31.10 12.30';
+  const VERSION = '31.10 13.00';
 
   let PW = '';                       // ADMIN_TOKEN, введённый на входе
   const $ = id => document.getElementById(id);
@@ -713,6 +713,7 @@
     };
     return {
       put: (k, v) => tx('readwrite', st => st.put(v, k)),
+      del: k => tx('readwrite', st => st.delete(k)),
       clear: () => tx('readwrite', st => st.clear()),
       all: () => tx('readonly', st => (st.getAll ? st.getAll() : null))
     };
@@ -1307,6 +1308,7 @@
   // а коммит всё равно собирается один, из уже залитых блобов.
   const PART_BYTES = 2500000;
   const PART_FILES = 40;
+  const sentOk = {};      // slug -> уже лежит в коммите, второй раз не шлём
 
   async function commitApi(payload) {
     const r = await fetch('/api/commit', {
@@ -1346,11 +1348,13 @@
 
   $('btnPub').addEventListener('click', async () => {
     const lang = $('lang').value;
-    const files = Object.keys(fresh).map(s2 => ({
+    // то, что уже ушло в коммит, повторно не гоняем: после сбоя
+    // достаточно дослать остаток
+    const files = Object.keys(fresh).filter(s2 => !sentOk[s2]).map(s2 => ({
       path: 'voice/' + lang + '/' + s2 + '.mp3',
       content: fresh[s2]
     }));
-    if (!files.length) return;
+    if (!files.length) { log('всё уже записано — осталось дождаться пересборки', 'have'); return; }
 
     // режем на части по объёму
     const parts = [];
@@ -1376,6 +1380,7 @@
         const d0 = await sendBlobs(parts[i], 0);
         (d0.blobs || []).forEach(b => blobs.push(b));
         (d0.failed || []).forEach(f => failed.push(f));
+        if (i < parts.length - 1) await new Promise(r => setTimeout(r, 600));
       }
       $('fill').style.width = '100%';
       if (!blobs.length) throw new Error('ни один файл не залился');
@@ -1395,7 +1400,16 @@
           ' · появятся на сайте после пересборки', blobs.length < files.length ? 'err' : 'have');
       failed.forEach(f => log('✗ не залился ' + f.path + ' — ' + f.error, 'err'));
 
-      IDB.clear();          // записанное больше незачем держать в браузере
+      // помечаем записанное: в браузере его держать незачем,
+      // а при повторном нажатии дошлётся только остаток
+      blobs.forEach(b => {
+        const sl = b.path.split('/').pop().replace(/\.mp3$/, '');
+        sentOk[sl] = true;
+        IDB.del(lang + '/' + sl);
+      });
+      if (failed.length) {
+        log('не долетело ' + failed.length + ' — нажми «3 · Записать» ещё раз, поедут только они', 'err');
+      }
       // Раньше здесь стояло onSite[s] = true для всего отправленного.
       // Из-за этого список показывал «есть» у слов, которых на сайте нет:
       // коммит мог пройти частично, или сборка ещё не закончилась.

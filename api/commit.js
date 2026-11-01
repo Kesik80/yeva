@@ -16,8 +16,9 @@
 //
 // Env vars: GITHUB_TOKEN, GITHUB_REPO_DEFAULT, ADMIN_TOKEN (опц.)
 //
-// Блобы заливаются пачками по 6 параллельно: 85 файлов подряд по одному
-// не укладывались в лимит времени функции, и коммит обрывался на хвосте.
+// Блобы заливаются по три параллельно и с повтором при 403/429:
+// по одному 85 файлов не укладывались в лимит времени функции, а по шесть
+// GitHub начинал придерживать за частые записи (secondary rate limit).
 
 export const config = { maxDuration: 60 };
 
@@ -100,14 +101,35 @@ export default async function handler(req, res) {
   };
   const base = `https://api.github.com/repos/${GITHUB_REPO}`;
 
+  const nap = ms => new Promise(r => setTimeout(r, ms));
+
   async function gh(url, init) {
     const r = await fetch(url, { headers: H, ...init });
     if (!r.ok) {
       const e = new Error(`GitHub ${r.status} на ${url.replace(base, '')}`);
+      e.status = r.status;
+      e.retryAfter = +(r.headers.get('retry-after') || 0);
       e.details = await r.text();
       throw e;
     }
     return r.json();
+  }
+
+  // GitHub придерживает того, кто пишет слишком быстро: отвечает 403
+  // («secondary rate limit») или 429. Это не отказ, а просьба подождать,
+  // поэтому пробуем ещё раз, с паузой.
+  async function ghSlow(url, init, tries) {
+    let wait = 2000;
+    for (let i = 0; ; i++) {
+      try {
+        return await gh(url, init);
+      } catch (e) {
+        const busy = e.status === 403 || e.status === 429;
+        if (!busy || i >= (tries || 3)) throw e;
+        await nap(Math.max(wait, (e.retryAfter || 0) * 1000));
+        wait *= 2;
+      }
+    }
   }
 
   // заливка блобов, по 6 одновременно
@@ -119,7 +141,7 @@ export default async function handler(req, res) {
       while (queue.length) {
         const { f, i } = queue.shift();
         try {
-          const blob = await gh(`${base}/git/blobs`, {
+          const blob = await ghSlow(`${base}/git/blobs`, {
             method: 'POST',
             body: JSON.stringify({ content: f.content, encoding: 'base64' }),
           });
@@ -129,7 +151,7 @@ export default async function handler(req, res) {
         }
       }
     }
-    await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
+    await Promise.all([worker(), worker(), worker()]);
     return { tree: out.filter(Boolean), failed };
   }
 
