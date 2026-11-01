@@ -451,6 +451,13 @@
 
   /* ── запуск ── */
   function goFullscreen() {
+    // Установленная игра и так во весь экран. Запрос полноэкранного режима
+    // добавляет только системную подсказку «проведите сверху вниз и нажмите
+    // Назад» — ребёнок её не уберёт, а она закрывает нижний ряд.
+    try {
+      if ((window.matchMedia && (matchMedia('(display-mode: fullscreen)').matches ||
+           matchMedia('(display-mode: standalone)').matches)) || navigator.standalone) return;
+    } catch (e) {}
     const el = document.documentElement;
     const fn = el.requestFullscreen || el.webkitRequestFullscreen;
     if (!fn || document.fullscreenElement) return;

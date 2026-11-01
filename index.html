@@ -159,6 +159,12 @@
     <div class="tag">Сложение вслух</div>
   </a>
 
+  <a class="game" href="minus.html">
+    <div class="art">➖</div>
+    <div class="name">Minus</div>
+    <div class="tag">Вычитание вслух</div>
+  </a>
+
   <div class="game soon">
     <div class="art">＋</div>
     <div class="name">bald</div>
@@ -194,6 +200,14 @@
 
   function goFullscreen(why) {
     if (document.fullscreenElement) return;
+    // Установленная игра и так во весь экран. Запрос полноэкранного режима
+    // добавляет только системную подсказку «проведите сверху вниз и нажмите
+    // Назад» — ребёнок её не уберёт, а она закрывает нижний ряд.
+    try {
+      if ((window.matchMedia && (matchMedia('(display-mode: fullscreen)').matches ||
+           matchMedia('(display-mode: standalone)').matches)) || navigator.standalone) return;
+    } catch (e) {}
+
     const el = document.documentElement;
     const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
     if (!fn) { console.log('[fs] браузер не умеет requestFullscreen'); return; }

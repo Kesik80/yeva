@@ -511,6 +511,13 @@
 
   /* ── полный экран ── */
   function goFullscreen() {
+    // Установленная игра и так во весь экран. Запрос полноэкранного режима
+    // добавляет только системную подсказку «проведите сверху вниз и нажмите
+    // Назад» — ребёнок её не уберёт, а она закрывает нижний ряд.
+    try {
+      if ((window.matchMedia && (matchMedia('(display-mode: fullscreen)').matches ||
+           matchMedia('(display-mode: standalone)').matches)) || navigator.standalone) return;
+    } catch (e) {}
     const el = document.documentElement;
     const fn = el.requestFullscreen || el.webkitRequestFullscreen;
     if (!fn || document.fullscreenElement) return;
@@ -540,9 +547,22 @@
     if (c) tap(c);
   });
 
-  window.addEventListener('resize', () => setTimeout(layout, 60));
-  window.addEventListener('orientationchange', () => setTimeout(layout, 260));
-  document.addEventListener('fullscreenchange', () => setTimeout(layout, 160));
+  // Высота меняется не разом: системные полосы Android уезжают с анимацией,
+  // и один пересчёт может попасть в промежуточный размер — тогда нижний ряд
+  // оказывается за краем экрана. Поэтому пересчитываем несколько раз.
+  let lastH = 0;
+  function relayout() {
+    [0, 120, 350, 800].forEach(ms => setTimeout(() => {
+      const h = window.innerHeight;
+      if (ms && h === lastH) return;     // ничего не менялось — не дёргаем
+      lastH = h;
+      layout();
+    }, ms));
+  }
+  window.addEventListener('resize', relayout);
+  window.addEventListener('orientationchange', relayout);
+  document.addEventListener('fullscreenchange', relayout);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', relayout);
   document.addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('gesturestart', e => e.preventDefault());
   document.addEventListener('visibilitychange', () => {

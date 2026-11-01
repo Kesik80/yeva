@@ -82,9 +82,20 @@
     '  22%{transform:scale(1.34);filter:brightness(1.55)}',
     '  62%{transform:scale(1.34);filter:brightness(1.55)}',
     '  100%{transform:scale(1);filter:brightness(1)}}',
+    // вычитание: кубики, которые уходят. Сначала гаснут (это подсказка),
+    // потом улетают вверх и тают (это ответ).
+    '.nblock .nb-cube.nb-dim{opacity:.22;transition:opacity .25s}',
+    // ease-in здесь не годится: полсекунды кубик стоит на месте, а потом
+    // его подменяют — ребёнок не успевает увидеть, что он ушёл.
+    // Сначала короткий присед, потом быстрый уход вверх.
+    '.nblock .nb-cube.nb-gone{animation:nb-gone .55s cubic-bezier(.3,0,.25,1) forwards}',
+    '@keyframes nb-gone{0%{transform:translateY(0) scale(1);opacity:1}',
+    '  16%{transform:translateY(9%) scale(.95);opacity:1}',
+    '  100%{transform:translateY(-150%) scale(.28);opacity:0}}',
     '@media (prefers-reduced-motion:reduce){',
     '  .nblock .nb-all,.nblock .nb-cube,.nblock .nb-eye{animation:none}',
     '  .nblock .nb-cube.nb-lit{animation:none;filter:brightness(1.45)}',
+    '  .nblock .nb-cube.nb-gone{animation:none;opacity:0}',
     '  .nblock .nb-pupil{transition:none}}'
   ].join('\n');
 

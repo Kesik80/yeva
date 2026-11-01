@@ -148,6 +148,30 @@
     return out;
   })();
 
+  // Фразы для игры в вычитание: «sieben minus zwei ist gleich».
+  // Та же мысль, что и в сложении: целая запись звучит живее склейки.
+  // Остаток всегда не меньше единицы — фигурку из нуля кубиков не сложишь,
+  // да и «ноль» трёхлетке объяснять рано.
+  const MINUS = (function () {
+    const all = {};
+    NUMBERS.forEach(function (w) { all[w.num] = w.de; });
+    BIG.forEach(function (w) { all[w.num] = w.de; });
+    const out = [];
+    for (var a2 = 2; a2 <= 20; a2++) {
+      for (var b2 = 1; b2 < a2; b2++) {
+        out.push({
+          a: a2, b: b2, sum: a2 - b2,
+          de: all[a2] + ' minus ' + all[b2] + ' ist gleich',
+          ru: a2 + ' минус ' + b2 + ' равно',
+          s: 'ding', e: '', noTail: true, g: 'num',
+          open: true,
+          nextText: all[a2 - b2] + '.'
+        });
+      }
+    }
+    return out;
+  })();
+
   // Цвета. Прилагательные, артикля нет — в voicegen уйдут к мужскому голосу.
   // В карточные игры не идут: там цвет должен быть единственным отличием,
   // а эмодзи перекрасить нельзя.
@@ -167,12 +191,13 @@
   ];
 
   window.YEVA_WORDS = {
-    version: 12,
+    version: 13,
     colors: COLORS,
     numbers: NUMBERS,
     numbersBig: BIG,
     math: MATH,
     plus: PLUS,
+    minus: MINUS,
     body: BODY,
 
     // фоновые украшения для миров, где вместо облаков что-то своё
@@ -339,6 +364,7 @@
     COLORS.forEach(add);        // цвета — тоже только ради озвучки
     MATH.forEach(add);          // plus / ist gleich / minus — связки для сложения
     PLUS.forEach(add);          // «eins plus eins ist gleich» — фразы целиком
+    MINUS.forEach(add);         // «sieben minus zwei ist gleich» — тоже целиком
     return out;
   })();
 
