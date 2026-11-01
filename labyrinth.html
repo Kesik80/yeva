@@ -75,7 +75,15 @@
   .maze .trail{fill:none;stroke:rgba(232,120,47,.3);stroke-width:.46;
     stroke-linecap:round;stroke-linejoin:round}
   .maze .walls{fill:none;stroke:#8A5A28;stroke-width:.15;stroke-linecap:round}
-  .maze .goal{fill:rgba(255,216,110,.85)}
+  .maze .goal{fill:rgba(255,216,110,.9);transition:fill .3s}
+  .maze .goal.lock{fill:rgba(74,48,23,.16)}
+  .maze .goalnum{font-size:.4px;font-weight:600;fill:rgba(74,48,23,.6);
+    text-anchor:middle;dominant-baseline:central}
+  .maze .goal.ready{animation:ready 1.2s ease-in-out infinite}
+  @keyframes ready{0%,100%{r:.33}50%{r:.42}}
+  .tray.shake{animation:shake .4s}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}
+    60%{transform:translateX(5px)}}
   .maze .item{font-size:.62px;text-anchor:middle;dominant-baseline:central;
     transition:transform .3s,opacity .3s}
   .maze .item.got{transform:scale(.2);opacity:0}
@@ -189,7 +197,7 @@
   <div class="panel">
     <h1>Labyrinth</h1>
     <div class="ru">Дорожка с картинками</div>
-    <div class="tip">Веди пальцем по дорожке и собирай картинки — каждая называет себя по-немецки</div>
+    <div class="tip">Веди пальцем по дорожке. Картинки прячутся в тупиках: за каждой надо свернуть, и каждая называет себя по-немецки. Выход откроется, когда соберёшь все</div>
     <div class="sizes" id="sizes"></div>
     <button class="big" id="btnStart" aria-label="Играть">
       <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
@@ -213,7 +221,8 @@
   }
 
   const CFG = { goal: 5, voice: 'voice/de/' };
-  const WIDTHS = [5, 7, 9];              // сколько клеток в ряд
+  // сложность — это примерное число клеток, а не размер экрана
+  const LEVELS = [{ n: 60, t: 'просто' }, { n: 110, t: 'средне' }, { n: 180, t: 'сложно' }];
   const K_SIZE = 'yeva.labyrinth.size';
   const PAD = 0.12;                      // поля, чтобы стены не срезались
   const WORDS = (YW.pictured && YW.pictured.length ? YW.pictured : YW.unique.filter(a => a.e));
@@ -226,7 +235,7 @@
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   };
 
-  let want = 7;              // выбранная ширина в клетках
+  let want = 110;            // выбранная сложность: сколько примерно клеток
   let COLS = 7, ROWS = 7;    // сам лабиринт — прямоугольный, по экрану
   let cells = [];            // стены каждой клетки
   let cur = { x: 0, y: 0 };  // где фигурка
@@ -317,8 +326,9 @@
   const buzz = p2 => { try { navigator.vibrate && navigator.vibrate(p2); } catch (e) {} };
 
   /* ── лабиринт ──
-     Обычный «идеальный» лабиринт: между любыми двумя клетками ровно одна
-     дорога, тупики есть, а колец нет. Так ребёнок не может закружиться. */
+     Между любыми двумя клетками ровно одна дорога: тупики есть, колец нет.
+     Так ребёнок не может закружиться, а ошибка всегда поправима — просто
+     вернись назад. */
   const N_W = 1, E_W = 2, S_W = 4, W_W = 8;
   const DIRS = [
     { dx: 0, dy: -1, w: N_W, o: S_W },
@@ -329,38 +339,58 @@
   const at = (x, y) => y * COLS + x;
   const inside = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
 
-  // Сколько клеток поместится: клетки квадратные, а поле занимает всё,
-  // что осталось от экрана. На телефоне выходит высокий прямоугольник.
+  // Сколько клеток: столько, сколько просит выбранная сложность, а не
+  // сколько влезет. Иначе на планшете поле раздувалось само по себе —
+  // сложность должна зависеть от кнопки, а не от того, какой экран.
+  // Форма подстраивается под экран: на телефоне высокий прямоугольник,
+  // на планшете пошире.
   function shape() {
     const stage = document.querySelector('.stage');
     const other = ($('tray').offsetHeight || 38) + ($('say').offsetHeight || 28) + 26;
     const bw = Math.max(160, stage.clientWidth || 320);
     const bh = Math.max(160, (stage.clientHeight || 520) - other);
-    const cell = bw / want;
-    COLS = want;
-    ROWS = Math.max(want, Math.min(24, Math.round(bh / cell)));
+    const r = Math.max(0.5, Math.min(2.6, bh / bw));     // вытянутость экрана
+    let c = Math.round(Math.sqrt(want / r));
+    c = Math.max(5, Math.min(14, c));
+    COLS = c;
+    ROWS = Math.max(5, Math.min(24, Math.round(c * r)));
   }
 
+  // Лабиринт растим «по Прима»: берём случайную стену на границе уже
+  // прорытого и ломаем её. Обход в глубину давал длинные коридоры с
+  // редкими развилками — по такому не заблудишься, идёшь и идёшь.
+  // Здесь развилок и тупиков втрое больше при том же числе клеток.
   function dig() {
-    cells = new Array(COLS * ROWS).fill(N_W | E_W | S_W | W_W);
-    const seen = new Array(COLS * ROWS).fill(false);
-    const stack = [{ x: 0, y: 0 }];
-    seen[0] = true;
-    while (stack.length) {
-      const c = stack[stack.length - 1];
-      const open = [];
+    const n = COLS * ROWS;
+    cells = new Array(n).fill(N_W | E_W | S_W | W_W);
+    const seen = new Array(n).fill(false);
+    const edge = [];                                     // стены на границе
+    const push = (x, y) => {
+      seen[at(x, y)] = true;
       DIRS.forEach(d => {
-        const nx = c.x + d.dx, ny = c.y + d.dy;
-        if (inside(nx, ny) && !seen[at(nx, ny)]) open.push(d);
+        const nx = x + d.dx, ny = y + d.dy;
+        if (inside(nx, ny) && !seen[at(nx, ny)]) edge.push({ x: x, y: y, d: d });
       });
-      if (!open.length) { stack.pop(); continue; }
-      const d = pick(open);
-      const nx = c.x + d.dx, ny = c.y + d.dy;
-      cells[at(c.x, c.y)] &= ~d.w;
-      cells[at(nx, ny)] &= ~d.o;
-      seen[at(nx, ny)] = true;
-      stack.push({ x: nx, y: ny });
+    };
+    push(0, 0);
+    while (edge.length) {
+      const k = irand(edge.length);
+      const e = edge[k];
+      edge[k] = edge[edge.length - 1];
+      edge.pop();
+      const nx = e.x + e.d.dx, ny = e.y + e.d.dy;
+      if (!inside(nx, ny) || seen[at(nx, ny)]) continue;
+      cells[at(e.x, e.y)] &= ~e.d.w;
+      cells[at(nx, ny)] &= ~e.d.o;
+      push(nx, ny);
     }
+  }
+
+  // сколько у клетки открытых сторон
+  function ways(i) {
+    let k = 0;
+    DIRS.forEach(d => { if (!(cells[i] & d.w)) k++; });
+    return k;
   }
 
   // Выход — самая дальняя от старта клетка нижнего ряда. Просто «самая
@@ -398,23 +428,69 @@
     return { exit: best, road: road };
   }
 
-  /* ── картинки по дороге ── */
+  /* ── картинки ──
+     Раньше они лежали на верной дороге и работали подсказкой: иди за
+     картинками — придёшь к выходу, свернуть некуда. Теперь наоборот:
+     они прячутся в тупиках в стороне от дороги. За каждой надо свернуть
+     и вернуться, то есть выбор «туда или не туда» наконец появляется. */
   function layItems(road) {
-    const inner = road.slice(1, road.length - 1);     // ни на старте, ни на выходе
-    const n = Math.max(1, Math.min(7, Math.min(inner.length, Math.round(inner.length / 5))));
+    const n = COLS * ROWS;
+    const onRoad = {};
+    road.forEach(i => { onRoad[i] = 1; });
+
+    const ends = [], side = [];
+    for (let i = 0; i < n; i++) {
+      if (onRoad[i] || i === 0) continue;
+      (ways(i) === 1 ? ends : side).push(i);
+    }
+    // Тупики в стороне от дороги — то, что нужно: за картинкой приходится
+    // свернуть и вернуться. Берём сначала их и только потом, если не
+    // хватило, прочие клетки и саму дорогу. Порядок важен: если смешать
+    // всё в кучу, выбор «подальше друг от друга» вытаскивает проходные
+    // клетки, и сворачивать становится некуда.
+    const tiers = [ends, side, road.slice(1, road.length - 1)];
+    const want2 = Math.max(4, Math.min(8, Math.round(n / 18)));
+    const count = Math.min(want2, ends.length + side.length + Math.max(0, road.length - 2));
+
+    const chosen = [];
+    const far = (i) => {
+      const x = i % COLS, y = (i - x) / COLS;
+      let d = 1e9;
+      chosen.forEach(j => {
+        const jx = j % COLS, jy = (j - jx) / COLS;
+        d = Math.min(d, Math.abs(x - jx) + Math.abs(y - jy));
+      });
+      return d;
+    };
+
+    // внутри одного разряда разносим места подальше друг от друга
+    tiers.forEach(tier => {
+      const pool = tier.slice();
+      while (chosen.length < count && pool.length) {
+        let best = 0;
+        if (chosen.length) {
+          let bd = -1;
+          for (let k = 0; k < pool.length; k++) {
+            const d = far(pool[k]);
+            if (d > bd) { bd = d; best = k; }
+          }
+        } else {
+          best = irand(pool.length);
+        }
+        chosen.push(pool[best]);
+        pool.splice(best, 1);
+      }
+    });
+
     const used = {}, bag = [];
     let guard = 0;
-    while (bag.length < n && guard++ < 300) {
+    while (bag.length < chosen.length && guard++ < 400) {
       const w = pick(WORDS);
       if (used[w.de]) continue;
       used[w.de] = 1; bag.push(w);
     }
-    items = [];
-    for (let k = 0; k < bag.length; k++) {
-      // раскладываем равномерно по дороге, чтобы не кучковались
-      const i = inner[Math.round((k + 1) * inner.length / (bag.length + 1)) - 1];
-      items.push({ cell: i, word: bag[k], got: false });
-    }
+
+    items = chosen.map((i, k) => ({ cell: i, word: bag[k], got: false }));
   }
 
   /* ── рисование ── */
@@ -435,7 +511,8 @@
 
     const ex = exitAt % COLS, ey = (exitAt - ex) / COLS;
     let h = '<rect class="floor" x="0" y="0" width="' + COLS + '" height="' + ROWS + '" rx="0.1"/>' +
-            '<circle class="goal" cx="' + (ex + 0.5) + '" cy="' + (ey + 0.5) + '" r="0.33"/>' +
+            '<circle class="goal" id="goal" cx="' + (ex + 0.5) + '" cy="' + (ey + 0.5) + '" r="0.33"/>' +
+            '<text class="goalnum" id="goalnum" x="' + (ex + 0.5) + '" y="' + (ey + 0.52) + '"></text>' +
             '<path class="trail" id="trail" d=""/>' +
             '<path class="walls" d="' + walls + '"/>';
 
@@ -476,6 +553,20 @@
       h += it.got ? '<i>' + it.word.e + '</i>' : '<i class="wait">·</i>';
     });
     $('tray').innerHTML = h;
+  }
+
+  // Выход заперт, пока не собраны все картинки, и показывает, сколько
+  // осталось. Сами картинки видны на поле с самого начала — это не
+  // слепой поиск, а выбор дороги.
+  const left = () => items.length - got;
+
+  function paintGoal() {
+    const g = $('goal'), t = $('goalnum');
+    if (!g || !t) return;
+    const n = left();
+    g.classList.toggle('lock', n > 0);
+    g.classList.toggle('ready', n === 0);
+    t.textContent = n > 0 ? String(n) : '';
   }
 
   function paintStars() {
@@ -521,9 +612,30 @@
       $('say').textContent = items[k].word.de;
       say(items[k].word);
       paintTray();
+      paintGoal();
+      if (!left()) {                      // последняя — выход открылся
+        tone('triangle', 784, 0, 0.3, 0.26);
+        tone('triangle', 1046.5, 0.12, 0.4, 0.24);
+      }
     }
 
-    if (at(nx, ny) === exitAt) finish();
+    if (at(nx, ny) === exitAt) {
+      if (left()) knock(); else finish();
+    }
+  }
+
+  // пришла к выходу рано: мягко показываем, чего не хватает
+  let knockAt = 0;
+  function knock() {
+    if (Date.now() - knockAt < 900) return;
+    knockAt = Date.now();
+    tone('sine', 320, 0, 0.14, 0.18, 260);
+    buzz(25);
+    const tray = $('tray');
+    tray.classList.remove('shake');
+    void tray.offsetWidth;
+    tray.classList.add('shake');
+    $('say').textContent = 'ещё ' + left();
   }
 
   // один шаг в сторону пальца, если между клетками нет стены
@@ -665,6 +777,7 @@
     layItems(far.road);
     draw();
     paintTray();
+    paintGoal();
     paintTrail();
     resize();
     $('say').textContent = '';
@@ -674,9 +787,9 @@
 
   /* ── выбор размера ── */
   function paintSizes() {
-    $('sizes').innerHTML = WIDTHS.map(s =>
-      '<button class="size' + (s === want ? ' on' : '') + '" data-s="' + s + '">' +
-      s + ' в ряд</button>').join('');
+    $('sizes').innerHTML = LEVELS.map(l =>
+      '<button class="size' + (l.n === want ? ' on' : '') + '" data-s="' + l.n + '">' +
+      l.t + '</button>').join('');
   }
   $('sizes').addEventListener('click', e => {
     const b = e.target.closest('.size');
@@ -736,7 +849,7 @@
     if (!document.hidden && actx && actx.state === 'suspended') actx.resume();
   });
 
-  want = WIDTHS.indexOf(+store.get(K_SIZE, 7)) >= 0 ? +store.get(K_SIZE, 7) : 7;
+  want = LEVELS.some(l => l.n === +store.get(K_SIZE, 110)) ? +store.get(K_SIZE, 110) : 110;
   paintSizes();
   paintStars();
   build();
