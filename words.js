@@ -112,10 +112,14 @@
   // Числа уже есть выше, не хватает только связок.
   // tail — немецкий «хвост» для voicegen: его произносят вместе со словом
   // и вырезают из mp3, иначе «plus» читается по-английски.
+  // lead — немецкое «начало»: одного хвоста им мало, в начале фразы
+  // модель всё равно читает plus / minus по-английски. После немецкого
+  // числа они звучат по-немецки, поэтому слово зажато с двух сторон:
+  // «Sieben plus zwei» — и остаётся только середина.
   const MATH = [
-    { de: 'plus',       ru: 'плюс',  s: 'ding', e: '', tail: 'zwei', g: 'num' },
-    { de: 'ist gleich', ru: 'равно', s: 'ding', e: '', tail: 'zwei', g: 'num' },
-    { de: 'minus',      ru: 'минус', s: 'ding', e: '', tail: 'zwei', g: 'num' }
+    { de: 'plus',       ru: 'плюс',  s: 'ding', e: '', lead: 'sieben', tail: 'zwei', g: 'num' },
+    { de: 'ist gleich', ru: 'равно', s: 'ding', e: '', lead: 'sieben', tail: 'zwei', g: 'num' },
+    { de: 'minus',      ru: 'минус', s: 'ding', e: '', lead: 'sieben', tail: 'zwei', g: 'num' }
   ];
 
   // Фразы для игры в сложение: «eins plus eins ist gleich».
@@ -163,7 +167,7 @@
   ];
 
   window.YEVA_WORDS = {
-    version: 11,
+    version: 12,
     colors: COLORS,
     numbers: NUMBERS,
     numbersBig: BIG,

@@ -125,22 +125,35 @@ function mp3Frames(buf) {
   return out;
 }
 
-function mp3Cut(buf, cutSec, padSec) {
+// Вырезать кусок по времени: от fromSec до cutSec, плюс тишина в конце.
+// fromSec отрезает начало («Sieben» перед «plus»), cutSec — хвост («zwei»).
+function mp3Cut(buf, cutSec, padSec, fromSec) {
   const fr = mp3Frames(buf);
   if (!fr.length) return buf;
-  let t = 0, upto = fr[fr.length - 1].start + fr[fr.length - 1].len;
-  for (const f of fr) {
-    t += f.dur;
-    if (t >= cutSec) { upto = f.start + f.len; break; }
+  const from = Math.max(0, fromSec || 0);
+  const to = cutSec > 0 ? cutSec : Infinity;
+
+  let t = 0, first = -1, upto = fr[fr.length - 1].start + fr[fr.length - 1].len;
+  for (let n = 0; n < fr.length; n++) {
+    const end = t + fr[n].dur;
+    if (first < 0 && end > from) first = n;        // кадр, где начинается нужное
+    if (end >= to) { upto = fr[n].start + fr[n].len; break; }
+    t = end;
   }
-  const head = buf.slice(fr[0].start, upto);
-  const need = Math.max(0, Math.round((padSec || 0) / fr[0].dur));
-  if (!need) return head;
+  if (first < 0) first = 0;
+  const startAt = fr[first].start;
+  if (upto <= startAt) return buf;
+
   // кадр тишины: тот же заголовок, тело в нулях
   const hush = Buffer.concat([buf.slice(fr[0].start, fr[0].start + 4), Buffer.alloc(fr[0].len - 4)]);
-  const tail = [];
-  for (let n = 0; n < Math.min(need, 20); n++) tail.push(hush);
-  return Buffer.concat([head].concat(tail));
+  const parts = [];
+  // после обрезки начала декодеру нужен разгон: первые кадры опираются
+  // на предыдущие, и без запаса в начале слышен щелчок
+  if (first > 0) { parts.push(hush, hush); }
+  parts.push(buf.slice(startAt, upto));
+  const need = Math.max(0, Math.round((padSec || 0) / fr[0].dur));
+  for (let n = 0; n < Math.min(need, 20); n++) parts.push(hush);
+  return Buffer.concat(parts);
 }
 
 export default async function handler(req, res) {
@@ -167,6 +180,10 @@ export default async function handler(req, res) {
     seed,             // зерно: с ним один и тот же текст читается одинаково
     carrier,          // немецкий «хвост» («Uhr»): произносится вместе со словом
                       //  и отрезается от mp3 — так модель точно читает по-немецки
+    lead,             // немецкое «начало» («Sieben»): произносится перед словом
+                      //  и тоже отрезается. Нужно словам вроде plus / minus /
+                      //  ist gleich: в начале фразы их читают по-английски,
+                      //  а после немецкого числа — по-немецки
     key: keyWanted,   // необязательно: начать с конкретного аккаунта
     pin = false,      // true — не перебирать остальные
   } = req.body || {};
@@ -216,17 +233,26 @@ export default async function handler(req, res) {
   const rawTags = String(tags || '').trim() ||
     (accent ? '[' + String(accent).replace(/[\[\]]/g, '').trim() + ']' : '');
   const tagList = (rawTags.match(/\[[\p{L} ]{1,40}\]/gu) || []).slice(0, 4);
-  if (tagModel && tagList.length) outText = tagList.join(' ') + ' ' + outText;
   if (!tagModel) outText = outText.replace(/^(\s*\[[^\]]{0,60}\]\s*)+/, '');
+  // подсказка настроения стоит первой, раньше придуманного начала
+  const tagPrefix = (tagModel && tagList.length) ? tagList.join(' ') + ' ' : '';
 
   // «elf» английский диктор читает по-английски, «elf Uhr» — уже по-немецки.
-  // Хвост произносится, а потом отрезается от mp3, в файл он не попадает.
-  const car = String(carrier || '').replace(/[^\p{L}\p{M} -]/gu, '').trim().slice(0, 30);
+  // Начало и хвост произносятся, а потом отрезаются от mp3: в файл
+  // попадает только само слово.
+  const clean = s => String(s || '').replace(/[^\p{L}\p{M} -]/gu, '').trim().slice(0, 30);
+  const car = clean(carrier);
+  const led0 = clean(lead);
+  const led = led0 ? led0.charAt(0).toUpperCase() + led0.slice(1) : '';
   // сколько тишины должно остаться после слова: обрыв сразу за последним
   // звуком слышно как щелчок, поэтому пауза не меньше этой
   const PAUSE = num(req.body && req.body.pause, 0.05, 1.2, 0.3);
+  // хвост «закрывает» фразу точкой; начало само по себе знак не меняет
   const head = car ? outText.replace(/[.!?…]+\s*$/, '') : outText;
-  if (car) outText = head + ' ' + car + '.';
+  let said = head;
+  if (led) said = led + ' ' + said;
+  if (car) said = said + ' ' + car + '.';
+  outText = tagPrefix + said;
 
   const body = { text: outText, model_id: model, voice_settings: settings };
   const sd = parseInt(seed, 10);
@@ -249,14 +275,15 @@ export default async function handler(req, res) {
     for (const i of order) {
       const budget = 56000 - (Date.now() - t0);
       if (budget < 6000) { last = 'не хватило времени на перебор аккаунтов'; break; }
-      // с хвостом нужны тайминги символов, чтобы знать, где резать
+      // с началом или хвостом нужны тайминги символов, чтобы знать, где резать
+      const trim = !!(car || led);
       const r = await fetchT(
         'https://api.elevenlabs.io/v1/text-to-speech/' + safeVoiceId +
-          (car ? '/with-timestamps' : '') + '?output_format=mp3_44100_128',
+          (trim ? '/with-timestamps' : '') + '?output_format=mp3_44100_128',
         {
           method: 'POST',
           headers: {
-            'Accept': car ? 'application/json' : 'audio/mpeg',
+            'Accept': trim ? 'application/json' : 'audio/mpeg',
             'Content-Type': 'application/json',
             'xi-api-key': K[i],
           },
@@ -265,30 +292,56 @@ export default async function handler(req, res) {
         Math.min(45000, budget)
       );
 
-      if (r.ok && car) {
+      if (r.ok && trim) {
         const j = await r.json();
         const raw = Buffer.from(j.audio_base_64 || j.audio_base64 || '', 'base64');
         const al = j.alignment || j.normalized_alignment || {};
         const chars = al.characters || [];
         const ends = al.character_end_times_seconds || [];
         const starts = al.character_start_times_seconds || [];
-        let cut = 0, padded = 0;
-        if (chars.length && ends.length === chars.length) {
-          const idx = chars.join('').lastIndexOf(car);       // начало хвоста
-          const wordEnd = idx >= 2 ? ends[idx - 2] : null;   // последняя буква слова
-          const carStart = idx >= 0 ? starts[idx] : null;
-          if (wordEnd != null && carStart != null && carStart >= wordEnd) {
-            // режем ближе к хвосту: забираем естественное затухание и паузу,
-            // но не трогаем начало самого хвоста
-            cut = Math.max(wordEnd + 0.06, Math.min(carStart - 0.04, wordEnd + 0.45));
-            // и дотягиваем паузу после слова до PAUSE секунд тишиной
-            padded = Math.max(0, PAUSE - (cut - wordEnd));
+        let cut = 0, padded = 0, from = 0;
+        if (chars.length && ends.length === chars.length && starts.length === chars.length) {
+          const spoken = chars.join('');
+
+          // где кончается придуманное начало и начинается само слово
+          let after = 0;
+          if (led) {
+            const li = spoken.indexOf(led);
+            const wi = li >= 0 ? spoken.indexOf(head, li + led.length) : -1;
+            if (wi >= 1) {
+              after = wi + head.length;
+              const wordStart = starts[wi];
+              const leadEnd = wi >= 2 ? ends[wi - 2] : 0;    // wi-1 — пробел
+              // забираем немного тишины перед словом: ровно по первому звуку
+              // декодер щёлкает, а в паузе обрез не слышен
+              from = Math.max(leadEnd + 0.01, wordStart - 0.12);
+              if (!(from < wordStart)) from = Math.max(0, wordStart - 0.02);
+              if (from < 0.02) from = 0;
+            }
+          }
+
+          if (car) {
+            const idx = spoken.lastIndexOf(car);             // начало хвоста
+            const wordEnd = idx >= 2 ? ends[idx - 2] : null; // последняя буква слова
+            const carStart = idx >= 0 ? starts[idx] : null;
+            if (idx > after && wordEnd != null && carStart != null && carStart >= wordEnd) {
+              // режем ближе к хвосту: забираем естественное затухание и паузу,
+              // но не трогаем начало самого хвоста
+              cut = Math.max(wordEnd + 0.06, Math.min(carStart - 0.04, wordEnd + 0.45));
+              // и дотягиваем паузу после слова до PAUSE секунд тишиной
+              padded = Math.max(0, PAUSE - (cut - wordEnd));
+            }
+          } else if (from > 0) {
+            // хвоста нет — паузу в конце всё равно добавляем
+            padded = PAUSE;
           }
         }
-        const out = cut > 0 ? mp3Cut(raw, cut, padded) : raw;
+        const out = (cut > 0 || from > 0) ? mp3Cut(raw, cut, padded, from) : raw;
         return {
           b64: out.toString('base64'), key: i, keyTail: tail(K[i]),
-          trimmed: cut > 0, cutAt: cut ? +cut.toFixed(3) : null,
+          trimmed: cut > 0 || from > 0,
+          cutAt: cut ? +cut.toFixed(3) : null,
+          fromAt: from ? +from.toFixed(3) : null,
           pad: +padded.toFixed(3), said: outText,
         };
       }
@@ -328,7 +381,8 @@ export default async function handler(req, res) {
       return res.json({
         audio: g.b64, voice: voiceName, model, cached: false,
         key: g.key, keyTail: g.keyTail, keys: K.length,
-        said: g.said || null, trimmed: !!g.trimmed, cutAt: g.cutAt || null, pad: g.pad || 0,
+        said: g.said || null, trimmed: !!g.trimmed, cutAt: g.cutAt || null,
+        fromAt: g.fromAt || null, pad: g.pad || 0,
         seed: body.seed === undefined ? null : body.seed,
       });
     } catch (e) {

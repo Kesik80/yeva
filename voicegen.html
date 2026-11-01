@@ -360,6 +360,27 @@
         </div>
       </div>
     </div>
+    <div class="chk">
+      <input type="checkbox" id="lead" checked>
+      <label for="lead" style="margin:0;font-size:14px;font-weight:500;color:#1E3D57">
+        Произносить с немецким началом и отрезать его
+      </label>
+    </div>
+    <div class="row" id="leadBox" style="margin-top:8px">
+      <div style="flex:0 0 110px">
+        <label for="leadWord">Начало</label>
+        <input id="leadWord" value="sieben" autocomplete="off">
+      </div>
+      <div style="flex:1">
+        <label>Кому</label>
+        <div class="chk" style="margin-top:9px">
+          <input type="checkbox" id="leadAll">
+          <label for="leadAll" style="margin:0;font-size:13.5px;font-weight:500;color:#1E3D57">
+            всем словам, не только plus / minus
+          </label>
+        </div>
+      </div>
+    </div>
     <label style="margin-top:10px">Пауза после слова <b id="vPause"></b>
       <span class="hint">тишина в конце файла, чтобы слово не обрывалось</span></label>
     <input type="range" id="pause" min="0.1" max="0.8" step="0.05" value="0.3">
@@ -368,6 +389,11 @@
       Хвост произносится, а потом вырезается из mp3 по таймингам: в файл попадает
       только само слово. Для чисел больше 24 естественнее «Grad» или «Euro» —
       таких часов не бывает. Хвост тоже тратит символы лимита.
+      <br><br>
+      Одного хвоста мало словам plus, minus, ist gleich: в начале фразы их
+      читают по-английски, как ни проси. Поэтому к ним добавляется ещё и
+      начало — «Sieben plus zwei», — а в файл попадает только середина,
+      зажатая немецкой речью с обеих сторон.
     </div>
     <div class="chk">
       <input type="checkbox" id="seedOn">
@@ -502,7 +528,7 @@
 
   // Видно в заголовке и в логе: сразу ясно, та ли сборка открыта.
   // Меняется при каждой правке страницы.
-  const VERSION = '31.10 13.00';
+  const VERSION = '01.11 13.10';
 
   let PW = '';                       // ADMIN_TOKEN, введённый на входе
   const $ = id => document.getElementById(id);
@@ -560,6 +586,9 @@
       if (sv.tags !== undefined) $('tags').value = sv.tags;
       if (sv.car !== undefined) $('car').checked = !!sv.car;
       if (sv.carWord) $('carWord').value = sv.carWord;
+      if (sv.lead !== undefined) $('lead').checked = !!sv.lead;
+      if (sv.leadWord) $('leadWord').value = sv.leadWord;
+      $('leadAll').checked = !!sv.leadAll;
       if (sv.pause) $('pause').value = sv.pause;
       if (sv.endOpen !== undefined) $('endOpen').value = sv.endOpen;
       if (sv.seedOn !== undefined) $('seedOn').checked = !!sv.seedOn;
@@ -576,6 +605,7 @@
                   style: $('style').value, speed: $('speed').value,
                   dot: $('dot').checked, ctx: $('ctx').checked, tags: $('tags').value,
                   car: $('car').checked, carWord: $('carWord').value, carAll: $('carAll').checked,
+                  lead: $('lead').checked, leadWord: $('leadWord').value, leadAll: $('leadAll').checked,
                   pause: $('pause').value, endOpen: $('endOpen').value,
                   seedOn: $('seedOn').checked, seed: $('seed').value,
                   comma: $('comma').checked };
@@ -808,6 +838,7 @@
       dot: $('dot').checked, ctx: $('ctx').checked, tags: $('tags').value,
       endOpen: $('endOpen').value, comma: $('comma').checked,
       car: $('car').checked, carWord: $('carWord').value, carAll: $('carAll').checked,
+      lead: $('lead').checked, leadWord: $('leadWord').value, leadAll: $('leadAll').checked,
       pause: +$('pause').value,
       seedOn: $('seedOn').checked, seed: $('seed').value,
       lang: $('lang').value
@@ -836,6 +867,7 @@
       (r.tags ? ' · ' + r.tags : '') +
       ' · конец ' + (END_NAME[r.endOpen] !== undefined ? END_NAME[r.endOpen] : r.endOpen) +
       (r.comma ? ' · запятая перед ist gleich' : '') +
+      (r.lead ? ' · начало ' + (r.leadWord || 'sieben') + (r.leadAll ? ' всем' : '') : '') +
       (r.car ? ' · хвост ' + (r.carWord || 'Uhr') + (r.carAll ? ' всем' : ' числам') +
                ' · пауза ' + n2(r.pause) + ' с' : '');
   }
@@ -867,6 +899,8 @@
     $('comma').checked = !!r.comma;
     $('car').checked = !!r.car; $('carAll').checked = !!r.carAll;
     if (r.carWord) $('carWord').value = r.carWord;
+    if (r.lead !== undefined) { $('lead').checked = !!r.lead; $('leadAll').checked = !!r.leadAll; }
+    if (r.leadWord) $('leadWord').value = r.leadWord;
     if (r.pause) $('pause').value = r.pause;
     $('seedOn').checked = !!r.seedOn;
     if (r.seed) $('seed').value = r.seed;
@@ -1074,9 +1108,10 @@
     b.addEventListener('click', () => applyPreset(b.dataset.preset)));
   ['stab','sim','style','speed','pause'].forEach(id => $(id).addEventListener('input', showSettings));
   $('endOpen').addEventListener('change', () => { remember(); paintQuota(); });
-  ['dot','ctx','car','carAll','comma'].forEach(id =>
+  ['dot','ctx','car','carAll','lead','leadAll','comma'].forEach(id =>
     $(id).addEventListener('change', () => { remember(); paintQuota(); paintCarrier(); }));
-  $('carWord').addEventListener('input', () => { remember(); paintQuota(); });
+  ['carWord','leadWord'].forEach(id =>
+    $(id).addEventListener('input', () => { remember(); paintQuota(); }));
   const rollSeed = () => { $('seed').value = Math.floor(Math.random() * 90000000) + 10000000; remember(); };
   $('seedRoll').addEventListener('click', rollSeed);
   $('seed').addEventListener('change', remember);
@@ -1089,11 +1124,15 @@
   });
 
   function paintCarrier() {
+    const led = $('lead').checked;
+    $('leadBox').style.opacity = led ? '1' : '.45';
+    $('leadWord').disabled = !led;
+    $('leadAll').disabled = !led;
     const on = $('car').checked;
     $('carBox').style.opacity = on ? '1' : '.45';
     $('carWord').disabled = !on;
     $('carAll').disabled = !on;
-    $('pause').disabled = !on;
+    $('pause').disabled = !(on || led);     // паузу дописываем и после обрезки начала
   }
   $('lang').addEventListener('change', () => { paintQuota(); paintModels(); });
 
@@ -1110,11 +1149,23 @@
     return ($('carAll').checked || isNum) ? w : undefined;
   }
 
+  // немецкое «начало»: что произнести перед словом (или ничего)
+  function leadFor(a) {
+    if (!$('lead').checked || $('lang').value !== 'de') return undefined;
+    if (a && a.noTail) return undefined;          // целые фразы в этом не нуждаются
+    if (a && a.lead) return a.lead;
+    const w = ($('leadWord').value || '').trim();
+    if (!w) return undefined;
+    return $('leadAll').checked ? w : undefined;
+  }
+
   // текст, который реально уходит в модель
   function phrase(a) {
     const lang = $('lang').value;
     let t = lang === 'de' ? a.de : a.ru;
-    const cap = $('dot').checked;
+    // со «началом» заглавная уходит ему: «Sieben plus», а не «Sieben Plus» —
+    // с большой буквы модель прочитала бы это как существительное
+    const cap = $('dot').checked && !leadFor(a);
     if (cap) t = t.charAt(0).toUpperCase() + t.slice(1);
     // незаконченная мысль: точка её «закрывает», поэтому у неё свой знак
     if (a && a.open) {
@@ -1130,6 +1181,7 @@
   let lastKey = null;    // какой аккаунт ElevenLabs отвечал в прошлый раз
   let lastSaid = null;   // что на самом деле произнесла модель (со хвостом)
   let lastTrim = null;   // на какой секунде отрезали хвост
+  let lastFrom = null;   // с какой секунды оставили запись (начало отрезано)
 
   // ── запрос к твоей функции ──────────────────────────────────
   async function speak(text, voiceId, a) {
@@ -1146,6 +1198,7 @@
         modelId: model,
         tags: modelOf(model).tags ? $('tags').value : undefined,
         carrier: carrierFor(a),
+        lead: leadFor(a),
         pause: +$('pause').value,
         seed: ($('seedOn').checked && $('seed').value) ? +$('seed').value : undefined,
         // с зерном держимся того же аккаунта: разные аккаунты могут
@@ -1162,6 +1215,7 @@
     if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
     lastSaid = d.said || null;
     lastTrim = d.trimmed ? d.cutAt : null;
+    lastFrom = d.trimmed ? d.fromAt : null;
     if (Number.isInteger(d.key) && d.key !== lastKey) {
       lastKey = d.key;
       if ((d.keys || 1) > 1) log('аккаунт ' + (d.key + 1) + ' (' + (d.keyTail || '') + ')', 'have');
@@ -1199,6 +1253,7 @@
         const b64 = await speak(phrase(a), $('v-' + g).value, a);
         playB64(b64);
         log('проба ' + g + ': ' + (lastSaid || (lang === 'de' ? a.de : a.ru)) +
+            (lastFrom ? ' → начало отрезано до ' + lastFrom + ' с' : '') +
             (lastTrim ? ' → хвост отрезан на ' + lastTrim + ' с' : '') +
             ' · ' + vName($('v-' + g).value), 'have');
       } catch (e) { log('проба ' + g + ' не вышла: ' + e.message, 'err'); }
@@ -1296,7 +1351,8 @@
     btn.addEventListener('click', () => {
       const g = btn.dataset.redoGroup;
       const todo = uniq.filter(a => grp(a) === g);
-      const chars = todo.reduce((n, a) => n + phrase(a).length + (carrierFor(a) ? carrierFor(a).length + 2 : 0), 0);
+      const chars = todo.reduce((n, a) => n + phrase(a).length +
+        (carrierFor(a) ? carrierFor(a).length + 2 : 0) + (leadFor(a) ? leadFor(a).length + 1 : 0), 0);
       if (!confirm('Переозвучить всю группу «' + g + '»: ' + todo.length + ' слов, ' + chars + ' символов лимита. Продолжить?')) return;
       generate(todo, btn, g);
     });
