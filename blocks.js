@@ -85,17 +85,14 @@
     // вычитание: кубики, которые уходят. Сначала гаснут (это подсказка),
     // потом улетают вверх и тают (это ответ).
     '.nblock .nb-cube.nb-dim{opacity:.22;transition:opacity .25s}',
-    // ease-in здесь не годится: полсекунды кубик стоит на месте, а потом
-    // его подменяют — ребёнок не успевает увидеть, что он ушёл.
-    // Сначала короткий присед, потом быстрый уход вверх.
-    '.nblock .nb-cube.nb-gone{animation:nb-gone .55s cubic-bezier(.3,0,.25,1) forwards}',
-    '@keyframes nb-gone{0%{transform:translateY(0) scale(1);opacity:1}',
-    '  16%{transform:translateY(9%) scale(.95);opacity:1}',
-    '  100%{transform:translateY(-150%) scale(.28);opacity:0}}',
+    // Уходящие кубики: сама дорога задаётся игрой (они летят к вычитаемому),
+    // поэтому здесь только отметка. Ключевых кадров нет намеренно: анимация
+    // перебила бы transform, который ставит игра.
+    '.nblock .nb-cube.nb-gone{will-change:transform,opacity}',
     '@media (prefers-reduced-motion:reduce){',
     '  .nblock .nb-all,.nblock .nb-cube,.nblock .nb-eye{animation:none}',
     '  .nblock .nb-cube.nb-lit{animation:none;filter:brightness(1.45)}',
-    '  .nblock .nb-cube.nb-gone{animation:none;opacity:0}',
+    '  .nblock .nb-cube.nb-gone{transition:none !important}',
     '  .nblock .nb-pupil{transition:none}}'
   ].join('\n');
 
@@ -210,7 +207,10 @@
     var minX = Math.min.apply(null, row.map(function (c) { return c.x; }));
     var top = { x: minX, y: topY, w: row.length };
 
-    if (o.face !== false) body += face(top, s);
+    // Лицо — отдельный слой поверх верхнего ряда. В вычитании верхние кубики
+    // улетают, и без обёртки лицо осталось бы висеть в пустоте, поэтому его
+    // можно погасить целиком.
+    if (o.face !== false) body += '<g class="nb-face">' + face(top, s) + '</g>';
 
     ensureCss();
     var W = g.cols * s, H = g.rows * s;

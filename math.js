@@ -593,31 +593,62 @@
       }, 430);
     }
 
-    /* ── вычитание: лишние кубики улетают, остаётся ответ ── */
+    /* ── вычитание: отнимаемые кубики уходят к вычитаемому ──
+       В сложении две фигурки съезжаются в одну. Обратное действие должно
+       читаться так же честно: вторая фигурка не просто гаснет, а забирает
+       своё. Поэтому верхние кубики отрываются от большой фигурки, летят
+       к маленькой — и уже вместе с ней исчезают в облачке. */
     function takeAway() {
       const a1 = $('g1'), a2 = $('g2'), op = $('opSign');
       const B = window.YEVA_BLOCKS;
       const own = (B && B.cubes) ? B.cubes(a1.firstChild) : [];
       const gone = own.slice(sum);                     // верхние уходят
-      let gx, gy;
 
-      if (gone.length) {
-        let sx = 0, sy = 0;
-        gone.forEach(c => {
-          const r = c.getBoundingClientRect();
-          sx += r.left + r.width / 2; sy += r.top + r.height / 2;
-          c.classList.add('nb-gone');
-        });
-        gx = sx / gone.length; gy = sy / gone.length;
-      } else {
-        const r = a1.getBoundingClientRect();
-        gx = r.left + r.width / 2; gy = r.top + r.height / 2;
-      }
+      // куда лететь: середина вычитаемого
+      const r2b = a2.getBoundingClientRect();
+      const gx = r2b.left + r2b.width / 2;
+      const gy = r2b.top + r2b.height / 2;
 
-      // вычитаемое и знак больше не нужны
-      [a2, op].forEach(x => { x.style.transition = 'opacity .26s'; x.style.opacity = '0'; });
+      // внутри svg расстояния свои: переводим экранные пиксели в единицы
+      const svg = a1.firstChild;
+      const box = svg ? svg.getBoundingClientRect() : null;
+      const vb = svg && svg.viewBox ? svg.viewBox.baseVal : null;
+      const k = (box && box.width && vb && vb.width) ? vb.width / box.width : 1;
 
-      setTimeout(() => { if (locked === true) poof(gx, gy); }, 280);
+      // Летят строем: один общий сдвиг на всех. Если целить каждым кубиком
+      // в середину вычитаемого, они сбиваются в кучу и форма теряется.
+      let cx0 = 0, cy0 = 0;
+      gone.forEach(c => {
+        const r = c.getBoundingClientRect();
+        cx0 += r.left + r.width / 2; cy0 += r.top + r.height / 2;
+      });
+      if (gone.length) { cx0 /= gone.length; cy0 /= gone.length; }
+      const dx = (gx - cx0) * k;
+      const dy = (gy - cy0) * k;
+
+      // лицо нарисовано поверх верхнего ряда — вместе с ним и уходит,
+      // иначе улыбка повисла бы над оставшимися кубиками
+      const faceEl = svg ? svg.querySelector('.nb-face') : null;
+      if (faceEl) { faceEl.style.transition = 'opacity .16s'; faceEl.style.opacity = '0'; }
+
+      gone.forEach((c, i) => {
+        const d = Math.min(0.09, i * 0.035);           // уходят не все разом
+        c.classList.add('nb-gone');
+        // гаснут только у цели, иначе не видно, куда они делись
+        c.style.transition = 'transform .44s cubic-bezier(.35,0,.2,1) ' + d.toFixed(2) + 's,' +
+                             ' opacity .15s ease-in ' + (d + 0.33).toFixed(2) + 's';
+        c.style.transform = 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scale(.78)';
+        c.style.opacity = '0';
+      });
+
+      // облачко там, где они встретились с вычитаемым
+      setTimeout(() => {
+        if (locked !== true) return;
+        poof(gx, gy);
+        // и только теперь вычитаемое со знаком уходят — вместе с тем,
+        // что к ним прилетело
+        [a2, op].forEach(x => { x.style.transition = 'opacity .24s'; x.style.opacity = '0'; });
+      }, 470);
 
       setTimeout(() => {
         if (locked !== true) return;                   // раунд уже сменился
@@ -640,7 +671,7 @@
         a1.style.transform = '';
         react('yay');
         gaze();
-      }, 620);                                         // дать кубикам долететь
+      }, 660);                                         // дать кубикам долететь
     }
 
     const showAnswer = () => (SUB ? takeAway() : merge());
