@@ -43,6 +43,7 @@
     '  animation:nb-in .4s cubic-bezier(.3,1.5,.5,1) backwards}',
     '.nblock .nb-eye{transform-box:fill-box;transform-origin:50% 50%;',
     '  animation:nb-blink 7s ease-in-out infinite}',
+    '.nblock .nb-pupil{transition:transform .25s cubic-bezier(.3,1,.4,1)}',
     '@keyframes nb-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5%)}}',
     '@keyframes nb-in{from{transform:scale(.3);opacity:0}}',
     // два моргания за цикл, в неровных местах — на глаз это читается как случайность
@@ -61,7 +62,8 @@
     '.nblock.nb-hmm .nb-all{animation:nb-tilt .5s ease-in-out}',
     '@keyframes nb-tilt{0%,100%{transform:rotate(0)}30%{transform:rotate(-5deg)}70%{transform:rotate(5deg)}}',
     '@media (prefers-reduced-motion:reduce){',
-    '  .nblock .nb-all,.nblock .nb-cube,.nblock .nb-eye{animation:none}}'
+    '  .nblock .nb-all,.nblock .nb-cube,.nblock .nb-eye{animation:none}',
+    '  .nblock .nb-pupil{transition:none}}'
   ].join('\n');
 
   function ensureCss() {
@@ -141,9 +143,10 @@
       var ex = cx + d * gap;
       g += '<g class="nb-eye" style="' + blink + '">' +
            '<circle cx="' + ex + '" cy="' + cy + '" r="' + e + '" fill="#fff"/>' +
+           '<g class="nb-pupil" data-r="' + (e * 0.42).toFixed(2) + '">' +
            '<circle cx="' + (ex + d * e * 0.12) + '" cy="' + (cy + e * 0.12) + '" r="' + (e * 0.52) + '" fill="#2B2B3A"/>' +
            '<circle cx="' + (ex - d * e * 0.25) + '" cy="' + (cy - e * 0.3) + '" r="' + (e * 0.18) + '" fill="#fff"/>' +
-           '</g>';
+           '</g></g>';
     });
     var my = cy + s * 0.42, mw = Math.min(w * 0.3, s * 0.46);
     g += '<path d="M' + (cx - mw) + ' ' + my + ' q ' + mw + ' ' + (s * 0.3) + ' ' + (2 * mw) + ' 0"' +
@@ -186,6 +189,29 @@
     el.style.height = (r * px) + 'px';
   }
 
+  // Повернуть зрачки к точке экрана. Без точки — смотрят прямо.
+  function look(el, px, py) {
+    if (!el || !el.querySelectorAll) return;
+    var box = el.getBoundingClientRect();
+    if (!box.width) return;
+    var vb = el.viewBox && el.viewBox.baseVal;
+    var k = vb && vb.width ? vb.width / box.width : 1;   // экранные точки -> единицы svg
+    var eyes = el.querySelectorAll('.nb-eye');
+    for (var i = 0; i < eyes.length; i++) {
+      var pupil = eyes[i].querySelector('.nb-pupil');
+      if (!pupil) continue;
+      if (px == null) { pupil.style.transform = ''; continue; }
+      var eb = eyes[i].getBoundingClientRect();
+      var dx = px - (eb.left + eb.width / 2);
+      var dy = py - (eb.top + eb.height / 2);
+      var len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var max = +(pupil.getAttribute('data-r') || 6);     // дальше края глаза не уедет
+      var pull = Math.min(1, len / (box.width * 0.8));    // вблизи косит меньше
+      var ux = dx / len * max * pull, uy = dy / len * max * pull;
+      pupil.style.transform = 'translate(' + ux.toFixed(2) + 'px,' + uy.toFixed(2) + 'px)';
+    }
+  }
+
   // короткая реакция: 'yay' — обрадоваться, 'hmm' — не понять
   function react(el, kind) {
     if (!el || !el.classList) return;
@@ -200,6 +226,7 @@
     svg: svg,
     size: size,
     react: react,
+    look: look,
     color: function (n) { return PAL[(Math.round(n) - 1) % PAL.length]; },
     palette: PAL
   };

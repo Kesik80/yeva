@@ -185,9 +185,9 @@
 <div class="stage">
   <div class="board">
     <div class="grp" id="g1"></div>
-    <div class="op">+</div>
+    <div class="op" id="opPlus">+</div>
     <div class="grp" id="g2"></div>
-    <div class="op">=</div>
+    <div class="op" id="opEq">=</div>
     <div class="ans" id="ans">?</div>
   </div>
   <div class="digits" id="digits"></div>
@@ -495,6 +495,59 @@
     YEVA_BLOCKS.react($('g2').firstChild, kind);
   }
 
+  /* ── взгляд: зрачки смотрят туда, куда смотрит ребёнок ── */
+  let gazeT = 0, gazeHold = 0;
+
+  function look(x, y) {
+    if (!window.YEVA_BLOCKS || !YEVA_BLOCKS.look) return;
+    YEVA_BLOCKS.look($('g1').firstChild, x, y);
+    YEVA_BLOCKS.look($('g2').firstChild, x, y);
+  }
+
+  // пока никто не трогает экран, глаза сами разглядывают ответы
+  function gaze() {
+    clearTimeout(gazeT);
+    if (Date.now() < gazeHold) { gazeT = setTimeout(gaze, 600); return; }
+    const cards = $('choices').querySelectorAll('.choice');
+    if (cards.length) {
+      const c = pick(Array.prototype.slice.call(cards)).getBoundingClientRect();
+      look(c.left + c.width / 2, c.top + c.height / 2);
+    }
+    gazeT = setTimeout(gaze, 1400 + Math.random() * 1200);
+  }
+
+  // палец важнее: смотрим на него и держим взгляд полторы секунды
+  function watch(e) {
+    const t = (e.touches && e.touches[0]) || e;
+    if (t && t.clientX != null) {
+      look(t.clientX, t.clientY);
+      gazeHold = Date.now() + 1500;
+    }
+  }
+  document.addEventListener('pointerdown', watch, { passive: true });
+  document.addEventListener('pointermove', e => { if (e.buttons || e.pointerType === 'touch') watch(e); }, { passive: true });
+
+  /* ── слияние: два слагаемых съезжаются в один результат ── */
+  function merge() {
+    const a1 = $('g1'), a2 = $('g2'), plus = $('opPlus');
+    const r1 = a1.getBoundingClientRect(), r2 = a2.getBoundingClientRect();
+    const dx = (r1.left + r1.width / 2) - (r2.left + r2.width / 2);
+    a2.style.transition = 'transform .5s cubic-bezier(.4,0,.2,1), opacity .5s';
+    a2.style.transform = 'translateX(' + dx.toFixed(1) + 'px) scale(.85)';
+    a2.style.opacity = '0';
+    plus.style.transition = 'opacity .3s';
+    plus.style.opacity = '0';
+    setTimeout(() => {
+      if (locked !== true) return;          // раунд уже сменился — не мешаем
+      a2.style.display = 'none';
+      plus.style.display = 'none';
+      fill(a1, sum, cube, 0);               // одна фигурка из всех кубиков
+      fit();
+      react('yay');
+      gaze();
+    }, 520);
+  }
+
   function resize(size) {
     if (!window.YEVA_BLOCKS) { $('g1').style.fontSize = size + 'px'; $('g2').style.fontSize = size + 'px'; return; }
     YEVA_BLOCKS.size($('g1').firstChild, size);
@@ -507,6 +560,10 @@
     a = irand(1, max - 1);
     b = irand(1, max - a);
     sum = a + b;
+
+    // вернуть всё, что сдвинуло слияние
+    $('g2').style.cssText = '';
+    $('opPlus').style.cssText = '';
 
     cube = sizeFor(sum);
     fill($('g1'), a, cube, 0);
@@ -541,6 +598,7 @@
     // отвечать можно сразу: ребёнок не должен ждать, пока договорит голос
     locked = false;
     speakAsk();
+    gaze();
     hintT = setTimeout(showHint, 9000);
   }
 
@@ -561,6 +619,9 @@
       setTimeout(() => btn.classList.remove('wrong'), 420);
       nope(); buzz(40);
       react('hmm');
+      const r = btn.getBoundingClientRect();
+      look(r.left + r.width / 2, r.top + r.height / 2);
+      gazeHold = Date.now() + 1200;
       bump('bad');
       if (wrongs >= 2) showHint();
       return;
@@ -587,6 +648,9 @@
 
     done++;
     paintStars();
+
+    // фигурки съезжаются в одну — ровно пока звучит «ist gleich пять»
+    setTimeout(merge, 420);
 
     // «ist gleich пять» — и только когда голос договорит, следующий пример
     const next = () => { if (done >= CFG.goal) party(); else round(); };
