@@ -74,8 +74,17 @@
     // недоумение: качнуться из стороны в сторону
     '.nblock.nb-hmm .nb-all{animation:nb-tilt .5s ease-in-out}',
     '@keyframes nb-tilt{0%,100%{transform:rotate(0)}30%{transform:rotate(-5deg)}70%{transform:rotate(5deg)}}',
+    // Пересчёт: кубик, который сейчас называют вслух, подрастает и светлеет.
+    // Он держится наверху почти всё время, пока звучит число, — иначе
+    // ребёнок не успевает связать «zwei» с конкретным кубиком.
+    '.nblock .nb-cube.nb-lit{animation:nb-lit .62s ease-out}',
+    '@keyframes nb-lit{0%{transform:scale(1);filter:brightness(1)}',
+    '  22%{transform:scale(1.34);filter:brightness(1.55)}',
+    '  62%{transform:scale(1.34);filter:brightness(1.55)}',
+    '  100%{transform:scale(1);filter:brightness(1)}}',
     '@media (prefers-reduced-motion:reduce){',
     '  .nblock .nb-all,.nblock .nb-cube,.nblock .nb-eye{animation:none}',
+    '  .nblock .nb-cube.nb-lit{animation:none;filter:brightness(1.45)}',
     '  .nblock .nb-pupil{transition:none}}'
   ].join('\n');
 
@@ -243,11 +252,28 @@
     setTimeout(function () { el.classList.remove(cls); }, ms);
   }
 
+  // отдельные кубики фигурки, снизу вверх — в том же порядке их и считают
+  function cubes(el) {
+    if (!el || !el.querySelectorAll) return [];
+    return Array.prototype.slice.call(el.querySelectorAll('.nb-cube'));
+  }
+
+  // подсветить один кубик: его сейчас называют
+  function lit(c) {
+    if (!c || !c.classList) return;
+    c.classList.remove('nb-lit');
+    void c.getBoundingClientRect();
+    c.classList.add('nb-lit');
+    setTimeout(function () { c.classList.remove('nb-lit'); }, 640);
+  }
+
   window.YEVA_BLOCKS = {
     svg: svg,
     size: size,
     react: react,
     look: look,
+    cubes: cubes,
+    lit: lit,
     color: function (n) { return PAL[(Math.round(n) - 1) % PAL.length]; },
     palette: PAL
   };

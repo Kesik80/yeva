@@ -83,13 +83,15 @@
     min-width:clamp(52px,16vw,88px);padding:6px 10px;border-radius:20px;
     background:rgba(255,255,255,.72);box-shadow:0 6px 18px rgba(46,35,88,.12);
     font-size:clamp(30px,10vw,58px);font-weight:600;line-height:1.15;text-align:center;color:#5B45C8;
+    cursor:pointer;transition:transform .14s;
   }
+  .ans:active{transform:scale(.93)}
   .ans.done{background:linear-gradient(160deg,#FFD86E,#F2913A);color:#5A3200}
 
   /* ── цифрами ── */
   .digits{
     font-size:clamp(18px,5.5vw,30px);font-weight:600;color:rgba(46,35,88,.62);
-    letter-spacing:.04em;flex:none;
+    letter-spacing:.04em;flex:none;cursor:pointer;
   }
   .say{
     font-size:clamp(12px,3.8vw,17px);font-weight:500;color:rgba(46,35,88,.42);
@@ -114,17 +116,28 @@
   @keyframes hint{0%,100%{box-shadow:0 8px 22px rgba(46,35,88,.16)}50%{box-shadow:0 0 0 6px rgba(255,216,110,.9),0 8px 22px rgba(46,35,88,.18)}}
 
   /* ── старт ── */
+  /* панель центрируется, а если экран низкий (телефон лёжа) — прокручивается */
   .veil{
-    position:fixed;inset:0;z-index:20;display:grid;place-items:center;
+    position:fixed;inset:0;z-index:20;display:flex;
     background:rgba(174,162,236,.5);
     -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
     transition:opacity .3s;padding:18px;
+    overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
   }
   .veil.hidden{opacity:0;pointer-events:none}
   .panel{
-    width:100%;max-width:400px;text-align:center;
+    width:100%;max-width:400px;text-align:center;margin:auto;flex:none;
     background:rgba(255,255,255,.72);border-radius:30px;padding:22px 20px 26px;
     box-shadow:0 18px 44px rgba(46,35,88,.22);
+  }
+  @media (max-height:560px){
+    .panel{padding:14px 18px 16px}
+    .panel h1{font-size:22px}
+    .stats{margin-top:9px;font-size:12.5px}
+    .tip{margin-top:7px}
+    .sizes{margin-top:11px;gap:7px}
+    .size{padding:8px 13px;font-size:15px}
+    .big{margin-top:12px;width:min(24vh,104px)}
   }
   .panel h1{font-size:clamp(24px,7vw,32px);font-weight:600}
   .panel .ru{font-size:14px;color:rgba(46,35,88,.58);margin-top:2px}
@@ -138,6 +151,10 @@
     width:auto;margin:8px auto 0;padding:6px 12px;font-size:12px;border-radius:9px;
     border:0;background:rgba(46,35,88,.07);color:rgba(46,35,88,.6);
     font-family:inherit;cursor:pointer;display:block;
+  }
+  .tip{
+    margin-top:10px;font-size:12px;line-height:1.5;color:rgba(46,35,88,.46);
+    padding:0 4px;
   }
   .sizes{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:18px}
   .size{
@@ -220,6 +237,7 @@
     <h1>Plus</h1>
     <div class="ru">Сложение по-немецки</div>
     <div class="stats" id="stats"></div>
+    <div class="tip">Нажми на «?» — кубики пересчитаются вслух</div>
     <div class="sizes" id="sizes"></div>
     <button class="big" id="btnStart" aria-label="Играть">
       <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
@@ -315,7 +333,8 @@
           'Всего: <b>' + stats.ok + '</b> верных · <b>' + stats.bad + '</b> мимо';
       if (hard.length) {
         h += '<div class="hard">труднее всего: ' +
-             hard.map(k => k + ' (' + stats.tasks[k].bad + ')').join(', ') + '</div>';
+             hard.map(k => k + ' (' + stats.tasks[k].bad + ')').join(', ') +
+             '<br>такие примеры выпадают чаще</div>';
       }
       h += '<button id="btnClear">очистить статистику</button>';
     }
@@ -330,9 +349,51 @@
     paintStats(); paintScore();
   });
 
+  /* ── подбор примера: что не получается — спрашиваем чаще ── */
+  let lastKey = '';
+
+  // все пары, которые укладываются в выбранный диапазон
+  function pool() {
+    const out = [];
+    for (let x = 1; x < max; x++) {
+      for (let y = 1; x + y <= max; y++) out.push([x, y]);
+    }
+    return out;
+  }
+
+  // Вес примера: ошибки поднимают, уверенные ответы опускают.
+  // Потолок намеренно низкий — трудный пример должен возвращаться,
+  // но не вытеснять все остальные, иначе это уже не игра, а долбёжка.
+  function weightOf(x, y) {
+    const t = stats.tasks[x + '+' + y] || { ok: 0, bad: 0 };
+    const w = (1 + 1.8 * (t.bad || 0)) / (1 + 0.7 * (t.ok || 0));
+    return Math.max(0.15, Math.min(3, w));
+  }
+
+  function roll(list) {
+    let total = 0;
+    const w = list.map(p => { const v = weightOf(p[0], p[1]); total += v; return v; });
+    if (!(total > 0)) return pick(list);
+    let r = Math.random() * total;
+    for (let i = 0; i < list.length; i++) { r -= w[i]; if (r <= 0) return list[i]; }
+    return list[list.length - 1];
+  }
+
+  function nextTask() {
+    let all = pool();
+    if (!all.length) return [1, 1];
+    // два раза подряд один и тот же пример — скучно
+    if (all.length > 1 && lastKey) {
+      const f = all.filter(p => p[0] + '+' + p[1] !== lastKey);
+      if (f.length) all = f;
+    }
+    return roll(all);
+  }
+
   /* ── звук ── */
   let actx = null, master = null;
   const vBuf = {}, vBad = {}, vHot = {};
+  let srcs = [];           // что играет прямо сейчас — чтобы можно было оборвать
 
   function initAudio() {
     if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
@@ -392,6 +453,8 @@
         src.buffer = buf;
         src.connect(g); g.connect(master);
         src.start(t, cut[0], cut[1]);
+        srcs.push(src);
+        src.onended = () => { const i = srcs.indexOf(src); if (i >= 0) srcs.splice(i, 1); };
         t += cut[1] + CFG.gap;
       });
       setTimeout(go, (t - actx.currentTime) * 1000 + 60);
@@ -421,6 +484,16 @@
       if (!hopeless && tries++ < 10) { setTimeout(wait, 120); return; }
       fallback();
     })();
+  }
+
+  // оборвать то, что звучит: пересчёт не должен наложиться на ответ
+  function hush() {
+    srcs.forEach(s => {
+      try { s.stop(); } catch (e) {}
+      try { s.disconnect(); } catch (e) {}
+    });
+    srcs = [];
+    try { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); } catch (e) {}
   }
 
   function tone(type, freq, at, dur, vol, to) {
@@ -559,6 +632,40 @@
   document.addEventListener('pointerdown', watch, { passive: true });
   document.addEventListener('pointermove', e => { if (e.buttons || e.pointerType === 'touch') watch(e); }, { passive: true });
 
+  /* ── пересчёт: кубики называются вслух по одному ──
+     Это главная подсказка. Не «вот правильная кнопка», а само действие:
+     к трём кубикам прибавляются ещё два, и всё вместе пересчитывается. */
+  let cntId = 0, counting = false;
+
+  function stopCount() {
+    cntId++;
+    if (counting) { counting = false; hush(); }
+  }
+
+  function countAlong() {
+    const B = window.YEVA_BLOCKS;
+    if (!B || !B.cubes || locked || !$('veil').classList.contains('hidden')) return;
+    const cubes = B.cubes($('g1').firstChild).concat(B.cubes($('g2').firstChild));
+    if (!cubes.length) return;
+
+    stopCount();
+    const id = ++cntId;
+    counting = true;
+
+    const step = i => {
+      if (id !== cntId || locked) { if (id === cntId) counting = false; return; }
+      if (i >= cubes.length) { counting = false; showHint(); return; }
+      B.lit(cubes[i]);
+      const r = cubes[i].getBoundingClientRect();
+      look(r.left + r.width / 2, r.top + r.height / 2);
+      gazeHold = Date.now() + 1400;
+      // переход ко второму слагаемому — с паузой, чтобы было слышно «и ещё»
+      const pause = (i + 1 === a && cubes.length > a) ? 320 : 90;
+      say([NUM[i + 1]], () => setTimeout(() => step(i + 1), pause));
+    };
+    step(0);
+  }
+
   /* ── слияние: слагаемые едут навстречу и становятся ответом ── */
   function poof(x, y) {
     const box = $('poof');
@@ -637,10 +744,13 @@
 
   function round() {
     clearTimeout(hintT);
+    stopCount();
     wrongs = 0;
-    a = irand(1, max - 1);
-    b = irand(1, max - a);
+    const t = nextTask();
+    a = t[0];
+    b = t[1];
     sum = a + b;
+    lastKey = a + '+' + b;
 
     // вернуть всё, что сдвинуло слияние
     $('g1').style.cssText = '';
@@ -694,6 +804,7 @@
   function tap(btn) {
     if (locked) return;
     const v = +btn.dataset.v;
+    stopCount();
 
     if (v !== sum) {
       wrongs++;
@@ -707,7 +818,8 @@
       look(r.left + r.width / 2, r.top + r.height / 2);
       gazeHold = Date.now() + 1200;
       bump('bad');
-      if (wrongs >= 2) showHint();
+      // вторая ошибка — не подсвечиваем ответ, а пересчитываем кубики вслух
+      if (wrongs >= 2) setTimeout(countAlong, 520);
       return;
     }
 
@@ -747,9 +859,14 @@
   });
   $('btnAgain').addEventListener('click', () => {
     initAudio();
+    stopCount();
     if ($('ans').classList.contains('done')) speakAsk(() => say(ansPhrase()));
     else speakAsk();
   });
+
+  // пересчёт по просьбе: нажать на «?» или на строку с цифрами
+  $('ans').addEventListener('click', countAlong);
+  $('digits').addEventListener('click', countAlong);
 
   /* ── звёзды и салют ── */
   function paintStars() {
