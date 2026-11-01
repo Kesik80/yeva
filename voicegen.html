@@ -1366,6 +1366,22 @@
   const PART_FILES = 40;
   const sentOk = {};      // slug -> уже лежит в коммите, второй раз не шлём
 
+  // Переозвученное слово лежит под тем же именем, и service worker игр
+  // продолжает отдавать старую запись. Просим его забыть весь звук.
+  function dropVoiceCache() {
+    try {
+      const sw = navigator.serviceWorker;
+      if (!sw || !sw.controller) return;
+      navigator.serviceWorker.addEventListener('message', function once(e) {
+        if (!e.data || e.data.type !== 'voice-dropped') return;
+        navigator.serviceWorker.removeEventListener('message', once);
+        log('звук в играх сброшен (' + (e.data.count || 0) + ' файлов) — ' +
+            'открой игру после пересборки', 'have');
+      });
+      sw.controller.postMessage({ type: 'voice-drop' });
+    } catch (e) {}
+  }
+
   async function commitApi(payload) {
     const r = await fetch('/api/commit', {
       method: 'POST',
@@ -1466,6 +1482,7 @@
       if (failed.length) {
         log('не долетело ' + failed.length + ' — нажми «3 · Записать» ещё раз, поедут только они', 'err');
       }
+      dropVoiceCache();   // в играх лежит старый звук под тем же именем
       // Раньше здесь стояло onSite[s] = true для всего отправленного.
       // Из-за этого список показывал «есть» у слов, которых на сайте нет:
       // коммит мог пройти частично, или сборка ещё не закончилась.
