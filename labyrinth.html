@@ -135,6 +135,29 @@
   .party i{position:absolute;width:12px;height:16px;border-radius:3px;animation:fall linear forwards}
   @keyframes fall{from{transform:translateY(-12vh) rotate(0)}to{transform:translateY(112vh) rotate(680deg)}}
 
+  /* салют на самом выходе: вспышка оттуда, куда она шла */
+  .boom{position:fixed;left:0;top:0;z-index:29;pointer-events:none}
+  /* кольцо тёплое и толстое: тонкое белое на светлом поле не видно */
+  .boom b{
+    position:absolute;border-radius:50%;border:7px solid rgba(255,150,40,.95);
+    box-shadow:0 0 18px rgba(255,190,90,.75),inset 0 0 14px rgba(255,220,150,.6);
+    animation:boom-ring .62s cubic-bezier(.2,.8,.3,1) forwards;
+  }
+  .boom i{
+    position:absolute;border-radius:50%;
+    box-shadow:0 0 10px rgba(255,255,255,.9),0 1px 3px rgba(74,48,23,.35);
+    animation:boom-dot .9s cubic-bezier(.15,.7,.3,1) forwards;
+  }
+  @keyframes boom-ring{
+    from{transform:translate(-50%,-50%) scale(.2);opacity:.95}
+    to{transform:translate(-50%,-50%) scale(2.2);opacity:0}
+  }
+  @keyframes boom-dot{
+    from{transform:translate(-50%,-50%) scale(1);opacity:1}
+    to{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.3);opacity:0}
+  }
+  @media (prefers-reduced-motion:reduce){ .boom{display:none} }
+
   @media (prefers-reduced-motion:reduce){
     .big{animation:none}.tray i{animation:none}.maze .walker{transition:none}
     .maze .done .goal{animation:none}
@@ -174,6 +197,7 @@
   </div>
 </div>
 
+<div class="boom" id="boom"></div>
 <div class="party" id="party"></div>
 
 <script>
@@ -188,9 +212,10 @@
     return;
   }
 
-  const CFG = { goal: 5, gap: 0.07, voice: 'voice/de/' };
-  const SIZES = [5, 7, 9];
+  const CFG = { goal: 5, voice: 'voice/de/' };
+  const WIDTHS = [5, 7, 9];              // сколько клеток в ряд
   const K_SIZE = 'yeva.labyrinth.size';
+  const PAD = 0.12;                      // поля, чтобы стены не срезались
   const WORDS = (YW.pictured && YW.pictured.length ? YW.pictured : YW.unique.filter(a => a.e));
 
   const irand = n => Math.floor(Math.random() * n);
@@ -201,9 +226,11 @@
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   };
 
-  let N = 7;                 // сторона лабиринта
+  let want = 7;              // выбранная ширина в клетках
+  let COLS = 7, ROWS = 7;    // сам лабиринт — прямоугольный, по экрану
   let cells = [];            // стены каждой клетки
   let cur = { x: 0, y: 0 };  // где фигурка
+  let exitAt = 0;            // клетка выхода
   let path = [];             // след, по которому она прошла
   let items = [];            // что разложено по дороге
   let got = 0;               // сколько собрано
@@ -271,9 +298,9 @@
     } catch (e) {}
   }
 
-  function tone(type, freq, at, dur, vol, to) {
+  function tone(type, freq, at2, dur, vol, to) {
     if (!actx) return;
-    const t = actx.currentTime + at;
+    const t = actx.currentTime + at2;
     const o = actx.createOscillator(), g = actx.createGain();
     o.type = type;
     o.frequency.setValueAtTime(freq, t);
@@ -287,7 +314,7 @@
   const ding = () => [0, 7].forEach((n, i) => tone('triangle', 659.25 * Math.pow(2, n / 12), i * 0.06, 0.3, 0.26));
   const yay = () => [0, 4, 7, 12].forEach((n, i) => tone('triangle', 523.25 * Math.pow(2, n / 12), i * 0.07, 0.4, 0.3));
   const fanfare = () => [0, 4, 7, 12, 7, 12, 16].forEach((n, i) => tone('triangle', 392 * Math.pow(2, n / 12), i * 0.12, 0.42, 0.33));
-  const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+  const buzz = p2 => { try { navigator.vibrate && navigator.vibrate(p2); } catch (e) {} };
 
   /* ── лабиринт ──
      Обычный «идеальный» лабиринт: между любыми двумя клетками ровно одна
@@ -299,12 +326,24 @@
     { dx: 0, dy: 1, w: S_W, o: N_W },
     { dx: -1, dy: 0, w: W_W, o: E_W }
   ];
-  const at = (x, y) => y * N + x;
-  const inside = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
+  const at = (x, y) => y * COLS + x;
+  const inside = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
+
+  // Сколько клеток поместится: клетки квадратные, а поле занимает всё,
+  // что осталось от экрана. На телефоне выходит высокий прямоугольник.
+  function shape() {
+    const stage = document.querySelector('.stage');
+    const other = ($('tray').offsetHeight || 38) + ($('say').offsetHeight || 28) + 26;
+    const bw = Math.max(160, stage.clientWidth || 320);
+    const bh = Math.max(160, (stage.clientHeight || 520) - other);
+    const cell = bw / want;
+    COLS = want;
+    ROWS = Math.max(want, Math.min(24, Math.round(bh / cell)));
+  }
 
   function dig() {
-    cells = new Array(N * N).fill(N_W | E_W | S_W | W_W);
-    const seen = new Array(N * N).fill(false);
+    cells = new Array(COLS * ROWS).fill(N_W | E_W | S_W | W_W);
+    const seen = new Array(COLS * ROWS).fill(false);
     const stack = [{ x: 0, y: 0 }];
     seen[0] = true;
     while (stack.length) {
@@ -324,46 +363,56 @@
     }
   }
 
-  // единственная дорога от начала до выхода
-  function solve() {
-    const from = new Array(N * N).fill(-1);
-    const q = [at(0, 0)];
-    from[0] = 0;
+  // Выход — самая дальняя от старта клетка нижнего ряда. Просто «самая
+  // дальняя» ставила его куда попало посреди поля; внизу он понятнее —
+  // идём сверху вниз, — а дорога всё равно выходит длинной и каждый раз
+  // другой, потому что дальняя клетка в нижнем ряду каждый раз своя.
+  function longest() {
+    const n = COLS * ROWS;
+    const from = new Array(n).fill(-1);
+    const dist = new Array(n).fill(-1);
+    const q = [0];
+    from[0] = 0; dist[0] = 0;
     while (q.length) {
       const i = q.shift();
-      const x = i % N, y = (i - x) / N;
+      const x = i % COLS, y = (i - x) / COLS;
       DIRS.forEach(d => {
         if (cells[i] & d.w) return;
         const nx = x + d.dx, ny = y + d.dy;
-        if (!inside(nx, ny) || from[at(nx, ny)] >= 0) return;
+        if (!inside(nx, ny) || dist[at(nx, ny)] >= 0) return;
         from[at(nx, ny)] = i;
+        dist[at(nx, ny)] = dist[i] + 1;
         q.push(at(nx, ny));
       });
     }
-    const out = [];
-    let i = at(N - 1, N - 1);
-    while (i !== 0) { out.push(i); i = from[i]; }
-    out.push(0);
-    out.reverse();
-    return out;
+    let best = at(0, ROWS - 1);
+    for (let x = 0; x < COLS; x++) {
+      const i2 = at(x, ROWS - 1);
+      if (dist[i2] > dist[best]) best = i2;
+    }
+    const road = [];
+    let i = best;
+    while (i !== 0) { road.push(i); i = from[i]; }
+    road.push(0);
+    road.reverse();
+    return { exit: best, road: road };
   }
 
   /* ── картинки по дороге ── */
-  function layItems() {
-    const road = solve();
+  function layItems(road) {
     const inner = road.slice(1, road.length - 1);     // ни на старте, ни на выходе
-    const want = N <= 5 ? 3 : (N <= 7 ? 4 : 5);
-    const n = Math.min(want, inner.length);
+    const n = Math.max(1, Math.min(7, Math.min(inner.length, Math.round(inner.length / 5))));
     const used = {}, bag = [];
-    while (bag.length < n) {
+    let guard = 0;
+    while (bag.length < n && guard++ < 300) {
       const w = pick(WORDS);
       if (used[w.de]) continue;
       used[w.de] = 1; bag.push(w);
     }
     items = [];
-    for (let k = 0; k < n; k++) {
+    for (let k = 0; k < bag.length; k++) {
       // раскладываем равномерно по дороге, чтобы не кучковались
-      const i = inner[Math.round((k + 1) * inner.length / (n + 1)) - 1];
+      const i = inner[Math.round((k + 1) * inner.length / (bag.length + 1)) - 1];
       items.push({ cell: i, word: bag[k], got: false });
     }
   }
@@ -371,28 +420,27 @@
   /* ── рисование ── */
   function draw() {
     const m = $('maze');
-    const pad = 0.12;                                  // поля, чтобы стены не срезались
-    m.setAttribute('viewBox', -pad + ' ' + -pad + ' ' + (N + pad * 2) + ' ' + (N + pad * 2));
+    m.setAttribute('viewBox', -PAD + ' ' + -PAD + ' ' + (COLS + PAD * 2) + ' ' + (ROWS + PAD * 2));
 
     let walls = '';
-    for (let y = 0; y < N; y++) {
-      for (let x = 0; x < N; x++) {
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
         const c = cells[at(x, y)];
         if (c & N_W) walls += 'M' + x + ' ' + y + 'h1';
         if (c & W_W) walls += 'M' + x + ' ' + y + 'v1';
-        if (x === N - 1 && (c & E_W)) walls += 'M' + (x + 1) + ' ' + y + 'v1';
-        if (y === N - 1 && (c & S_W)) walls += 'M' + x + ' ' + (y + 1) + 'h1';
+        if (x === COLS - 1 && (c & E_W)) walls += 'M' + (x + 1) + ' ' + y + 'v1';
+        if (y === ROWS - 1 && (c & S_W)) walls += 'M' + x + ' ' + (y + 1) + 'h1';
       }
     }
 
-    const gx = N - 1 + 0.5, gy = N - 1 + 0.5;
-    let h = '<rect class="floor" x="0" y="0" width="' + N + '" height="' + N + '" rx="' + (0.1) + '"/>' +
-            '<circle class="goal" cx="' + gx + '" cy="' + gy + '" r="0.33"/>' +
+    const ex = exitAt % COLS, ey = (exitAt - ex) / COLS;
+    let h = '<rect class="floor" x="0" y="0" width="' + COLS + '" height="' + ROWS + '" rx="0.1"/>' +
+            '<circle class="goal" cx="' + (ex + 0.5) + '" cy="' + (ey + 0.5) + '" r="0.33"/>' +
             '<path class="trail" id="trail" d=""/>' +
             '<path class="walls" d="' + walls + '"/>';
 
     items.forEach((it, k) => {
-      const x = it.cell % N, y = (it.cell - x) / N;
+      const x = it.cell % COLS, y = (it.cell - x) / COLS;
       h += '<text class="item" id="it' + k + '" x="' + (x + 0.5) + '" y="' + (y + 0.52) + '">' +
            it.word.e + '</text>';
     });
@@ -419,7 +467,7 @@
   function paintTrail() {
     const t = $('trail');
     if (!t) return;
-    t.setAttribute('d', path.map((p, i) => (i ? 'L' : 'M') + (p.x + 0.5) + ' ' + (p.y + 0.5)).join(''));
+    t.setAttribute('d', path.map((p2, i) => (i ? 'L' : 'M') + (p2.x + 0.5) + ' ' + (p2.y + 0.5)).join(''));
   }
 
   function paintTray() {
@@ -436,14 +484,24 @@
     $('stars').innerHTML = h;
   }
 
-  // лабиринт — квадрат, занимает всё, что осталось от экрана
+  // поле занимает всё свободное место, сохраняя клетки квадратными
   function resize() {
     const m = $('maze');
     const stage = document.querySelector('.stage');
-    const other = $('tray').offsetHeight + $('say').offsetHeight + 28;
-    const side = Math.max(140, Math.min(stage.clientWidth, stage.clientHeight - other));
-    m.style.width = side + 'px';
-    m.style.height = side + 'px';
+    const other = $('tray').offsetHeight + $('say').offsetHeight + 26;
+    const bw = Math.max(140, stage.clientWidth);
+    const bh = Math.max(140, stage.clientHeight - other);
+    const k = Math.min(bw / (COLS + PAD * 2), bh / (ROWS + PAD * 2));
+    m.style.width = Math.floor((COLS + PAD * 2) * k) + 'px';
+    m.style.height = Math.floor((ROWS + PAD * 2) * k) + 'px';
+  }
+
+  // где на экране середина клетки
+  function cellPoint(i) {
+    const r = $('maze').getBoundingClientRect();
+    const unit = r.width / (COLS + PAD * 2);
+    const x = i % COLS, y = (i - x) / COLS;
+    return { x: r.left + (x + PAD + 0.5) * unit, y: r.top + (y + PAD + 0.5) * unit };
   }
 
   /* ── ход ── */
@@ -465,7 +523,7 @@
       paintTray();
     }
 
-    if (nx === N - 1 && ny === N - 1) finish();
+    if (at(nx, ny) === exitAt) finish();
   }
 
   // один шаг в сторону пальца, если между клетками нет стены
@@ -488,15 +546,14 @@
     const r = m.getBoundingClientRect();
     const t = (e.touches && e.touches[0]) || e;
     if (!r.width || !t || t.clientX == null) return;
-    const pad = 0.12;
-    const unit = r.width / (N + pad * 2);
-    const tx = Math.floor((t.clientX - r.left) / unit - pad);
-    const ty = Math.floor((t.clientY - r.top) / unit - pad);
+    const unit = r.width / (COLS + PAD * 2);
+    const tx = Math.floor((t.clientX - r.left) / unit - PAD);
+    const ty = Math.floor((t.clientY - r.top) / unit - PAD);
     if (!inside(tx, ty)) return;
 
     // палец мог уехать на несколько клеток: идём за ним, пока открыто
     let guard = 0;
-    while (guard++ < 4 && (tx !== cur.x || ty !== cur.y)) {
+    while (guard++ < 5 && (tx !== cur.x || ty !== cur.y)) {
       const next = toward(tx, ty);
       if (!next) break;
       stepTo(next.x, next.y);
@@ -516,12 +573,63 @@
     if (e.buttons || e.pointerType === 'touch') drag(e);
   }, { passive: true });
 
+  /* ── салют ── */
+  const COLORS = ['#FFD86E', '#E8782F', '#8FD3FF', '#7FC8A9', '#F0A24B'];
+
+  // вспышка прямо на выходе: там, куда она шла
+  function boom(x, y) {
+    const box = $('boom');
+    box.innerHTML = '';
+    box.style.left = Math.round(x) + 'px';
+    box.style.top = Math.round(y) + 'px';
+
+    // два кольца подряд — хлопок читается как хлопок, а не как блик
+    const d = Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.3);
+    [0, 0.14].forEach(delay => {
+      const ring = document.createElement('b');
+      ring.style.width = ring.style.height = Math.round(d * (delay ? 0.62 : 1)) + 'px';
+      ring.style.animationDelay = delay + 's';
+      box.appendChild(ring);
+    });
+
+    for (let i = 0; i < 34; i++) {
+      const dot = document.createElement('i');
+      const ang = Math.random() * Math.PI * 2;
+      const dist = d * (0.45 + Math.random() * 0.95);
+      const sz = Math.max(7, Math.round(d * (0.05 + Math.random() * 0.08)));
+      dot.style.width = dot.style.height = sz + 'px';
+      dot.style.background = COLORS[i % COLORS.length];
+      dot.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(0) + 'px');
+      dot.style.setProperty('--dy', (Math.sin(ang) * dist).toFixed(0) + 'px');
+      dot.style.animationDelay = (Math.random() * 0.12).toFixed(2) + 's';
+      box.appendChild(dot);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 1200);
+  }
+
+  function confetti(n) {
+    const box = $('party');
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement('i');
+      c.style.left = (Math.random() * 100) + 'vw';
+      c.style.background = COLORS[i % COLORS.length];
+      c.style.animationDuration = (1.8 + Math.random() * 1.6) + 's';
+      c.style.animationDelay = (Math.random() * 0.6) + 's';
+      box.appendChild(c);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 4200);
+  }
+
   /* ── конец лабиринта ── */
   function finish() {
     busy = true;
-    const m = $('maze');
-    m.classList.add('done');
+    $('maze').classList.add('done');
     yay(); buzz([20, 50, 20]);
+
+    const g = cellPoint(exitAt);
+    boom(g.x, g.y);                     // салют на каждом выходе
+    confetti(46);
+
     const w = $('walker');
     const svg = w && w.querySelector('.nblock');
     if (svg && window.YEVA_BLOCKS) YEVA_BLOCKS.react(svg, 'dance');
@@ -530,23 +638,14 @@
     paintStars();
     $('say').textContent = got + ' из ' + items.length;
 
-    if (done >= CFG.goal) { setTimeout(party, 900); return; }
-    setTimeout(build, 2000);
+    if (done >= CFG.goal) { setTimeout(party, 1000); return; }
+    setTimeout(build, 2300);
   }
 
+  // пятый лабиринт — салют подлиннее, с фанфарами
   function party() {
     fanfare(); buzz([20, 60, 20, 60, 40]);
-    const box = $('party');
-    const colors = ['#FFD86E', '#E8782F', '#8FD3FF', '#7FC8A9', '#F0A24B'];
-    for (let i = 0; i < 70; i++) {
-      const c = document.createElement('i');
-      c.style.left = (Math.random() * 100) + 'vw';
-      c.style.background = colors[i % colors.length];
-      c.style.animationDuration = (1.8 + Math.random() * 1.6) + 's';
-      c.style.animationDelay = (Math.random() * 0.7) + 's';
-      box.appendChild(c);
-    }
-    setTimeout(() => { box.innerHTML = ''; }, 4200);
+    confetti(80);
     done = 0;
     paintStars();
     setTimeout(build, 3200);
@@ -555,14 +654,19 @@
   /* ── новый лабиринт ── */
   function build() {
     $('maze').classList.remove('done');
+    $('boom').innerHTML = '';
     cur = { x: 0, y: 0 };
     path = [{ x: 0, y: 0 }];
     got = 0;
+    shape();
     dig();
-    layItems();
+    const far = longest();
+    exitAt = far.exit;
+    layItems(far.road);
     draw();
     paintTray();
     paintTrail();
+    resize();
     $('say').textContent = '';
     items.forEach(it => load(it.word));
     busy = false;
@@ -570,15 +674,15 @@
 
   /* ── выбор размера ── */
   function paintSizes() {
-    $('sizes').innerHTML = SIZES.map(s =>
-      '<button class="size' + (s === N ? ' on' : '') + '" data-s="' + s + '">' +
-      s + ' × ' + s + '</button>').join('');
+    $('sizes').innerHTML = WIDTHS.map(s =>
+      '<button class="size' + (s === want ? ' on' : '') + '" data-s="' + s + '">' +
+      s + ' в ряд</button>').join('');
   }
   $('sizes').addEventListener('click', e => {
     const b = e.target.closest('.size');
     if (!b) return;
-    N = +b.dataset.s;
-    store.set(K_SIZE, String(N));
+    want = +b.dataset.s;
+    store.set(K_SIZE, String(want));
     paintSizes();
     initAudio();
     tone('sine', 700, 0, 0.08, 0.16, 1000);
@@ -597,8 +701,8 @@
     const fn = el.requestFullscreen || el.webkitRequestFullscreen;
     if (!fn || document.fullscreenElement) return;
     try {
-      const p = fn.call(el, { navigationUI: 'hide' });
-      if (p && p.catch) p.catch(() => {});
+      const p2 = fn.call(el, { navigationUI: 'hide' });
+      if (p2 && p2.catch) p2.catch(() => {});
     } catch (e) {}
   }
 
@@ -608,7 +712,7 @@
     $('veil').classList.add('hidden');
     done = 0;
     paintStars();
-    build();
+    setTimeout(build, 60);        // экран уже без заслонки — мерим по-настоящему
   });
   $('btnNew').addEventListener('click', () => { initAudio(); build(); });
 
@@ -632,7 +736,7 @@
     if (!document.hidden && actx && actx.state === 'suspended') actx.resume();
   });
 
-  N = SIZES.indexOf(+store.get(K_SIZE, 7)) >= 0 ? +store.get(K_SIZE, 7) : 7;
+  want = WIDTHS.indexOf(+store.get(K_SIZE, 7)) >= 0 ? +store.get(K_SIZE, 7) : 7;
   paintSizes();
   paintStars();
   build();
