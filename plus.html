@@ -157,6 +157,26 @@
   .big svg{width:34%;height:34%;fill:currentColor;stroke:none}
   @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 
+  /* облачко в месте встречи */
+  .poof{position:fixed;left:0;top:0;z-index:15;pointer-events:none}
+  .poof b{
+    position:absolute;border-radius:50%;border:4px solid rgba(255,255,255,.95);
+    animation:poof-ring .52s cubic-bezier(.2,.8,.3,1) forwards;
+  }
+  .poof i{
+    position:absolute;border-radius:50%;box-shadow:0 0 6px rgba(255,255,255,.7);
+    animation:poof-dot .6s cubic-bezier(.2,.7,.3,1) forwards;
+  }
+  @keyframes poof-ring{
+    from{transform:translate(-50%,-50%) scale(.25);opacity:.95}
+    to{transform:translate(-50%,-50%) scale(1.7);opacity:0}
+  }
+  @keyframes poof-dot{
+    from{transform:translate(-50%,-50%) scale(1);opacity:.95}
+    to{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.25);opacity:0}
+  }
+  @media (prefers-reduced-motion:reduce){ .poof{display:none} }
+
   .party{position:fixed;inset:0;z-index:30;pointer-events:none;overflow:hidden}
   .party i{position:absolute;width:12px;height:16px;border-radius:3px;animation:fall linear forwards}
   @keyframes fall{from{transform:translateY(-12vh) rotate(0)}to{transform:translateY(112vh) rotate(680deg)}}
@@ -207,6 +227,7 @@
   </div>
 </div>
 
+<div class="poof" id="poof"></div>
 <div class="party" id="party"></div>
 
 <script>
@@ -538,25 +559,74 @@
   document.addEventListener('pointerdown', watch, { passive: true });
   document.addEventListener('pointermove', e => { if (e.buttons || e.pointerType === 'touch') watch(e); }, { passive: true });
 
-  /* ── слияние: два слагаемых съезжаются в один результат ── */
+  /* ── слияние: слагаемые едут навстречу и становятся ответом ── */
+  function poof(x, y) {
+    const box = $('poof');
+    box.innerHTML = '';
+    box.style.left = Math.round(x) + 'px';
+    box.style.top = Math.round(y) + 'px';
+    const col = window.YEVA_BLOCKS ? YEVA_BLOCKS.color(sum) : '#fff';
+
+    const ring = document.createElement('b');
+    const d = Math.round(cube * 3);
+    ring.style.width = ring.style.height = d + 'px';
+    box.appendChild(ring);
+
+    for (let i = 0; i < 12; i++) {
+      const dot = document.createElement('i');
+      const ang = Math.random() * Math.PI * 2;
+      const dist = cube * (0.9 + Math.random() * 1.4);
+      const sz = Math.max(5, Math.round(cube * (0.14 + Math.random() * 0.22)));
+      dot.style.width = dot.style.height = sz + 'px';
+      dot.style.background = i % 3 === 0 ? col : 'rgba(255,255,255,.95)';
+      dot.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(1) + 'px');
+      dot.style.setProperty('--dy', (Math.sin(ang) * dist).toFixed(1) + 'px');
+      dot.style.animationDelay = (Math.random() * 0.07).toFixed(2) + 's';
+      box.appendChild(dot);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 900);
+  }
+
   function merge() {
     const a1 = $('g1'), a2 = $('g2'), plus = $('opPlus');
     const r1 = a1.getBoundingClientRect(), r2 = a2.getBoundingClientRect();
-    const dx = (r1.left + r1.width / 2) - (r2.left + r2.width / 2);
-    a2.style.transition = 'transform .5s cubic-bezier(.4,0,.2,1), opacity .5s';
-    a2.style.transform = 'translateX(' + dx.toFixed(1) + 'px) scale(.85)';
+    const c1 = r1.left + r1.width / 2, c2 = r2.left + r2.width / 2;
+    const mid = (c1 + c2) / 2;                       // место встречи
+    const my = (r1.top + r1.height / 2 + r2.top + r2.height / 2) / 2;
+
+    // едут навстречу друг другу и у места встречи гаснут
+    const move = 'transform .42s cubic-bezier(.45,0,.25,1), opacity .18s ease-in .28s';
+    a1.style.transition = move;
+    a2.style.transition = move;
+    a1.style.transform = 'translateX(' + (mid - c1).toFixed(1) + 'px) scale(.9)';
+    a2.style.transform = 'translateX(' + (mid - c2).toFixed(1) + 'px) scale(.9)';
+    a1.style.opacity = '0';
     a2.style.opacity = '0';
-    plus.style.transition = 'opacity .3s';
+    plus.style.transition = 'opacity .22s';
     plus.style.opacity = '0';
+
     setTimeout(() => {
-      if (locked !== true) return;          // раунд уже сменился — не мешаем
+      if (locked !== true) return;                   // раунд уже сменился
+      poof(mid, my);                                 // хлопок в месте встречи
       a2.style.display = 'none';
       plus.style.display = 'none';
-      fill(a1, sum, cube, 0);               // одна фигурка из всех кубиков
+
+      // ответ собирается там, где столкнулись, и уезжает на своё место,
+      // поэтому вёрстка не прыгает
+      a1.style.transition = 'none';
+      a1.style.transform = '';
+      a1.style.opacity = '1';
+      fill(a1, sum, cube, 0);
       fit();
+      const r3 = a1.getBoundingClientRect();
+      const dx = mid - (r3.left + r3.width / 2);
+      a1.style.transform = 'translateX(' + dx.toFixed(1) + 'px) scale(.5)';
+      a1.getBoundingClientRect();                    // зафиксировать старт
+      a1.style.transition = 'transform .52s cubic-bezier(.3,1.5,.5,1)';
+      a1.style.transform = '';
       react('yay');
       gaze();
-    }, 520);
+    }, 430);
   }
 
   function resize(size) {
@@ -573,8 +643,10 @@
     sum = a + b;
 
     // вернуть всё, что сдвинуло слияние
+    $('g1').style.cssText = '';
     $('g2').style.cssText = '';
     $('opPlus').style.cssText = '';
+    $('poof').innerHTML = '';
 
     cube = sizeFor(sum);
     fill($('g1'), a, cube, 0);
