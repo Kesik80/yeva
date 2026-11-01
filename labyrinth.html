@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Labyrinth</title>
+<meta name="theme-color" content="#E0913C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#E0913C}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#4A3017;
+    background:
+      radial-gradient(110% 70% at 84% 106%, rgba(255,230,180,.5), transparent 62%),
+      radial-gradient(90% 60% at 8% 2%, rgba(255,245,215,.55), transparent 66%),
+      linear-gradient(180deg,#E0913C 0%,#EDB36B 40%,#F7DCB4 76%,#FFF8EE 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 9px) 10px calc(env(safe-area-inset-bottom,0px) + 9px);
+  }
+
+  .top{display:flex;align-items:center;gap:8px;flex:none}
+  .stars{
+    display:flex;gap:4px;flex:1;min-width:0;overflow:hidden;
+    background:rgba(255,255,255,.7);border-radius:999px;padding:9px 12px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(74,48,23,.13);
+  }
+  .stars i{flex:1 1 9px;max-width:17px;min-width:7px;aspect-ratio:1;border-radius:50%;
+    background:rgba(74,48,23,.14);transition:transform .3s,background .3s}
+  .stars i.on{background:linear-gradient(160deg,#FFD86E,#E8782F);transform:scale(1.12)}
+
+  .btn{
+    width:44px;height:44px;flex:none;border:0;border-radius:50%;
+    background:rgba(255,255,255,.7);color:#4A3017;text-decoration:none;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(74,48,23,.14);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.9)}
+  .btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  .stage{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4vh}
+
+  /* ── собранное ── */
+  .tray{
+    display:flex;gap:6px;justify-content:center;align-items:center;flex:none;
+    min-height:38px;flex-wrap:wrap;padding:0 4px;
+  }
+  .tray i{
+    display:grid;place-items:center;width:34px;height:34px;border-radius:12px;
+    background:rgba(255,255,255,.72);box-shadow:0 4px 12px rgba(74,48,23,.12);
+    font-size:20px;line-height:1;font-style:normal;
+    animation:drop .42s cubic-bezier(.3,1.5,.5,1) backwards;
+  }
+  .tray i.wait{background:rgba(255,255,255,.3);box-shadow:none;opacity:.5}
+  @keyframes drop{from{transform:scale(.2) translateY(-14px);opacity:0}}
+
+  /* ── лабиринт ── */
+  .maze{flex:none;display:block;touch-action:none;filter:drop-shadow(0 8px 20px rgba(74,48,23,.14))}
+  .maze .floor{fill:rgba(255,255,255,.52)}
+  .maze .trail{fill:none;stroke:rgba(232,120,47,.3);stroke-width:.46;
+    stroke-linecap:round;stroke-linejoin:round}
+  .maze .walls{fill:none;stroke:#8A5A28;stroke-width:.15;stroke-linecap:round}
+  .maze .goal{fill:rgba(255,216,110,.85)}
+  .maze .item{font-size:.62px;text-anchor:middle;dominant-baseline:central;
+    transition:transform .3s,opacity .3s}
+  .maze .item.got{transform:scale(.2);opacity:0}
+  .maze .walker{transition:transform .13s linear}
+  .maze .done .goal{animation:goal .7s ease-in-out 3}
+  @keyframes goal{0%,100%{opacity:1}50%{opacity:.35}}
+
+  .say{
+    font-size:clamp(14px,4.6vw,22px);font-weight:600;color:rgba(74,48,23,.6);
+    flex:none;text-align:center;padding:0 8px;min-height:1.3em;
+  }
+
+  /* ── старт ── */
+  .veil{
+    position:fixed;inset:0;z-index:20;display:flex;
+    background:rgba(237,179,107,.5);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    transition:opacity .3s;padding:18px;
+    overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .panel{
+    width:100%;max-width:400px;text-align:center;margin:auto;flex:none;
+    background:rgba(255,255,255,.74);border-radius:30px;padding:22px 20px 26px;
+    box-shadow:0 18px 44px rgba(74,48,23,.22);
+  }
+  .panel h1{font-size:clamp(24px,7vw,32px);font-weight:600}
+  .panel .ru{font-size:14px;color:rgba(74,48,23,.58);margin-top:2px}
+  .tip{margin-top:12px;font-size:12px;line-height:1.5;color:rgba(74,48,23,.5);padding:0 4px}
+  .sizes{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:16px}
+  .size{
+    border:0;cursor:pointer;font-family:inherit;font-weight:600;font-size:16px;
+    padding:11px 15px;border-radius:999px;color:#4A3017;background:rgba(255,255,255,.88);
+    box-shadow:0 5px 14px rgba(74,48,23,.13);transition:transform .14s,background .2s,color .2s;
+  }
+  .size:active{transform:scale(.94)}
+  .size.on{background:linear-gradient(160deg,#E0913C,#B96A1E);color:#fff}
+  .big{
+    margin:20px auto 0;width:min(40vw,150px);aspect-ratio:1;border:0;border-radius:50%;cursor:pointer;
+    display:grid;place-items:center;color:#4A3017;
+    background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.98),rgba(255,255,255,.3) 30%,rgba(255,216,110,.55) 58%,rgba(224,145,60,.45) 80%,rgba(255,255,255,.92) 100%);
+    box-shadow:0 18px 44px rgba(74,48,23,.25),inset 0 0 34px rgba(255,255,255,.6);
+    animation:float 3.6s ease-in-out infinite;
+  }
+  .big svg{width:34%;height:34%;fill:currentColor;stroke:none}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  @media (max-height:560px){
+    .panel{padding:14px 18px 16px}
+    .panel h1{font-size:22px}
+    .tip{margin-top:8px}
+    .sizes{margin-top:11px;gap:7px}
+    .size{padding:8px 13px;font-size:15px}
+    .big{margin-top:12px;width:min(24vh,104px)}
+  }
+
+  .party{position:fixed;inset:0;z-index:30;pointer-events:none;overflow:hidden}
+  .party i{position:absolute;width:12px;height:16px;border-radius:3px;animation:fall linear forwards}
+  @keyframes fall{from{transform:translateY(-12vh) rotate(0)}to{transform:translateY(112vh) rotate(680deg)}}
+
+  @media (prefers-reduced-motion:reduce){
+    .big{animation:none}.tray i{animation:none}.maze .walker{transition:none}
+    .maze .done .goal{animation:none}
+  }
+</style>
+</head>
+<body>
+
+<script src="words.js"></script>
+<script src="blocks.js"></script>
+
+<div class="top">
+  <div class="stars" id="stars"></div>
+  <button class="btn" id="btnNew" aria-label="Новый лабиринт">
+    <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 5v6h-6"/></svg>
+  </button>
+  <a class="btn" href="index.html" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>
+  </a>
+</div>
+
+<div class="stage">
+  <div class="tray" id="tray"></div>
+  <svg class="maze" id="maze" xmlns="http://www.w3.org/2000/svg"></svg>
+  <div class="say" id="say"></div>
+</div>
+
+<div class="veil" id="veil">
+  <div class="panel">
+    <h1>Labyrinth</h1>
+    <div class="ru">Дорожка с картинками</div>
+    <div class="tip">Веди пальцем по дорожке и собирай картинки — каждая называет себя по-немецки</div>
+    <div class="sizes" id="sizes"></div>
+    <button class="big" id="btnStart" aria-label="Играть">
+      <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="party" id="party"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const YW = window.YEVA_WORDS;
+  if (!YW || !YW.slug) {
+    document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif">' +
+      'Нужен words.js</div>';
+    return;
+  }
+
+  const CFG = { goal: 5, gap: 0.07, voice: 'voice/de/' };
+  const SIZES = [5, 7, 9];
+  const K_SIZE = 'yeva.labyrinth.size';
+  const WORDS = (YW.pictured && YW.pictured.length ? YW.pictured : YW.unique.filter(a => a.e));
+
+  const irand = n => Math.floor(Math.random() * n);
+  const pick = a => a[irand(a.length)];
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+
+  let N = 7;                 // сторона лабиринта
+  let cells = [];            // стены каждой клетки
+  let cur = { x: 0, y: 0 };  // где фигурка
+  let path = [];             // след, по которому она прошла
+  let items = [];            // что разложено по дороге
+  let got = 0;               // сколько собрано
+  let done = 0;              // сколько лабиринтов пройдено
+  let busy = true;           // в конце и на старте ход закрыт
+
+  /* ── звук ── */
+  let actx = null, master = null;
+  const vBuf = {}, vBad = {}, vHot = {};
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.32;
+    master.connect(actx.destination);
+  }
+
+  const vUrl = w => CFG.voice + YW.slug(w) + '.mp3';
+
+  function load(w) {
+    if (!actx || !w) return;
+    const u = vUrl(w);
+    if (vBuf[u] || vBad[u] || vHot[u]) return;
+    vHot[u] = 1;
+    // отказ 404 браузер помнит, поэтому второй заход мимо кэша
+    fetch(u)
+      .then(r => r.ok ? r : fetch(u + '?v=' + Date.now(), { cache: 'no-store' }))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(ab => actx.decodeAudioData(ab))
+      .then(buf => { vBuf[u] = buf; })
+      .catch(e => { vBad[u] = true; console.warn('[voice] нет ' + u + ' — ' + e.message); });
+  }
+
+  function say(w) {
+    if (!w) return;
+    load(w);
+    const u = vUrl(w);
+    let tries = 0;
+    (function wait() {
+      if (vBuf[u]) {
+        const src = actx.createBufferSource(), g = actx.createGain();
+        g.gain.value = 1.25;
+        src.buffer = vBuf[u];
+        src.connect(g); g.connect(master);
+        src.start();
+        return;
+      }
+      if (vBad[u]) { speak(w); return; }
+      if (tries++ < 10) { setTimeout(wait, 120); return; }
+      speak(w);
+    })();
+  }
+
+  // пока записи нет — читает системный голос, чтобы игра не молчала
+  function speak(w) {
+    try {
+      if (typeof speechSynthesis === 'undefined') return;
+      speechSynthesis.cancel();
+      const ut = new SpeechSynthesisUtterance(w.de);
+      ut.lang = 'de-DE'; ut.rate = 0.9; ut.pitch = 1.1;
+      speechSynthesis.speak(ut);
+    } catch (e) {}
+  }
+
+  function tone(type, freq, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur * 0.9);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+  const ding = () => [0, 7].forEach((n, i) => tone('triangle', 659.25 * Math.pow(2, n / 12), i * 0.06, 0.3, 0.26));
+  const yay = () => [0, 4, 7, 12].forEach((n, i) => tone('triangle', 523.25 * Math.pow(2, n / 12), i * 0.07, 0.4, 0.3));
+  const fanfare = () => [0, 4, 7, 12, 7, 12, 16].forEach((n, i) => tone('triangle', 392 * Math.pow(2, n / 12), i * 0.12, 0.42, 0.33));
+  const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+
+  /* ── лабиринт ──
+     Обычный «идеальный» лабиринт: между любыми двумя клетками ровно одна
+     дорога, тупики есть, а колец нет. Так ребёнок не может закружиться. */
+  const N_W = 1, E_W = 2, S_W = 4, W_W = 8;
+  const DIRS = [
+    { dx: 0, dy: -1, w: N_W, o: S_W },
+    { dx: 1, dy: 0, w: E_W, o: W_W },
+    { dx: 0, dy: 1, w: S_W, o: N_W },
+    { dx: -1, dy: 0, w: W_W, o: E_W }
+  ];
+  const at = (x, y) => y * N + x;
+  const inside = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
+
+  function dig() {
+    cells = new Array(N * N).fill(N_W | E_W | S_W | W_W);
+    const seen = new Array(N * N).fill(false);
+    const stack = [{ x: 0, y: 0 }];
+    seen[0] = true;
+    while (stack.length) {
+      const c = stack[stack.length - 1];
+      const open = [];
+      DIRS.forEach(d => {
+        const nx = c.x + d.dx, ny = c.y + d.dy;
+        if (inside(nx, ny) && !seen[at(nx, ny)]) open.push(d);
+      });
+      if (!open.length) { stack.pop(); continue; }
+      const d = pick(open);
+      const nx = c.x + d.dx, ny = c.y + d.dy;
+      cells[at(c.x, c.y)] &= ~d.w;
+      cells[at(nx, ny)] &= ~d.o;
+      seen[at(nx, ny)] = true;
+      stack.push({ x: nx, y: ny });
+    }
+  }
+
+  // единственная дорога от начала до выхода
+  function solve() {
+    const from = new Array(N * N).fill(-1);
+    const q = [at(0, 0)];
+    from[0] = 0;
+    while (q.length) {
+      const i = q.shift();
+      const x = i % N, y = (i - x) / N;
+      DIRS.forEach(d => {
+        if (cells[i] & d.w) return;
+        const nx = x + d.dx, ny = y + d.dy;
+        if (!inside(nx, ny) || from[at(nx, ny)] >= 0) return;
+        from[at(nx, ny)] = i;
+        q.push(at(nx, ny));
+      });
+    }
+    const out = [];
+    let i = at(N - 1, N - 1);
+    while (i !== 0) { out.push(i); i = from[i]; }
+    out.push(0);
+    out.reverse();
+    return out;
+  }
+
+  /* ── картинки по дороге ── */
+  function layItems() {
+    const road = solve();
+    const inner = road.slice(1, road.length - 1);     // ни на старте, ни на выходе
+    const want = N <= 5 ? 3 : (N <= 7 ? 4 : 5);
+    const n = Math.min(want, inner.length);
+    const used = {}, bag = [];
+    while (bag.length < n) {
+      const w = pick(WORDS);
+      if (used[w.de]) continue;
+      used[w.de] = 1; bag.push(w);
+    }
+    items = [];
+    for (let k = 0; k < n; k++) {
+      // раскладываем равномерно по дороге, чтобы не кучковались
+      const i = inner[Math.round((k + 1) * inner.length / (n + 1)) - 1];
+      items.push({ cell: i, word: bag[k], got: false });
+    }
+  }
+
+  /* ── рисование ── */
+  function draw() {
+    const m = $('maze');
+    const pad = 0.12;                                  // поля, чтобы стены не срезались
+    m.setAttribute('viewBox', -pad + ' ' + -pad + ' ' + (N + pad * 2) + ' ' + (N + pad * 2));
+
+    let walls = '';
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < N; x++) {
+        const c = cells[at(x, y)];
+        if (c & N_W) walls += 'M' + x + ' ' + y + 'h1';
+        if (c & W_W) walls += 'M' + x + ' ' + y + 'v1';
+        if (x === N - 1 && (c & E_W)) walls += 'M' + (x + 1) + ' ' + y + 'v1';
+        if (y === N - 1 && (c & S_W)) walls += 'M' + x + ' ' + (y + 1) + 'h1';
+      }
+    }
+
+    const gx = N - 1 + 0.5, gy = N - 1 + 0.5;
+    let h = '<rect class="floor" x="0" y="0" width="' + N + '" height="' + N + '" rx="' + (0.1) + '"/>' +
+            '<circle class="goal" cx="' + gx + '" cy="' + gy + '" r="0.33"/>' +
+            '<path class="trail" id="trail" d=""/>' +
+            '<path class="walls" d="' + walls + '"/>';
+
+    items.forEach((it, k) => {
+      const x = it.cell % N, y = (it.cell - x) / N;
+      h += '<text class="item" id="it' + k + '" x="' + (x + 0.5) + '" y="' + (y + 0.52) + '">' +
+           it.word.e + '</text>';
+    });
+
+    // фигурка — тот же кубик с лицом, что и в счётных играх
+    const inner = window.YEVA_BLOCKS ? YEVA_BLOCKS.svg(1) : '<circle cx="50" cy="50" r="40" fill="#E8782F"/>';
+    h += '<g class="walker" id="walker"><svg width="0.78" height="0.78" viewBox="0 0 100 100" ' +
+         'preserveAspectRatio="xMidYMid meet" overflow="visible">' + inner + '</svg></g>';
+
+    m.innerHTML = h;
+    place(true);
+    resize();
+  }
+
+  // фигурка стоит в середине своей клетки
+  function place(instant) {
+    const w = $('walker');
+    if (!w) return;
+    if (instant) w.style.transition = 'none';
+    w.style.transform = 'translate(' + (cur.x + 0.11) + 'px,' + (cur.y + 0.11) + 'px)';
+    if (instant) { void w.getBoundingClientRect(); w.style.transition = ''; }
+  }
+
+  function paintTrail() {
+    const t = $('trail');
+    if (!t) return;
+    t.setAttribute('d', path.map((p, i) => (i ? 'L' : 'M') + (p.x + 0.5) + ' ' + (p.y + 0.5)).join(''));
+  }
+
+  function paintTray() {
+    let h = '';
+    items.forEach(it => {
+      h += it.got ? '<i>' + it.word.e + '</i>' : '<i class="wait">·</i>';
+    });
+    $('tray').innerHTML = h;
+  }
+
+  function paintStars() {
+    let h = '';
+    for (let i = 0; i < CFG.goal; i++) h += '<i class="' + (i < done ? 'on' : '') + '"></i>';
+    $('stars').innerHTML = h;
+  }
+
+  // лабиринт — квадрат, занимает всё, что осталось от экрана
+  function resize() {
+    const m = $('maze');
+    const stage = document.querySelector('.stage');
+    const other = $('tray').offsetHeight + $('say').offsetHeight + 28;
+    const side = Math.max(140, Math.min(stage.clientWidth, stage.clientHeight - other));
+    m.style.width = side + 'px';
+    m.style.height = side + 'px';
+  }
+
+  /* ── ход ── */
+  function stepTo(nx, ny) {
+    cur = { x: nx, y: ny };
+    path.push({ x: nx, y: ny });
+    paintTrail();
+    place(false);
+
+    const k = items.findIndex(it => !it.got && it.cell === at(nx, ny));
+    if (k >= 0) {
+      items[k].got = true;
+      got++;
+      const el = $('it' + k);
+      if (el) el.classList.add('got');
+      ding(); buzz(18);
+      $('say').textContent = items[k].word.de;
+      say(items[k].word);
+      paintTray();
+    }
+
+    if (nx === N - 1 && ny === N - 1) finish();
+  }
+
+  // один шаг в сторону пальца, если между клетками нет стены
+  function toward(tx, ty) {
+    const i = at(cur.x, cur.y);
+    let best = null, bestD = Math.abs(tx - cur.x) + Math.abs(ty - cur.y);
+    DIRS.forEach(d => {
+      if (cells[i] & d.w) return;                       // стена
+      const nx = cur.x + d.dx, ny = cur.y + d.dy;
+      if (!inside(nx, ny)) return;
+      const dist = Math.abs(tx - nx) + Math.abs(ty - ny);
+      if (dist < bestD) { bestD = dist; best = { x: nx, y: ny }; }
+    });
+    return best;
+  }
+
+  function drag(e) {
+    if (busy) return;
+    const m = $('maze');
+    const r = m.getBoundingClientRect();
+    const t = (e.touches && e.touches[0]) || e;
+    if (!r.width || !t || t.clientX == null) return;
+    const pad = 0.12;
+    const unit = r.width / (N + pad * 2);
+    const tx = Math.floor((t.clientX - r.left) / unit - pad);
+    const ty = Math.floor((t.clientY - r.top) / unit - pad);
+    if (!inside(tx, ty)) return;
+
+    // палец мог уехать на несколько клеток: идём за ним, пока открыто
+    let guard = 0;
+    while (guard++ < 4 && (tx !== cur.x || ty !== cur.y)) {
+      const next = toward(tx, ty);
+      if (!next) break;
+      stepTo(next.x, next.y);
+      if (busy) break;                                  // дошли до выхода
+    }
+
+    // глаза смотрят на палец
+    if (window.YEVA_BLOCKS && YEVA_BLOCKS.look) {
+      const w = $('walker');
+      const svg = w && w.querySelector('.nblock');
+      if (svg) YEVA_BLOCKS.look(svg, t.clientX, t.clientY);
+    }
+  }
+
+  $('maze').addEventListener('pointerdown', e => { initAudio(); drag(e); }, { passive: true });
+  $('maze').addEventListener('pointermove', e => {
+    if (e.buttons || e.pointerType === 'touch') drag(e);
+  }, { passive: true });
+
+  /* ── конец лабиринта ── */
+  function finish() {
+    busy = true;
+    const m = $('maze');
+    m.classList.add('done');
+    yay(); buzz([20, 50, 20]);
+    const w = $('walker');
+    const svg = w && w.querySelector('.nblock');
+    if (svg && window.YEVA_BLOCKS) YEVA_BLOCKS.react(svg, 'dance');
+
+    done++;
+    paintStars();
+    $('say').textContent = got + ' из ' + items.length;
+
+    if (done >= CFG.goal) { setTimeout(party, 900); return; }
+    setTimeout(build, 2000);
+  }
+
+  function party() {
+    fanfare(); buzz([20, 60, 20, 60, 40]);
+    const box = $('party');
+    const colors = ['#FFD86E', '#E8782F', '#8FD3FF', '#7FC8A9', '#F0A24B'];
+    for (let i = 0; i < 70; i++) {
+      const c = document.createElement('i');
+      c.style.left = (Math.random() * 100) + 'vw';
+      c.style.background = colors[i % colors.length];
+      c.style.animationDuration = (1.8 + Math.random() * 1.6) + 's';
+      c.style.animationDelay = (Math.random() * 0.7) + 's';
+      box.appendChild(c);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 4200);
+    done = 0;
+    paintStars();
+    setTimeout(build, 3200);
+  }
+
+  /* ── новый лабиринт ── */
+  function build() {
+    $('maze').classList.remove('done');
+    cur = { x: 0, y: 0 };
+    path = [{ x: 0, y: 0 }];
+    got = 0;
+    dig();
+    layItems();
+    draw();
+    paintTray();
+    paintTrail();
+    $('say').textContent = '';
+    items.forEach(it => load(it.word));
+    busy = false;
+  }
+
+  /* ── выбор размера ── */
+  function paintSizes() {
+    $('sizes').innerHTML = SIZES.map(s =>
+      '<button class="size' + (s === N ? ' on' : '') + '" data-s="' + s + '">' +
+      s + ' × ' + s + '</button>').join('');
+  }
+  $('sizes').addEventListener('click', e => {
+    const b = e.target.closest('.size');
+    if (!b) return;
+    N = +b.dataset.s;
+    store.set(K_SIZE, String(N));
+    paintSizes();
+    initAudio();
+    tone('sine', 700, 0, 0.08, 0.16, 1000);
+  });
+
+  /* ── старт ── */
+  function goFullscreen() {
+    // Установленная игра и так во весь экран. Запрос полноэкранного режима
+    // добавляет только системную подсказку «проведите сверху вниз и нажмите
+    // Назад» — ребёнок её не уберёт, а она закрывает нижний ряд.
+    try {
+      if ((window.matchMedia && (matchMedia('(display-mode: fullscreen)').matches ||
+           matchMedia('(display-mode: standalone)').matches)) || navigator.standalone) return;
+    } catch (e) {}
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!fn || document.fullscreenElement) return;
+    try {
+      const p = fn.call(el, { navigationUI: 'hide' });
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
+  }
+
+  $('btnStart').addEventListener('click', () => {
+    goFullscreen();
+    initAudio();
+    $('veil').classList.add('hidden');
+    done = 0;
+    paintStars();
+    build();
+  });
+  $('btnNew').addEventListener('click', () => { initAudio(); build(); });
+
+  let lastH = 0;
+  function relayout() {
+    [0, 120, 350, 800].forEach(ms => setTimeout(() => {
+      const h = window.innerHeight;
+      if (ms && h === lastH) return;
+      lastH = h;
+      resize();
+    }, ms));
+  }
+  window.addEventListener('resize', relayout);
+  window.addEventListener('orientationchange', relayout);
+  document.addEventListener('fullscreenchange', relayout);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', relayout);
+
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && actx && actx.state === 'suspended') actx.resume();
+  });
+
+  N = SIZES.indexOf(+store.get(K_SIZE, 7)) >= 0 ? +store.get(K_SIZE, 7) : 7;
+  paintSizes();
+  paintStars();
+  build();
+  busy = true;            // до нажатия «играть» ход закрыт
+})();
+</script>
+<script src="install.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
