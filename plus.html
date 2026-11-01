@@ -504,6 +504,17 @@
     YEVA_BLOCKS.look($('g2').firstChild, x, y);
   }
 
+  // здороваются: посмотрели друг на друга, потом на ребёнка
+  function greet() {
+    if (!window.YEVA_BLOCKS || !YEVA_BLOCKS.look) return;
+    const s1 = $('g1').firstChild, s2 = $('g2').firstChild;
+    if (!s1 || !s2) return;
+    const r1 = s1.getBoundingClientRect(), r2 = s2.getBoundingClientRect();
+    YEVA_BLOCKS.look(s1, r2.left + r2.width / 2, r2.top + r2.height / 2);
+    YEVA_BLOCKS.look(s2, r1.left + r1.width / 2, r1.top + r1.height / 2);
+    gazeHold = Date.now() + 850;
+  }
+
   // пока никто не трогает экран, глаза сами разглядывают ответы
   function gaze() {
     clearTimeout(gazeT);
@@ -598,6 +609,7 @@
     // отвечать можно сразу: ребёнок не должен ждать, пока договорит голос
     locked = false;
     speakAsk();
+    setTimeout(greet, 260);     // кубики успели выложиться — и переглянулись
     gaze();
     hintT = setTimeout(showHint, 9000);
   }
@@ -676,6 +688,10 @@
 
   function party() {
     fanfare(); buzz([20, 60, 20, 60, 40]);
+    if (window.YEVA_BLOCKS && YEVA_BLOCKS.react) {
+      YEVA_BLOCKS.react($('g1').firstChild, 'dance');
+      YEVA_BLOCKS.react($('g2').firstChild, 'dance');
+    }
     const box = $('party');
     const colors = ['#FFD86E', '#8C7AE0', '#8FD3FF', '#7FC8A9', '#F0A24B'];
     for (let i = 0; i < 70; i++) {

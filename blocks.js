@@ -58,6 +58,19 @@
     '  22%{transform:translateY(-13%) scaleY(1.06)}',
     '  52%{transform:translateY(0) scaleY(.92)}',
     '  70%{transform:translateY(-4%) scaleY(1.02)}}',
+    // рот: обычный, широкая улыбка и огорчение — показываем по настроению
+    '.nblock .nb-m2,.nblock .nb-m3{display:none}',
+    '.nblock.nb-yay .nb-m1,.nblock.nb-dance .nb-m1{display:none}',
+    '.nblock.nb-yay .nb-m2,.nblock.nb-dance .nb-m2{display:inline}',
+    '.nblock.nb-hmm .nb-m1{display:none}',
+    '.nblock.nb-hmm .nb-m3{display:inline}',
+    // танец на салюте: подпрыгнуть и покачаться
+    '.nblock.nb-dance .nb-all{animation:nb-dance 1.1s ease-in-out 3}',
+    '@keyframes nb-dance{0%,100%{transform:translateY(0) rotate(0)}',
+    '  15%{transform:translateY(-11%) rotate(-7deg)}',
+    '  40%{transform:translateY(0) rotate(0)}',
+    '  62%{transform:translateY(-11%) rotate(7deg)}',
+    '  87%{transform:translateY(0) rotate(0)}}',
     // недоумение: качнуться из стороны в сторону
     '.nblock.nb-hmm .nb-all{animation:nb-tilt .5s ease-in-out}',
     '@keyframes nb-tilt{0%,100%{transform:rotate(0)}30%{transform:rotate(-5deg)}70%{transform:rotate(5deg)}}',
@@ -149,8 +162,15 @@
            '</g></g>';
     });
     var my = cy + s * 0.42, mw = Math.min(w * 0.3, s * 0.46);
-    g += '<path d="M' + (cx - mw) + ' ' + my + ' q ' + mw + ' ' + (s * 0.3) + ' ' + (2 * mw) + ' 0"' +
-         ' fill="none" stroke="#2B2B3A" stroke-width="' + (s * 0.075) + '" stroke-linecap="round" opacity=".85"/>';
+    var line = ' fill="none" stroke="#2B2B3A" stroke-width="' + (s * 0.075) +
+               '" stroke-linecap="round" opacity=".85"';
+    // обычный рот, широкая улыбка и огорчённый — CSS показывает нужный
+    g += '<path class="nb-m1" d="M' + (cx - mw) + ' ' + my + ' q ' + mw + ' ' + (s * 0.3) +
+         ' ' + (2 * mw) + ' 0"' + line + '/>' +
+         '<path class="nb-m2" d="M' + (cx - mw * 1.12) + ' ' + (my - s * 0.04) + ' q ' + (mw * 1.12) +
+         ' ' + (s * 0.6) + ' ' + (2.24 * mw) + ' 0"' + line + '/>' +
+         '<path class="nb-m3" d="M' + (cx - mw * 0.9) + ' ' + (my + s * 0.1) + ' q ' + (mw * 0.9) +
+         ' ' + (-s * 0.26) + ' ' + (1.8 * mw) + ' 0"' + line + '/>';
     return g;
   }
 
@@ -215,11 +235,12 @@
   // короткая реакция: 'yay' — обрадоваться, 'hmm' — не понять
   function react(el, kind) {
     if (!el || !el.classList) return;
-    var cls = kind === 'hmm' ? 'nb-hmm' : 'nb-yay';
-    el.classList.remove('nb-yay', 'nb-hmm');
+    var cls = kind === 'hmm' ? 'nb-hmm' : (kind === 'dance' ? 'nb-dance' : 'nb-yay');
+    var ms = kind === 'hmm' ? 600 : (kind === 'dance' ? 3400 : 1400);
+    el.classList.remove('nb-yay', 'nb-hmm', 'nb-dance');
     void el.getBoundingClientRect();     // перезапуск анимации
     el.classList.add(cls);
-    setTimeout(function () { el.classList.remove(cls); }, kind === 'hmm' ? 600 : 1400);
+    setTimeout(function () { el.classList.remove(cls); }, ms);
   }
 
   window.YEVA_BLOCKS = {
