@@ -190,14 +190,104 @@
     C('weiß',    'белый',      '#FFFFFF')
   ];
 
+
+  // Один — много. Немецкое множественное нерегулярное, его учат на слух:
+  // Hund — Hunde, Kuh — Kühe, Huhn — Hühner, Apfel — Äpfel. Артикль у
+  // множественного всегда die, и это само по себе полезно услышать.
+  // Слова, у которых множественное звучит как единственное (der Igel —
+  // die Igel), сюда не берём: для трёхлетки разница только в артикле
+  // слишком тонкая.
+  // skipPic: картинка нужна только своей игре. В общий список pictured
+  // эти слова не идут — иначе «die Hunde» попало бы в артикли как слово
+  // женского рода, а «groß» — в «Найди картинку».
+  const PL = (one, many, e, ru) => ({ de: many, ru: ru, e: e, one: one, s: 'ding', skipPic: true });
+  const PLURAL = [
+    PL('die Katze', 'die Katzen', '\u{1F431}', 'кошки'),
+    PL('der Hund', 'die Hunde', '\u{1F436}', 'собаки'),
+    PL('die Kuh', 'die Kühe', '\u{1F42E}', 'коровы'),
+    PL('das Schaf', 'die Schafe', '\u{1F411}', 'овцы'),
+    PL('die Ziege', 'die Ziegen', '\u{1F410}', 'козы'),
+    PL('das Schwein', 'die Schweine', '\u{1F437}', 'свиньи'),
+    PL('das Huhn', 'die Hühner', '\u{1F414}', 'куры'),
+    PL('die Ente', 'die Enten', '\u{1F986}', 'утки'),
+    PL('das Pferd', 'die Pferde', '\u{1F434}', 'лошади'),
+    PL('die Maus', 'die Mäuse', '\u{1F42D}', 'мыши'),
+    PL('die Biene', 'die Bienen', '\u{1F41D}', 'пчёлы'),
+    PL('der Frosch', 'die Frösche', '\u{1F438}', 'лягушки'),
+    PL('der Vogel', 'die Vögel', '\u{1F426}', 'птицы'),
+    PL('der Hase', 'die Hasen', '\u{1F430}', 'зайцы'),
+    PL('der Fuchs', 'die Füchse', '\u{1F98A}', 'лисы'),
+    PL('das Reh', 'die Rehe', '\u{1F98C}', 'косули'),
+    PL('der Bär', 'die Bären', '\u{1F43B}', 'медведи'),
+    PL('der Schmetterling', 'die Schmetterlinge', '\u{1F98B}', 'бабочки'),
+    PL('die Schnecke', 'die Schnecken', '\u{1F40C}', 'улитки'),
+    PL('die Eule', 'die Eulen', '\u{1F989}', 'совы'),
+    PL('der Wolf', 'die Wölfe', '\u{1F43A}', 'волки'),
+    PL('der Fisch', 'die Fische', '\u{1F41F}', 'рыбы'),
+    PL('die Krabbe', 'die Krabben', '\u{1F980}', 'крабы'),
+    PL('die Schildkröte', 'die Schildkröten', '\u{1F422}', 'черепахи'),
+    PL('der Delfin', 'die Delfine', '\u{1F42C}', 'дельфины'),
+    PL('der Wal', 'die Wale', '\u{1F433}', 'киты'),
+    PL('der Hai', 'die Haie', '\u{1F988}', 'акулы'),
+    PL('der Pinguin', 'die Pinguine', '\u{1F427}', 'пингвины'),
+    PL('die Robbe', 'die Robben', '\u{1F9AD}', 'тюлени'),
+    PL('der Apfel', 'die Äpfel', '\u{1F34E}', 'яблоки'),
+    PL('die Banane', 'die Bananen', '\u{1F34C}', 'бананы'),
+    PL('die Erdbeere', 'die Erdbeeren', '\u{1F353}', 'клубника'),
+    PL('die Traube', 'die Trauben', '\u{1F347}', 'виноград'),
+    PL('die Karotte', 'die Karotten', '\u{1F955}', 'морковки'),
+    PL('die Tomate', 'die Tomaten', '\u{1F345}', 'помидоры'),
+    PL('die Gurke', 'die Gurken', '\u{1F952}', 'огурцы'),
+    PL('das Brot', 'die Brote', '\u{1F35E}', 'хлеба'),
+    PL('der Keks', 'die Kekse', '\u{1F36A}', 'печенья'),
+    PL('das Ei', 'die Eier', '\u{1F95A}', 'яйца'),
+    PL('das Auto', 'die Autos', '\u{1F697}', 'машины'),
+    PL('der Bus', 'die Busse', '\u{1F68C}', 'автобусы'),
+    PL('das Fahrrad', 'die Fahrräder', '\u{1F6B2}', 'велосипеды'),
+    PL('der Zug', 'die Züge', '\u{1F686}', 'поезда'),
+    PL('das Flugzeug', 'die Flugzeuge', '\u{2708}\u{FE0F}', 'самолёты'),
+    PL('das Schiff', 'die Schiffe', '\u{1F6A2}', 'корабли'),
+    PL('der Traktor', 'die Traktoren', '\u{1F69C}', 'тракторы'),
+    PL('das T-Shirt', 'die T-Shirts', '\u{1F455}', 'футболки'),
+    PL('die Hose', 'die Hosen', '\u{1F456}', 'штаны'),
+    PL('das Kleid', 'die Kleider', '\u{1F457}', 'платья'),
+    PL('die Socke', 'die Socken', '\u{1F9E6}', 'носки'),
+    PL('der Schuh', 'die Schuhe', '\u{1F45F}', 'ботинки'),
+    PL('die Mütze', 'die Mützen', '\u{1F9E2}', 'шапки'),
+    PL('der Handschuh', 'die Handschuhe', '\u{1F9E4}', 'перчатки'),
+    PL('die Jacke', 'die Jacken', '\u{1F9E5}', 'куртки'),
+    PL('der Hut', 'die Hüte', '\u{1F452}', 'шляпы'),
+    PL('die Rakete', 'die Raketen', '\u{1F680}', 'ракеты'),
+    PL('der Planet', 'die Planeten', '\u{1FA90}', 'планеты'),
+    PL('der Stern', 'die Sterne', '\u{2B50}', 'звёзды')
+  ];
+
+  // Противоположности. Прилагательных в наборе не было вовсе, кроме
+  // цветов. Каждое показано картинкой, по которой признак виден без слов:
+  // слон большой, мышь маленькая — объяснять нечего.
+  const G = (de, ru, e) => ({ de: de, ru: ru, e: e, s: 'ding', skipPic: true });
+  const GEGEN = [
+    [G('groß', 'большой', '\u{1F418}'), G('klein', 'маленький', '\u{1F42D}')],
+    [G('heiß', 'горячий', '\u{1F525}'), G('kalt', 'холодный', '\u{1F9CA}')],
+    [G('schnell', 'быстрый', '\u{1F406}'), G('langsam', 'медленный', '\u{1F422}')],
+    [G('hell', 'светлый', '\u{2600}\u{FE0F}'), G('dunkel', 'тёмный', '\u{1F311}')],
+    [G('laut', 'громкий', '\u{1F4E2}'), G('leise', 'тихий', '\u{1F92B}')],
+    [G('fröhlich', 'весёлый', '\u{1F600}'), G('traurig', 'грустный', '\u{1F622}')],
+    [G('alt', 'старый', '\u{1F474}'), G('jung', 'молодой', '\u{1F476}')],
+    [G('nass', 'мокрый', '\u{1F327}\u{FE0F}'), G('trocken', 'сухой', '\u{1F3DC}\u{FE0F}')],
+    [G('voll', 'полный', '\u{1F50B}'), G('leer', 'пустой', '\u{1FAAB}')]
+  ];
+
   window.YEVA_WORDS = {
-    version: 13,
+    version: 14,
     colors: COLORS,
     numbers: NUMBERS,
     numbersBig: BIG,
     math: MATH,
     plus: PLUS,
     minus: MINUS,
+    plural: PLURAL,
+    gegen: GEGEN,
     body: BODY,
 
     // фоновые украшения для миров, где вместо облаков что-то своё
@@ -365,13 +455,15 @@
     MATH.forEach(add);          // plus / ist gleich / minus — связки для сложения
     PLUS.forEach(add);          // «eins plus eins ist gleich» — фразы целиком
     MINUS.forEach(add);         // «sieben minus zwei ist gleich» — тоже целиком
+    PLURAL.forEach(add);        // множественное: die Hunde, die Äpfel
+    GEGEN.forEach(p => p.forEach(add));   // большой — маленький и прочие пары
     return out;
   })();
 
   // Только те слова, которые можно показать картинкой.
   // unique нужен озвучке (там есть и слова без эмодзи, вроде der Bauch),
   // а играм с карточками нужен именно этот список.
-  window.YEVA_WORDS.pictured = window.YEVA_WORDS.unique.filter(a => a.e);
+  window.YEVA_WORDS.pictured = window.YEVA_WORDS.unique.filter(a => a.e && !a.skipPic);
 
   // 'die Katze' -> 'katze'
   window.YEVA_WORDS.slug = a => (typeof a === 'string' ? a : a.de)
