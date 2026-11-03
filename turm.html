@@ -114,15 +114,29 @@
   /* цифра поверх накладок у бочки и сундука */
   .blk span{position:relative;z-index:1}
 
-  /* ── формы: опора у всех одна, меняется только силуэт ── */
-  .blk.f1{border-radius:40% / 16%}
-  .blk.f2{border-radius:7px}
-  .blk.f2::before{content:'';position:absolute;inset:14%;border-radius:4px;
+  /* ── узоры ──────────────────────────────────────────────────
+     Все блоки строго прямоугольные с плоским верхом и низом: круглые
+     бока разрушали ощущение, что блоки лежат друг на друге. Разница
+     только в накладках и размере. */
+  .blk.f1{border-radius:7px}
+  .blk.f1::before{content:'';position:absolute;inset:14%;border-radius:4px;
     border:2.5px solid rgba(255,255,255,.34)}
-  .blk.f3{border-radius:30%/34%}
-  .blk.f4{border-radius:46% 46% 14% 14% / 32% 32% 11% 11%}
-  .blk.f5::before{content:'';position:absolute;left:0;right:0;top:0;height:36%;
-    border-radius:11px 11px 0 0;background:rgba(255,255,255,.24)}
+  .blk.f2::before{content:'';position:absolute;left:0;right:0;top:0;height:32%;
+    border-radius:10px 10px 0 0;background:rgba(255,255,255,.26);
+    border-bottom:2px solid rgba(255,255,255,.3)}
+  .blk.f3{border-radius:8px}
+  .blk.f3::before{content:'';position:absolute;inset:0;border-radius:8px;
+    background:linear-gradient(90deg,transparent 30%,rgba(255,255,255,.26) 30%,
+      rgba(255,255,255,.26) 35%,transparent 35%,transparent 65%,
+      rgba(255,255,255,.26) 65%,rgba(255,255,255,.26) 70%,transparent 70%)}
+  .blk.f4::before{content:'';position:absolute;inset:0;border-radius:10px;
+    background:linear-gradient(180deg,transparent 24%,rgba(255,255,255,.26) 24%,
+      rgba(255,255,255,.26) 32%,transparent 32%,transparent 68%,
+      rgba(255,255,255,.26) 68%,rgba(255,255,255,.26) 76%,transparent 76%)}
+  /* косая штриховка: цоколь снизу слишком походил на крышку сверху */
+  .blk.f5{border-radius:13px;overflow:hidden}
+  .blk.f5::before{content:'';position:absolute;inset:0;
+    background:repeating-linear-gradient(45deg,transparent 0 10px,rgba(255,255,255,.2) 10px 20px)}
 
   /* каждый десятый — призовой, его видно заранее */
   .blk.gold{
@@ -351,7 +365,12 @@
   const ZOO = ['\u{1F43B}', '\u{1F98A}', '\u{1F438}', '\u{1F435}', '\u{1F981}', '\u{1F428}',
                '\u{1F43C}', '\u{1F984}', '\u{1F422}', '\u{1F419}', '\u{1F989}', '\u{1F98B}',
                '\u{1F42C}', '\u{1F41D}', '\u{1F994}', '\u{1F427}'];
-  const FORMS = 6;      // столько силуэтов у блоков
+  const FORMS = 6;      // столько узоров у блоков
+  // Длина блока тоже гуляет — это и есть разнообразие вместо круглых
+  // боков. Узкий блок честно хуже держит следующий: опора и правда
+  // меньше. Поэтому два необычных подряд не выпадают, а первый блок
+  // раунда и призовой всегда обычные.
+  const WK = { wide: 1.32, slim: 0.76 };
 
   const CFG = {
     wide: 0.23,     // ширина блока от ширины поля
@@ -497,7 +516,7 @@
   /* ── состояние ── */
   let level = 1, best = 0, target = CFG.base;
   let pts = 0, bestPts = 0, zoo = [];
-  let liveForm = 0, bag = [];
+  let liveForm = 0, bag = [], liveW = 0, lastWK = 1;
   let blocks = [];            // { x, el } — x это центр блока
   let cartX = 0, dir = 1, speed = 0, swing = 0;
   let live = null;            // блок на крюке или в полёте
@@ -530,7 +549,7 @@
       for (let i = k; i < blocks.length; i++) sum += blocks[i].x;
       const com = sum / (blocks.length - k);
       const off = com - blocks[k - 1].x;
-      const r = Math.abs(off) / (W / 2 * CFG.grip);
+      const r = Math.abs(off) / (blocks[k - 1].w / 2 * CFG.grip);
       if (r > worst) { worst = r; sign = off < 0 ? -1 : 1; at = k; }
     }
     return { r: worst, sign: sign, at: at };
@@ -605,16 +624,24 @@
 
   const isPrize = n => n % CFG.prize === 0;
 
-  function makeEl(n, x, form, cls) {
+  // длина следующего блока: обычная, длинная или узкая
+  function nextWidth(n) {
+    if (n === 1 || level < 2 || isPrize(n) || lastWK !== 1) { lastWK = 1; return W; }
+    const r = Math.random();
+    lastWK = r < 0.2 ? WK.wide : r < 0.36 ? WK.slim : 1;
+    return Math.round(W * lastWK);
+  }
+
+  function makeEl(n, x, w, form, cls) {
     const el = document.createElement('div');
     el.className = 'blk f' + form + (isPrize(n) ? ' gold' : '') + (cls ? ' ' + cls : '');
-    el.style.width = W + 'px';
+    el.style.width = w + 'px';
     el.style.height = H + 'px';
     if (!isPrize(n)) el.style.background = COLORS[(n - 1) % COLORS.length];
     el.style.fontSize = Math.round(H * 0.46) + 'px';
     el.innerHTML = '<span></span>';
     el.firstChild.textContent = n;
-    el.style.left = Math.round(x - W / 2) + 'px';
+    el.style.left = Math.round(x - w / 2) + 'px';
     return el;
   }
 
@@ -622,7 +649,8 @@
     if (phase === 'over' || phase === 'won') return;
     const n = blocks.length + 1;
     liveForm = nextForm();
-    live = makeEl(n, cartX, liveForm, 'live');
+    liveW = nextWidth(n);
+    live = makeEl(n, cartX, liveW, liveForm, 'live');
     live.style.top = hookY + 'px';
     $('stage').appendChild(live);
     liveY = hookY;
@@ -635,7 +663,7 @@
     initAudio();
     $('hand').classList.add('gone');
     liveX = typeof forceX === 'number' ? forceX : cartX + swingX();
-    live.style.left = Math.round(liveX - W / 2) + 'px';
+    live.style.left = Math.round(liveX - liveW / 2) + 'px';
     fallV = 0;
     phase = 'fall';
     clack();
@@ -650,24 +678,28 @@
 
   function land() {
     const n = blocks.length + 1;
-    const prev = blocks.length ? blocks[blocks.length - 1].x : liveX;
+    const top = blocks.length ? blocks[blocks.length - 1] : null;
+    const prev = top ? top.x : liveX;
+    // мерки берём от опоры, а не от своего блока: узкий держит хуже,
+    // длинный — лучше, и это честно и для попадания, и для равновесия
+    const sup = top ? top.w : liveW;
     let x = liveX;
     const dx = x - prev;
 
     // мимо: держаться не на чем, блок соскальзывает
-    if (blocks.length && Math.abs(dx) > W * CFG.slip) {
+    if (top && Math.abs(dx) > sup * CFG.slip) {
       slip(dx < 0 ? -1 : 1);
       return;
     }
     // почти в точку — равняем, чтобы точность вознаграждалась
     let neat = false;
-    if (blocks.length && Math.abs(dx) <= W * CFG.snap) { x = prev; neat = true; }
+    if (top && Math.abs(dx) <= sup * CFG.snap) { x = prev; neat = true; }
 
-    const el = makeEl(n, x, liveForm, 'pop');
+    const el = makeEl(n, x, liveW, liveForm, 'pop');
     el.style.bottom = ((n - 1) * H) + 'px';
     $('tower').appendChild(el);
     if (live) { live.remove(); live = null; }
-    blocks.push({ x: x, el: el });
+    blocks.push({ x: x, w: liveW, el: el });
 
     thud(); buzz(neat ? [12, 40, 12] : 18);
     if (neat) tone('triangle', 1180, 0.02, 0.18, 0.22);
@@ -827,8 +859,9 @@
     if (phase === 'over') return;
     clock += dt;
 
-    // тележка крана
-    const lo = W * 0.6, hi = SW - W * 0.6;
+    // тележка крана: длинный блок не должен уезжать за край поля
+    const half = (liveW || W) * 0.56;
+    const lo = Math.min(half, SW / 2), hi = Math.max(SW - half, SW / 2);
     cartX += dir * speed * dt;
     if (cartX > hi) { cartX = hi; dir = -1; }
     if (cartX < lo) { cartX = lo; dir = 1; }
@@ -839,7 +872,7 @@
     $('rope').style.transform = 'rotate(' + swing.toFixed(2) + 'deg)';
 
     if (phase === 'hang' && live) {
-      live.style.left = Math.round(cartX + swingX() - W / 2) + 'px';
+      live.style.left = Math.round(cartX + swingX() - liveW / 2) + 'px';
       return;
     }
     if (phase === 'fall' && live) {
@@ -862,6 +895,8 @@
     speed = SW * Math.min(1.05, 0.30 + 0.075 * (level - 1));
     pts = 0;
     bag = [];
+    lastWK = 1;
+    liveW = W;
     if (live) { live.remove(); live = null; }
     $('gift').classList.remove('go');
     paintProgress(); paintScore(); paintTower();
@@ -921,14 +956,16 @@
       const k = W / oldW;
       blocks.forEach((b, i) => {
         b.x = b.x * k;
-        b.el.style.width = W + 'px';
+        b.w = Math.round(b.w * k);          // длинные и узкие тянутся вместе со всеми
+        b.el.style.width = b.w + 'px';
         b.el.style.height = H + 'px';
-        b.el.style.left = Math.round(b.x - W / 2) + 'px';
+        b.el.style.left = Math.round(b.x - b.w / 2) + 'px';
         b.el.style.bottom = (i * H) + 'px';
         b.el.style.fontSize = Math.round(H * 0.46) + 'px';
       });
       if (live) {
-        live.style.width = W + 'px';
+        liveW = Math.round(liveW * k);
+        live.style.width = liveW + 'px';
         live.style.height = H + 'px';
         live.style.fontSize = Math.round(H * 0.46) + 'px';
       }
@@ -970,6 +1007,7 @@
     state: () => ({ phase: phase, level: level, target: target, best: best,
                     pts: pts, bestPts: bestPts, zoo: zoo.slice(),
                     n: blocks.length, xs: blocks.map(b => b.x), W: W, H: H,
+                    ws: blocks.map(b => b.w), liveW: liveW,
                     cartX: cartX, speed: speed, cam: camY(), bal: balance(),
                     forms: blocks.map(b => (b.el.className.match(/\bf(\d)\b/) || [0, -1])[1]) }),
     drop: drop,
