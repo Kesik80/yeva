@@ -31,15 +31,32 @@
 
   /* ── верхняя полоса ── */
   .top{display:flex;align-items:center;gap:8px;flex:none}
-  .stars{
-    display:flex;gap:3px;flex:1;min-width:0;overflow:hidden;
-    background:rgba(255,255,255,.72);border-radius:999px;padding:9px 11px;
+  /* Полоса вместо точек: целей теперь до тридцати блоков, тридцать
+     точек в строку не влезают. На полосе отмечены места призов —
+     видно, сколько осталось до следующего зверя. */
+  .track{
+    position:relative;flex:1;min-width:0;height:38px;border-radius:999px;overflow:hidden;
+    background:rgba(255,255,255,.72);
     -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
     box-shadow:0 5px 16px rgba(21,56,79,.14);
   }
-  .stars i{flex:1 1 8px;max-width:15px;min-width:5px;aspect-ratio:1;border-radius:50%;
-    background:rgba(21,56,79,.14);transition:transform .3s,background .3s}
-  .stars i.on{background:linear-gradient(160deg,#FFD86E,#F2913A);transform:scale(1.12)}
+  .track .fill{
+    position:absolute;left:0;top:0;bottom:0;width:0;
+    background:linear-gradient(90deg,#FFD86E,#F2913A);transition:width .35s ease;
+  }
+  .track .marks{position:absolute;inset:0;pointer-events:none}
+  /* отметки у нижнего края: полоса на телефоне узкая, по центру они
+     налезали на счёт */
+  .track .marks i{
+    position:absolute;top:76%;width:8px;height:8px;margin:-4px 0 0 -4px;
+    border-radius:50%;background:rgba(21,56,79,.22);
+    transition:background .3s,transform .3s,box-shadow .3s;
+  }
+  .track .marks i.on{background:#fff;transform:scale(1.25);box-shadow:0 0 0 2px rgba(242,145,58,.95)}
+  .track .cnt{
+    position:absolute;inset:0;display:grid;place-items:center;
+    font-size:13.5px;font-weight:600;color:#15384F;font-variant-numeric:tabular-nums;
+  }
   .score{
     flex:none;display:flex;gap:8px;align-items:center;
     background:rgba(255,255,255,.72);border-radius:999px;padding:9px 11px;
@@ -94,6 +111,26 @@
     box-shadow:inset 0 3px 0 rgba(255,255,255,.4),inset 0 -4px 0 rgba(0,0,0,.14),
                0 3px 8px rgba(21,56,79,.2);
   }
+  /* цифра поверх накладок у бочки и сундука */
+  .blk span{position:relative;z-index:1}
+
+  /* ── формы: опора у всех одна, меняется только силуэт ── */
+  .blk.f1{border-radius:40% / 16%}
+  .blk.f2{border-radius:7px}
+  .blk.f2::before{content:'';position:absolute;inset:14%;border-radius:4px;
+    border:2.5px solid rgba(255,255,255,.34)}
+  .blk.f3{border-radius:30%/34%}
+  .blk.f4{border-radius:46% 46% 14% 14% / 32% 32% 11% 11%}
+  .blk.f5::before{content:'';position:absolute;left:0;right:0;top:0;height:36%;
+    border-radius:11px 11px 0 0;background:rgba(255,255,255,.24)}
+
+  /* каждый десятый — призовой, его видно заранее */
+  .blk.gold{
+    background:linear-gradient(160deg,#FFE792,#EFA324);
+    box-shadow:inset 0 3px 0 rgba(255,255,255,.6),inset 0 -4px 0 rgba(150,86,0,.22),
+               0 0 0 3px rgba(255,255,255,.6),0 4px 16px rgba(240,168,44,.65);
+    color:#6B3C00;text-shadow:0 1px 0 rgba(255,255,255,.5);
+  }
   .blk.live{z-index:6}
   .blk.pop{animation:pop .34s cubic-bezier(.3,1.5,.5,1)}
   @keyframes pop{0%{transform:scaleY(.72) scaleX(1.1)}60%{transform:scaleY(1.06) scaleX(.97)}100%{transform:none}}
@@ -137,6 +174,34 @@
     22%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}
     70%{opacity:1;transform:translate(-50%,-62%) scale(1)}
     100%{opacity:0;transform:translate(-50%,-78%) scale(1)}
+  }
+
+  /* очки за точное попадание всплывают над блоком */
+  .plus{
+    position:absolute;font-size:clamp(17px,5vw,23px);font-weight:600;color:#1C8F6E;
+    pointer-events:none;z-index:11;white-space:nowrap;
+    text-shadow:0 2px 7px rgba(255,255,255,.95),0 0 3px rgba(255,255,255,.9);
+    animation:rise .95s ease-out forwards;
+  }
+  @keyframes rise{
+    0%{opacity:0;transform:translate(-50%,0) scale(.8)}
+    22%{opacity:1;transform:translate(-50%,-14px) scale(1.12)}
+    100%{opacity:0;transform:translate(-50%,-62px) scale(1)}
+  }
+
+  /* приз за каждые десять блоков */
+  .gift{
+    position:absolute;left:50%;top:42%;opacity:0;z-index:13;pointer-events:none;
+    font-size:clamp(54px,18vw,100px);line-height:1;
+    filter:drop-shadow(0 10px 22px rgba(21,56,79,.32));
+    transform:translate(-50%,-50%) scale(.3);
+  }
+  .gift.go{animation:gift 1.7s cubic-bezier(.2,1.2,.4,1) forwards}
+  @keyframes gift{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.3) rotate(-18deg)}
+    20%{opacity:1;transform:translate(-50%,-50%) scale(1.18) rotate(7deg)}
+    52%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}
+    100%{opacity:0;transform:translate(-50%,-146%) scale(.55)}
   }
 
   /* ── салют ── */
@@ -184,6 +249,9 @@
     background:rgba(255,255,255,.6);border-radius:16px;padding:10px 12px;
   }
   .stats b{color:#15384F;font-weight:600}
+  .zoo{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-top:9px;font-size:21px;line-height:1.1}
+  .zoo span{transition:opacity .3s}
+  .zoo span.off{opacity:.26;filter:grayscale(1)}
   .stats button{
     width:auto;margin:8px auto 0;padding:6px 12px;font-size:12px;border-radius:9px;
     border:0;background:rgba(21,56,79,.07);color:rgba(21,56,79,.6);
@@ -203,6 +271,7 @@
     .panel{padding:14px 18px 16px}
     .panel h1{font-size:21px}
     .stats{margin-top:9px;font-size:12.5px}
+    .zoo{font-size:16px;gap:2px;margin-top:6px}
     .tip{margin-top:7px}
     .big{margin-top:12px;width:min(24vh,104px)}
   }
@@ -218,7 +287,11 @@
 <script src="words.js"></script>
 
 <div class="top">
-  <div class="stars" id="stars"></div>
+  <div class="track" id="track">
+    <i class="fill" id="pfill"></i>
+    <span class="marks" id="marks"></span>
+    <b class="cnt" id="cnt"></b>
+  </div>
   <div class="score" id="score"></div>
   <button class="btn" id="btnAgain" aria-label="Заново">
     <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.6 5.9"/><path d="M20 4v7h-7"/></svg>
@@ -238,6 +311,7 @@
     <div class="tower" id="tower"></div>
   </div>
   <div class="boom" id="boom"></div>
+  <div class="gift" id="gift"></div>
   <div class="flash" id="flash"></div>
   <div class="hand" id="hand">Tippe!</div>
 </div>
@@ -248,7 +322,8 @@
     <div class="ru">Башня</div>
     <div class="stats" id="stats"></div>
     <div class="tip">Кран катается вверху. Нажми на поле — и блок упадёт.
-      Ставь блоки друг на друга ровно: если башня перекосится, она развалится.
+      Ставь ровно: за точное попадание три очка, а за каждые десять блоков —
+      новый зверь в коллекцию. Если башня перекосится, она развалится.
       Каждый блок кран называет по-немецки — так и считаем до самого верха</div>
     <button class="big" id="btnStart" aria-label="Играть">
       <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
@@ -268,6 +343,15 @@
 
   const K_LV = 'yeva.turm.level';
   const K_BEST = 'yeva.turm.best';
+  const K_PTS = 'yeva.turm.points';
+  const K_ZOO = 'yeva.turm.zoo';
+
+  // призовые звери: по одному за каждые десять блоков. Пока собраны
+  // не все, выдаётся следующий невиданный — за новым и возвращаются
+  const ZOO = ['\u{1F43B}', '\u{1F98A}', '\u{1F438}', '\u{1F435}', '\u{1F981}', '\u{1F428}',
+               '\u{1F43C}', '\u{1F984}', '\u{1F422}', '\u{1F419}', '\u{1F989}', '\u{1F98B}',
+               '\u{1F42C}', '\u{1F41D}', '\u{1F994}', '\u{1F427}'];
+  const FORMS = 6;      // столько силуэтов у блоков
 
   const CFG = {
     wide: 0.23,     // ширина блока от ширины поля
@@ -285,10 +369,13 @@
     snap: 0.11,     // ближе этого считаем «в точку» и равняем
     line: 0.58,     // на какой высоте поля держим верх башни
     hook: 0.17,     // где висит блок на крюке
-    base: 7,        // блоков в первом раунде
-    top: 16,        // больше этого цель не растёт
+    base: 10,       // блоков в первом раунде
+    step: 5,        // на столько цель растёт с каждым уровнем
+    top: 30,        // больше этого цель пока не поднимается
+    prize: 10,      // приз за каждые столько блоков
     lvMax: 12
   };
+  const goalFor = lv => Math.min(CFG.top, CFG.base + CFG.step * (lv - 1));
 
   const COLORS = ['#E8705C', '#F0A24B', '#5FC45A', '#4FC3A1', '#58B8E8',
                   '#8E86E0', '#E880A8', '#39B3C4'];
@@ -409,6 +496,8 @@
 
   /* ── состояние ── */
   let level = 1, best = 0, target = CFG.base;
+  let pts = 0, bestPts = 0, zoo = [];
+  let liveForm = 0, bag = [];
   let blocks = [];            // { x, el } — x это центр блока
   let cartX = 0, dir = 1, speed = 0, swing = 0;
   let live = null;            // блок на крюке или в полёте
@@ -458,20 +547,34 @@
     $('world').style.transform = 'translateY(' + camY().toFixed(1) + 'px)';
   }
 
-  function paintStars() {
-    const box = $('stars');
-    if (box.children.length !== target) {
+  function paintProgress() {
+    const n = blocks.length;
+    $('pfill').style.width = Math.min(100, n / target * 100).toFixed(1) + '%';
+    $('cnt').textContent = n + ' / ' + target;
+    const box = $('marks');
+    // отметки призов — только те, что раньше цели: последний приз и так
+    // совпадает с концом раунда
+    const want = [];
+    for (let p = CFG.prize; p < target; p += CFG.prize) want.push(p);
+    if (box.children.length !== want.length) {
       box.innerHTML = '';
-      for (let i = 0; i < target; i++) box.appendChild(document.createElement('i'));
+      want.forEach(p => {
+        const i = document.createElement('i');
+        i.style.left = (p / target * 100).toFixed(1) + '%';
+        box.appendChild(i);
+      });
     }
-    for (let i = 0; i < target; i++) {
-      box.children[i].classList.toggle('on', i < blocks.length);
-    }
+    want.forEach((p, i) => box.children[i].classList.toggle('on', n >= p));
   }
 
   function paintScore() {
     $('score').innerHTML = '<span class="lv">Stufe ' + level + '</span>' +
-      '<span class="bs">★ ' + best + '</span>';
+      '<span class="bs">◆ ' + pts + '</span>';
+  }
+
+  function zooHtml() {
+    return '<div class="zoo">' + ZOO.map((e, i) =>
+      '<span' + (zoo.indexOf(i) >= 0 ? '' : ' class="off"') + '>' + e + '</span>').join('') + '</div>';
   }
 
   function flash(text) {
@@ -483,14 +586,34 @@
   }
 
   /* ── блоки ── */
-  function makeEl(n, x, cls) {
+  // силуэты тянем мешком, а не подряд: соседи всегда разные, но и
+  // ни одна форма надолго не пропадает
+  function nextForm() {
+    if (!bag.length) {
+      for (let i = 0; i < FORMS; i++) bag.push(i);
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = bag[i]; bag[i] = bag[j]; bag[j] = t;
+      }
+      // на стыке мешков форма могла повториться — отодвигаем её
+      if (bag[bag.length - 1] === liveForm && bag.length > 1) {
+        const t = bag[bag.length - 1]; bag[bag.length - 1] = bag[0]; bag[0] = t;
+      }
+    }
+    return bag.pop();
+  }
+
+  const isPrize = n => n % CFG.prize === 0;
+
+  function makeEl(n, x, form, cls) {
     const el = document.createElement('div');
-    el.className = 'blk' + (cls ? ' ' + cls : '');
+    el.className = 'blk f' + form + (isPrize(n) ? ' gold' : '') + (cls ? ' ' + cls : '');
     el.style.width = W + 'px';
     el.style.height = H + 'px';
-    el.style.background = COLORS[(n - 1) % COLORS.length];
+    if (!isPrize(n)) el.style.background = COLORS[(n - 1) % COLORS.length];
     el.style.fontSize = Math.round(H * 0.46) + 'px';
-    el.textContent = n;
+    el.innerHTML = '<span></span>';
+    el.firstChild.textContent = n;
     el.style.left = Math.round(x - W / 2) + 'px';
     return el;
   }
@@ -498,7 +621,8 @@
   function hang() {
     if (phase === 'over' || phase === 'won') return;
     const n = blocks.length + 1;
-    live = makeEl(n, cartX, 'live');
+    liveForm = nextForm();
+    live = makeEl(n, cartX, liveForm, 'live');
     live.style.top = hookY + 'px';
     $('stage').appendChild(live);
     liveY = hookY;
@@ -539,7 +663,7 @@
     let neat = false;
     if (blocks.length && Math.abs(dx) <= W * CFG.snap) { x = prev; neat = true; }
 
-    const el = makeEl(n, x, 'pop');
+    const el = makeEl(n, x, liveForm, 'pop');
     el.style.bottom = ((n - 1) * H) + 'px';
     $('tower').appendChild(el);
     if (live) { live.remove(); live = null; }
@@ -548,14 +672,48 @@
     thud(); buzz(neat ? [12, 40, 12] : 18);
     if (neat) tone('triangle', 1180, 0.02, 0.18, 0.22);
     say(n, 60);
-    paintStars(); paintTower();
+
+    // очки: за блок один, за точное попадание три — и видно, за что
+    pts += neat ? 3 : 1;
+    if (neat) { tone('triangle', 1570, 0.09, 0.16, 0.18); plus('+3', x, towerTop()); }
+    paintProgress(); paintScore(); paintTower();
 
     const b = balance();
     if (b.r >= 1) { later(() => collapse(b.at), 260); return; }
 
-    if (blocks.length > best) { best = blocks.length; store.set(K_BEST, best); paintScore(); }
-    if (blocks.length >= target) { later(win, 420); return; }
-    later(hang, 240);
+    if (blocks.length > best) { best = blocks.length; store.set(K_BEST, best); }
+    if (pts > bestPts) { bestPts = pts; store.set(K_PTS, bestPts); }
+
+    const gift = isPrize(blocks.length) ? givePrize() : false;
+    if (blocks.length >= target) { later(win, gift ? 1100 : 420); return; }
+    later(hang, gift ? 1500 : 240);
+  }
+
+  // всплывающие очки над местом, куда сел блок
+  function plus(text, x, y) {
+    const el = document.createElement('div');
+    el.className = 'plus';
+    el.textContent = text;
+    el.style.left = Math.round(x) + 'px';
+    el.style.top = Math.round(Math.max(24, y - 6)) + 'px';
+    $('stage').appendChild(el);
+    setTimeout(() => el.remove(), 1000);
+  }
+
+  /* ── приз за каждые десять блоков ── */
+  function givePrize() {
+    let idx;
+    if (zoo.length < ZOO.length) { idx = zoo.length; zoo.push(idx); store.set(K_ZOO, zoo.join(',')); }
+    else idx = Math.floor(Math.random() * ZOO.length);
+    const g = $('gift');
+    g.textContent = ZOO[idx];
+    g.classList.remove('go');
+    void g.offsetWidth;
+    g.classList.add('go');
+    boom(blocks[blocks.length - 1].x, Math.max(26, towerTop()));
+    confetti(26);
+    yay(); buzz([15, 40, 15, 40, 15]);
+    return true;
   }
 
   // блок не удержался и улетел вниз
@@ -592,9 +750,10 @@
     if (live) { live.remove(); live = null; }
     flash('Oh nein!');
     later(() => {
-      $('stats').innerHTML = 'Башня упала на <b>' + blocks.length + '</b> блоке.<br>' +
-        'Самая высокая: <b>' + best + '</b>' +
-        '<div style="margin-top:4px;opacity:.75">Уровень остаётся — попробуй ещё раз</div>';
+      $('stats').innerHTML = 'Башня упала на <b>' + blocks.length + '</b> блоке · очков <b>' + pts + '</b><br>' +
+        'Рекорд: <b>' + best + '</b> блоков, <b>' + bestPts + '</b> очков' +
+        '<div style="margin-top:4px;opacity:.75">Уровень остаётся — попробуй ещё раз</div>' +
+        zooHtml();
       $('veil').classList.remove('hidden');
     }, 1500);
   }
@@ -609,12 +768,19 @@
     if (live) { live.remove(); live = null; }
     if (level < CFG.lvMax) level++;
     store.set(K_LV, level);
-    later(() => { flash('Stufe ' + level); tone('triangle', 880, 0, 0.2, 0.25, 1320); }, 1200);
+    later(() => {
+      flash('Stufe ' + level + ' · ' + goalFor(level));
+      tone('triangle', 880, 0, 0.2, 0.25, 1320);
+    }, 1200);
     later(round, 2600);
   }
 
+  let boomClear = 0;
   function boom(x, y) {
     const box = $('boom');
+    // приз и победа идут один за другим: уборка от первого салюта
+    // успевала стереть второй
+    clearTimeout(boomClear);
     box.innerHTML = '';
     box.style.left = Math.round(x) + 'px';
     box.style.top = Math.round(y) + 'px';
@@ -637,7 +803,7 @@
       dot.style.animationDelay = (Math.random() * 0.12).toFixed(2) + 's';
       box.appendChild(dot);
     }
-    setTimeout(() => { box.innerHTML = ''; }, 1200);
+    boomClear = setTimeout(() => { box.innerHTML = ''; }, 1200);
   }
 
   function confetti(n) {
@@ -692,10 +858,13 @@
     $('tower').classList.remove('sway');
     $('tower').style.transform = 'none';
     blocks = [];
-    target = Math.min(CFG.top, CFG.base + (level - 1));
+    target = goalFor(level);
     speed = SW * Math.min(1.05, 0.30 + 0.075 * (level - 1));
+    pts = 0;
+    bag = [];
     if (live) { live.remove(); live = null; }
-    paintStars(); paintScore(); paintTower();
+    $('gift').classList.remove('go');
+    paintProgress(); paintScore(); paintTower();
     phase = 'wait';
     hang();
   }
@@ -770,26 +939,39 @@
   /* ── первый экран ── */
   level = Math.max(1, Math.min(CFG.lvMax, +store.get(K_LV, 1) || 1));
   best = Math.max(0, +store.get(K_BEST, 0) || 0);
+  bestPts = Math.max(0, +store.get(K_PTS, 0) || 0);
+  // пустая строка даёт [''], а +'' это ноль — без отсева пустая
+  // коллекция читалась бы как «один медведь уже есть»
+  zoo = String(store.get(K_ZOO, '')).split(',')
+    .filter(v => v !== '')
+    .map(v => +v)
+    .filter(v => Number.isInteger(v) && v >= 0 && v < ZOO.length);
   measure();
-  target = Math.min(CFG.top, CFG.base + (level - 1));
-  paintStars(); paintScore();
+  target = goalFor(level);
+  paintProgress(); paintScore();
 
-  $('stats').innerHTML = 'Уровень <b>' + level + '</b> · собрать <b>' + target + '</b> блоков<br>' +
-    'Самая высокая башня: <b>' + best + '</b>' +
-    (level > 1 || best ? '<button id="btnReset">начать с первого уровня</button>' : '');
-  const rst = $('btnReset');
-  if (rst) rst.addEventListener('click', () => {
-    level = 1; best = 0;
-    store.set(K_LV, 1); store.set(K_BEST, 0);
-    target = CFG.base;
-    paintStars(); paintScore();
-    $('stats').innerHTML = 'Уровень <b>1</b> · собрать <b>' + target + '</b> блоков<br>Самая высокая башня: <b>0</b>';
-  });
+  function panel() {
+    $('stats').innerHTML = 'Уровень <b>' + level + '</b> · собрать <b>' + target + '</b> блоков<br>' +
+      'Рекорд: <b>' + best + '</b> блоков, <b>' + bestPts + '</b> очков<br>' +
+      '<span style="opacity:.75">Зверей собрано: <b>' + zoo.length + '</b> из ' + ZOO.length + '</span>' +
+      zooHtml() +
+      (level > 1 || best || zoo.length ? '<button id="btnReset">начать сначала</button>' : '');
+    const rst = $('btnReset');
+    if (rst) rst.addEventListener('click', () => {
+      level = 1; best = 0; bestPts = 0; zoo = [];
+      store.set(K_LV, 1); store.set(K_BEST, 0); store.set(K_PTS, 0); store.set(K_ZOO, '');
+      target = goalFor(1);
+      paintProgress(); paintScore(); panel();
+    });
+  }
+  panel();
 
   window.YEVA_TURM = {
     state: () => ({ phase: phase, level: level, target: target, best: best,
+                    pts: pts, bestPts: bestPts, zoo: zoo.slice(),
                     n: blocks.length, xs: blocks.map(b => b.x), W: W, H: H,
-                    cartX: cartX, speed: speed, cam: camY(), bal: balance() }),
+                    cartX: cartX, speed: speed, cam: camY(), bal: balance(),
+                    forms: blocks.map(b => (b.el.className.match(/\bf(\d)\b/) || [0, -1])[1]) }),
     drop: drop,
     put: x => drop(x)
   };
