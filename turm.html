@@ -145,7 +145,11 @@
                0 0 0 3px rgba(255,255,255,.6),0 4px 16px rgba(240,168,44,.65);
     color:#6B3C00;text-shadow:0 1px 0 rgba(255,255,255,.5);
   }
-  .blk.live{z-index:6}
+  .blk{transition:left .25s ease}
+  .blk.live{z-index:6;transition:none}
+  /* качается сам блок вокруг своей середины: его место не меняется */
+  .blk.wob{animation:wob 1.25s ease-in-out infinite}
+  @keyframes wob{0%,100%{transform:rotate(var(--t))}50%{transform:rotate(calc(var(--t) * 1.5))}}
   .blk.pop{animation:pop .34s cubic-bezier(.3,1.5,.5,1)}
   @keyframes pop{0%{transform:scaleY(.72) scaleX(1.1)}60%{transform:scaleY(1.06) scaleX(.97)}100%{transform:none}}
   .blk.drop{transition:transform .7s cubic-bezier(.3,.1,.7,.5),opacity .5s ease-in .2s;opacity:0}
@@ -154,9 +158,7 @@
   /* башня стоит на траве в 22 px от низа поля, иначе нижний блок
      срезается краем и выглядит утонувшим */
   .world{position:absolute;left:0;right:0;bottom:22px;height:0;transition:transform .45s cubic-bezier(.3,0,.2,1)}
-  .tower{position:absolute;left:0;right:0;bottom:0;height:0;transition:transform .5s cubic-bezier(.3,0,.2,1)}
-  .tower.sway{animation:sway 1.5s ease-in-out infinite}
-  @keyframes sway{0%,100%{transform:rotate(var(--a))}50%{transform:rotate(calc(var(--a) * 1.5))}}
+  .tower{position:absolute;left:0;right:0;bottom:0;height:0}
   .ground{
     position:absolute;left:-20px;right:-20px;bottom:-24px;height:28px;border-radius:10px;
     background:linear-gradient(180deg,#8FD16A,#5FA83F);
@@ -291,7 +293,7 @@
   }
 
   @media (prefers-reduced-motion:reduce){
-    .big,.hand,.tower.sway{animation:none}
+    .big,.hand,.blk.wob{animation:none}
     .boom{display:none}
   }
 </style>
@@ -384,8 +386,17 @@
     // шире, чем она есть. Без этого трёх неряшливых броска в одну сторону
     // хватало, чтобы всё рухнуло без предупреждения — для трёхлетки это
     // просто обида. Теперь башня успевает накрениться и покачаться.
-    grip: 1.25,
-    snap: 0.11,     // ближе этого считаем «в точку» и равняем
+    grip: 1.4,
+    snap: 0.22,     // ближе этого блок прилипает и встаёт ровно
+    neat: 0.11,     // а ближе этого — «в точку», три очка
+    // Усадка: каждый удар чуть подталкивает блоки к линии основания.
+    // Без неё ошибки складываются в случайное блуждание, у башни
+    // появляется потолок по высоте и до тридцати не дойти никому.
+    // Два процента за удар — на глаз незаметно (блок, уехавший на
+    // 40 px, сдвигается меньше чем на миллиметр), но за тридцать
+    // ударов перекос уполовинивается.
+    settle: 0.02,
+    tilt: 4.2,      // на столько кренится блок у худшего стыка
     line: 0.58,     // на какой высоте поля держим верх башни
     hook: 0.17,     // где висит блок на крюке
     base: 10,       // блоков в первом раунде
@@ -543,6 +554,7 @@
      за опору под ним. Проверяем каждый стык и берём самый плохой:
      именно он и переломится. */
   function balance() {
+    const rs = [], sg = [];
     let worst = 0, sign = 1, at = 0;
     for (let k = 1; k < blocks.length; k++) {
       let sum = 0;
@@ -550,19 +562,28 @@
       const com = sum / (blocks.length - k);
       const off = com - blocks[k - 1].x;
       const r = Math.abs(off) / (blocks[k - 1].w / 2 * CFG.grip);
-      if (r > worst) { worst = r; sign = off < 0 ? -1 : 1; at = k; }
+      rs[k] = r; sg[k] = off < 0 ? -1 : 1;
+      if (r > worst) { worst = r; sign = sg[k]; at = k; }
     }
-    return { r: worst, sign: sign, at: at };
+    return { r: worst, sign: sign, at: at, rs: rs, sg: sg };
   }
 
+  /* Кренятся сами блоки, каждый вокруг своей середины, а башня
+     целиком — нет. Раньше поворачивалась вся башня вокруг земли:
+     на экране она уезжала вбок, а блок падал туда, где игра держала
+     её БЕЗ поворота. Ребёнок целился в одно место, блок ложился в
+     другое, и чем сильнее крен, тем больше расходились картинка и
+     правда. Поворот вокруг середины блока ничего не сдвигает, так
+     что прицел теперь не врёт. */
   function paintTower() {
     const b = balance();
-    const deg = (Math.min(b.r, 1) * 5.5 * b.sign).toFixed(2);
-    const t = $('tower');
-    t.style.setProperty('--a', deg + 'deg');
-    t.style.transform = 'rotate(' + deg + 'deg)';
-    t.style.transformOrigin = (blocks.length ? blocks[0].x : SW / 2) + 'px 100%';
-    t.classList.toggle('sway', b.r > 0.62);
+    blocks.forEach((blk, i) => {
+      const r = Math.min(1, b.rs[i] || 0);
+      const deg = (r * CFG.tilt * (b.sg[i] || 1)).toFixed(2) + 'deg';
+      blk.el.style.setProperty('--t', deg);
+      blk.el.style.transform = 'rotate(' + deg + ')';
+      blk.el.classList.toggle('wob', r > 0.62);
+    });
     $('world').style.transform = 'translateY(' + camY().toFixed(1) + 'px)';
   }
 
@@ -691,9 +712,13 @@
       slip(dx < 0 ? -1 : 1);
       return;
     }
-    // почти в точку — равняем, чтобы точность вознаграждалась
-    let neat = false;
-    if (top && Math.abs(dx) <= sup * CFG.snap) { x = prev; neat = true; }
+    // Прилипание: если блок лёг близко к линии, он встаёт ровно.
+    // Окно щедрое (0.22 ширины опоры), иначе мелкие ошибки копятся
+    // в случайное блуждание и выше пятнадцати не подняться. Очки при
+    // этом остаются строгими: три дают только за попадание в точку.
+    let fit = 0;                       // 0 — криво, 1 — ровно, 2 — в точку
+    if (top && Math.abs(dx) <= sup * CFG.neat) { x = prev; fit = 2; }
+    else if (top && Math.abs(dx) <= sup * CFG.snap) { x = prev; fit = 1; }
 
     const el = makeEl(n, x, liveW, liveForm, 'pop');
     el.style.bottom = ((n - 1) * H) + 'px';
@@ -701,13 +726,27 @@
     if (live) { live.remove(); live = null; }
     blocks.push({ x: x, w: liveW, el: el });
 
-    thud(); buzz(neat ? [12, 40, 12] : 18);
-    if (neat) tone('triangle', 1180, 0.02, 0.18, 0.22);
+    thud(); buzz(fit === 2 ? [12, 40, 12] : 18);
+    if (fit) tone('triangle', fit === 2 ? 1180 : 980, 0.02, 0.18, 0.2);
     say(n, 60);
 
-    // очки: за блок один, за точное попадание три — и видно, за что
-    pts += neat ? 3 : 1;
-    if (neat) { tone('triangle', 1570, 0.09, 0.16, 0.18); plus('+3', x, towerTop()); }
+    // очки: криво — одно, ровно — два, точно в точку — три
+    pts += fit === 2 ? 3 : fit === 1 ? 2 : 1;
+    if (fit) {
+      if (fit === 2) tone('triangle', 1570, 0.09, 0.16, 0.18);
+      plus('+' + (fit === 2 ? 3 : 2), x, towerTop());
+    }
+
+    // усадка: подталкиваем уже лежащие блоки к линии основания
+    if (blocks.length > 2) {
+      const bx = blocks[0].x;
+      for (let i = 1; i < blocks.length - 1; i++) {
+        const blk = blocks[i];
+        blk.x += (bx - blk.x) * CFG.settle;
+        blk.el.style.left = Math.round(blk.x - blk.w / 2) + 'px';
+      }
+    }
+
     paintProgress(); paintScore(); paintTower();
 
     const b = balance();
@@ -767,7 +806,7 @@
   function collapse(at) {
     phase = 'over';
     crash(); buzz([40, 80, 40, 80, 120]);
-    $('tower').classList.remove('sway');
+    blocks.forEach(b2 => b2.el.classList.remove('wob'));
     // сверху вниз: верхние летят дальше и раньше
     for (let i = blocks.length - 1; i >= at; i--) {
       const el = blocks[i].el;
@@ -888,8 +927,6 @@
   function round() {
     clearLater();
     $('tower').innerHTML = '';
-    $('tower').classList.remove('sway');
-    $('tower').style.transform = 'none';
     blocks = [];
     target = goalFor(level);
     speed = SW * Math.min(1.05, 0.30 + 0.075 * (level - 1));
