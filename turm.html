@@ -30,7 +30,7 @@
   }
 
   /* ── верхняя полоса ── */
-  .top{display:flex;align-items:center;gap:8px;flex:none}
+  .top{display:flex;align-items:center;gap:6px;flex:none}
   /* Полоса вместо точек: целей теперь до тридцати блоков, тридцать
      точек в строку не влезают. На полосе отмечены места призов —
      видно, сколько осталось до следующего зверя. */
@@ -54,28 +54,37 @@
   }
   .track .marks i.on{background:#fff;transform:scale(1.25);box-shadow:0 0 0 2px rgba(242,145,58,.95)}
   .track .cnt{
-    position:absolute;inset:0;display:grid;place-items:center;
-    font-size:13.5px;font-weight:600;color:#15384F;font-variant-numeric:tabular-nums;
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:6px;
+    font-size:13px;font-weight:600;color:#15384F;font-variant-numeric:tabular-nums;
+    white-space:nowrap;
   }
-  .score{
-    flex:none;display:flex;gap:8px;align-items:center;
-    background:rgba(255,255,255,.72);border-radius:999px;padding:9px 11px;
+  .track .cnt b{color:#C47E1A;font-weight:600}
+  /* сердца: промах теперь чего-то стоит */
+  .hp{
+    flex:none;display:flex;gap:2.5px;align-items:center;
+    background:rgba(255,255,255,.72);border-radius:999px;padding:10px 9px;
     -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
     box-shadow:0 5px 16px rgba(21,56,79,.14);
-    font-size:14.5px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;
+    font-size:13px;line-height:1;
   }
-  .score .lv{color:#1F7FB8}
-  .score .bs{color:#C47E1A}
+  .hp i{font-style:normal;color:#E8566B;transition:opacity .3s,transform .3s,color .3s}
+  .hp i.off{opacity:.2;color:#15384F;transform:scale(.78)}
+  .hp i.bye{animation:hbye .55s ease-out}
+  .hp i.back{animation:hback .6s ease-out}
+  @keyframes hbye{0%{transform:scale(1.5);opacity:1}35%{transform:scale(1.5) rotate(12deg)}
+    100%{transform:scale(.78);opacity:.2}}
+  @keyframes hback{0%{transform:scale(.78);opacity:.2}45%{transform:scale(1.6);opacity:1}
+    100%{transform:scale(1);opacity:1}}
 
   .btn{
-    width:44px;height:44px;flex:none;border:0;border-radius:50%;
+    width:40px;height:40px;flex:none;border:0;border-radius:50%;
     background:rgba(255,255,255,.72);color:#15384F;text-decoration:none;
     -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
     box-shadow:0 5px 16px rgba(21,56,79,.15);
     display:grid;place-items:center;cursor:pointer;transition:transform .12s;
   }
   .btn:active{transform:scale(.9)}
-  .btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 
   /* ── игровое поле ── */
   .stage{
@@ -308,7 +317,7 @@
     <span class="marks" id="marks"></span>
     <b class="cnt" id="cnt"></b>
   </div>
-  <div class="score" id="score"></div>
+  <div class="hp" id="hp"></div>
   <button class="btn" id="btnAgain" aria-label="Заново">
     <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.6 5.9"/><path d="M20 4v7h-7"/></svg>
   </button>
@@ -339,7 +348,8 @@
     <div class="stats" id="stats"></div>
     <div class="tip">Кран катается вверху. Нажми на поле — и блок упадёт.
       Ставь ровно: за точное попадание три очка, а за каждые десять блоков —
-      новый зверь в коллекцию. Если башня перекосится, она развалится.
+      новый зверь в коллекцию. Промахнулся мимо башни — сгорело сердце,
+      но за каждый приз одно возвращается. Если башня перекосится, она развалится.
       Каждый блок кран называет по-немецки — так и считаем до самого верха</div>
     <button class="big" id="btnStart" aria-label="Играть">
       <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
@@ -403,6 +413,12 @@
     step: 5,        // на столько цель растёт с каждым уровнем
     top: 30,        // больше этого цель пока не поднимается
     prize: 10,      // приз за каждые столько блоков
+    // Промах должен чего-то стоить, иначе играть можно вечно. Но три
+    // сердца для трёхлетки — приговор: при её точности за раунд из
+    // десяти блоков случается два промаха, а иногда и пять. Поэтому
+    // пять сердец, и за каждый приз одно возвращается — так длинные
+    // цели получают запас сами собой.
+    lives: 5,
     lvMax: 12
   };
   const goalFor = lv => Math.min(CFG.top, CFG.base + CFG.step * (lv - 1));
@@ -528,6 +544,7 @@
   let level = 1, best = 0, target = CFG.base;
   let pts = 0, bestPts = 0, zoo = [];
   let liveForm = 0, bag = [], liveW = 0, lastWK = 1;
+  let life = 0;
   let blocks = [];            // { x, el } — x это центр блока
   let cartX = 0, dir = 1, speed = 0, swing = 0;
   let live = null;            // блок на крюке или в полёте
@@ -590,7 +607,7 @@
   function paintProgress() {
     const n = blocks.length;
     $('pfill').style.width = Math.min(100, n / target * 100).toFixed(1) + '%';
-    $('cnt').textContent = n + ' / ' + target;
+    $('cnt').innerHTML = n + ' / ' + target + ' <b>\u25C6 ' + pts + '</b>';
     const box = $('marks');
     // отметки призов — только те, что раньше цели: последний приз и так
     // совпадает с концом раунда
@@ -607,9 +624,27 @@
     want.forEach((p, i) => box.children[i].classList.toggle('on', n >= p));
   }
 
-  function paintScore() {
-    $('score').innerHTML = '<span class="lv">Stufe ' + level + '</span>' +
-      '<span class="bs">◆ ' + pts + '</span>';
+  function paintLives(hit) {
+    const box = $('hp');
+    if (box.children.length !== CFG.lives) {
+      box.innerHTML = '';
+      for (let i = 0; i < CFG.lives; i++) {
+        const i2 = document.createElement('i');
+        i2.textContent = '\u2665';
+        box.appendChild(i2);
+      }
+    }
+    for (let i = 0; i < CFG.lives; i++) box.children[i].classList.toggle('off', i >= life);
+    // подсвечиваем именно то сердце, которое сейчас потеряли или вернули
+    if (hit === 'bye' && life >= 0 && life < CFG.lives) anim(box.children[life], 'bye');
+    if (hit === 'back' && life > 0) anim(box.children[life - 1], 'back');
+  }
+
+  function anim(el, cls) {
+    if (!el) return;
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
   }
 
   function zooHtml() {
@@ -747,10 +782,10 @@
       }
     }
 
-    paintProgress(); paintScore(); paintTower();
+    paintProgress(); paintTower();
 
     const b = balance();
-    if (b.r >= 1) { later(() => collapse(b.at), 260); return; }
+    if (b.r >= 1) { later(() => collapse(b.at, 'lean'), 260); return; }
 
     if (blocks.length > best) { best = blocks.length; store.set(K_BEST, best); }
     if (pts > bestPts) { bestPts = pts; store.set(K_PTS, bestPts); }
@@ -784,6 +819,11 @@
     boom(blocks[blocks.length - 1].x, Math.max(26, towerTop()));
     confetti(26);
     yay(); buzz([15, 40, 15, 40, 15]);
+    if (life < CFG.lives) {
+      life++;
+      paintLives('back');
+      tone('triangle', 740, 0.5, 0.18, 0.2, 1180);
+    }
     return true;
   }
 
@@ -797,13 +837,17 @@
       (SH * 1.1).toFixed(0) + 'px) rotate(' + (side * 220) + 'deg)';
     setTimeout(() => el.remove(), 900);
     slipSnd(); buzz([30, 60, 30]);
+    life--;
+    paintLives('bye');
+    tone('sawtooth', 220, 0.05, 0.22, 0.2, 90);
+    if (life <= 0) { flash('Vorbei!'); later(() => collapse(1, 'lives'), 620); return; }
     flash('Daneben!');
     phase = 'wait';
     later(hang, 700);
   }
 
   /* ── всё рушится ── */
-  function collapse(at) {
+  function collapse(at, why) {
     phase = 'over';
     crash(); buzz([40, 80, 40, 80, 120]);
     blocks.forEach(b2 => b2.el.classList.remove('wob'));
@@ -819,9 +863,11 @@
       el.style.opacity = '0';
     }
     if (live) { live.remove(); live = null; }
-    flash('Oh nein!');
+    flash(why === 'lives' ? 'Vorbei!' : 'Oh nein!');
     later(() => {
-      $('stats').innerHTML = 'Башня упала на <b>' + blocks.length + '</b> блоке · очков <b>' + pts + '</b><br>' +
+      $('stats').innerHTML = (why === 'lives'
+          ? 'Промахи кончились на <b>' + blocks.length + '</b> блоке · очков <b>' + pts + '</b>'
+          : 'Башня упала на <b>' + blocks.length + '</b> блоке · очков <b>' + pts + '</b>') + '<br>' +
         'Рекорд: <b>' + best + '</b> блоков, <b>' + bestPts + '</b> очков' +
         '<div style="margin-top:4px;opacity:.75">Уровень остаётся — попробуй ещё раз</div>' +
         zooHtml();
@@ -934,9 +980,11 @@
     bag = [];
     lastWK = 1;
     liveW = W;
+    life = CFG.lives;
+    paintLives();
     if (live) { live.remove(); live = null; }
     $('gift').classList.remove('go');
-    paintProgress(); paintScore(); paintTower();
+    paintProgress(); paintTower();
     phase = 'wait';
     hang();
   }
@@ -1022,7 +1070,8 @@
     .filter(v => Number.isInteger(v) && v >= 0 && v < ZOO.length);
   measure();
   target = goalFor(level);
-  paintProgress(); paintScore();
+  life = CFG.lives;
+  paintProgress(); paintLives();
 
   function panel() {
     $('stats').innerHTML = 'Уровень <b>' + level + '</b> · собрать <b>' + target + '</b> блоков<br>' +
@@ -1035,14 +1084,14 @@
       level = 1; best = 0; bestPts = 0; zoo = [];
       store.set(K_LV, 1); store.set(K_BEST, 0); store.set(K_PTS, 0); store.set(K_ZOO, '');
       target = goalFor(1);
-      paintProgress(); paintScore(); panel();
+      paintProgress(); panel();
     });
   }
   panel();
 
   window.YEVA_TURM = {
     state: () => ({ phase: phase, level: level, target: target, best: best,
-                    pts: pts, bestPts: bestPts, zoo: zoo.slice(),
+                    pts: pts, bestPts: bestPts, zoo: zoo.slice(), life: life,
                     n: blocks.length, xs: blocks.map(b => b.x), W: W, H: H,
                     ws: blocks.map(b => b.w), liveW: liveW,
                     cartX: cartX, speed: speed, cam: camY(), bal: balance(),
