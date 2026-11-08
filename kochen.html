@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Kochen</title>
+<meta name="theme-color" content="#D4664A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#D4664A}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#4A2016;
+    background:linear-gradient(180deg,#D4664A 0%,#E89A72 40%,#F6D2B4 74%,#FDF1E6 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 9px) 10px calc(env(safe-area-inset-bottom,0px) + 9px);
+  }
+
+  .top{display:flex;align-items:center;gap:6px;flex:none}
+  .track{
+    position:relative;flex:1;min-width:0;height:38px;border-radius:999px;overflow:hidden;
+    background:rgba(255,255,255,.8);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(74,32,22,.18);
+  }
+  .track .fill{position:absolute;left:0;top:0;bottom:0;width:0;
+    background:linear-gradient(90deg,#FFCF7A,#F0922E);transition:width .3s ease}
+  .track .marks{position:absolute;inset:0;pointer-events:none}
+  .track .marks i{position:absolute;top:76%;width:8px;height:8px;margin:-4px 0 0 -4px;
+    border-radius:50%;background:rgba(74,32,22,.22);
+    transition:background .3s,transform .3s,box-shadow .3s}
+  .track .marks i.on{background:#fff;transform:scale(1.25);box-shadow:0 0 0 2px rgba(240,146,46,.95)}
+  .track .cnt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:6px;
+    font-size:13px;font-weight:600;color:#4A2016;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .track .cnt b{color:#B4541E;font-weight:600}
+
+  .hp{
+    flex:none;display:flex;gap:2.5px;align-items:center;
+    background:rgba(255,255,255,.8);border-radius:999px;padding:10px 9px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(74,32,22,.18);font-size:13px;line-height:1;
+  }
+  .hp i{font-style:normal;color:#E8566B;transition:opacity .3s,transform .3s,color .3s}
+  .hp i.off{opacity:.2;color:#4A2016;transform:scale(.78)}
+  .hp i.bye{animation:hbye .55s ease-out}
+  .hp i.back{animation:hback .6s ease-out}
+  @keyframes hbye{0%{transform:scale(1.5);opacity:1}35%{transform:scale(1.5) rotate(12deg)}
+    100%{transform:scale(.78);opacity:.2}}
+  @keyframes hback{0%{transform:scale(.78);opacity:.2}45%{transform:scale(1.6);opacity:1}
+    100%{transform:scale(1);opacity:1}}
+
+  .btn{
+    width:40px;height:40px;flex:none;border:0;border-radius:50%;
+    background:rgba(255,255,255,.8);color:#4A2016;text-decoration:none;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(74,32,22,.19);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.9)}
+  .btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ── кухня ── */
+  .stage{
+    flex:1;min-height:0;position:relative;display:flex;flex-direction:column;
+    gap:8px;padding:10px;margin-top:9px;border-radius:24px;overflow:hidden;touch-action:none;
+    background:
+      radial-gradient(90% 40% at 50% 0%, rgba(255,243,214,.7), transparent 60%),
+      linear-gradient(180deg,#FBEFE0 0%,#F7E3CD 62%,#EFD3B6 100%);
+    box-shadow:inset 0 2px 14px rgba(74,32,22,.1);
+  }
+
+  /* карточка рецепта */
+  .recipe{flex:none;text-align:center}
+  .recipe .dish{font-size:clamp(15px,4.4vw,20px);font-weight:600;color:#4A2016;line-height:1.2}
+  .recipe .ru{font-size:11.5px;color:rgba(74,32,22,.55);margin-top:1px}
+  .slots{display:flex;gap:6px;justify-content:center;margin-top:6px}
+  .slots i{
+    width:clamp(32px,9vw,44px);aspect-ratio:1;border-radius:50%;
+    display:grid;place-items:center;font-style:normal;
+    font-size:clamp(17px,5vw,25px);line-height:1;
+    background:rgba(255,255,255,.65);border:2px dashed rgba(74,32,22,.25);
+    transition:background .3s,border-color .3s,transform .3s;
+  }
+  .slots i.on{background:linear-gradient(160deg,#CBEFC2,#8BD678);border:2px solid transparent;transform:scale(1.07)}
+
+  /* кастрюля */
+  .pot{
+    flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:6px;position:relative;
+  }
+  .pot .vessel{
+    font-size:clamp(66px,25vh,196px);line-height:1;
+    filter:drop-shadow(0 10px 14px rgba(74,32,22,.28));
+    transition:transform .25s;
+  }
+  .pot.open .vessel{animation:hop .5s ease-out}
+  @keyframes hop{0%{transform:scale(1)}38%{transform:scale(1.16) rotate(-4deg)}100%{transform:scale(1)}}
+  .pot.over .vessel{transform:scale(1.14)}
+  .pot .ring{
+    position:absolute;top:50%;left:50%;width:clamp(130px,38vh,260px);aspect-ratio:1;
+    transform:translate(-50%,-56%);border-radius:50%;pointer-events:none;
+    border:4px dashed rgba(240,146,46,0);transition:border-color .25s;
+  }
+  .pot.over .ring{border-color:rgba(240,146,46,.85)}
+  .steam{position:absolute;top:50%;left:50%;transform:translate(-50%,-150%);pointer-events:none;
+    display:flex;gap:10px}
+  .steam i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.75);
+    animation:puff 2.6s ease-in infinite}
+  .steam i:nth-child(2){animation-delay:.8s}
+  .steam i:nth-child(3){animation-delay:1.6s}
+  @keyframes puff{0%{opacity:0;transform:translateY(10px) scale(.6)}
+    30%{opacity:.85}100%{opacity:0;transform:translateY(-46px) scale(1.7)}}
+
+  .ask{
+    display:flex;align-items:center;gap:8px;cursor:pointer;border:0;font-family:inherit;
+    background:rgba(255,255,255,.92);border-radius:999px;padding:7px 15px 7px 11px;
+    box-shadow:0 6px 16px rgba(74,32,22,.2);
+    font-size:clamp(15px,4.6vw,21px);font-weight:600;color:#4A2016;white-space:nowrap;
+  }
+  .ask svg{width:19px;height:19px;flex:none;fill:none;stroke:currentColor;
+    stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+  .ask.say{animation:saypulse .5s}
+  @keyframes saypulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+
+  /* полка */
+  .shelf{
+    flex:none;display:grid;gap:clamp(5px,1.8vw,9px);
+    grid-template-columns:repeat(4,1fr);
+    background:rgba(255,255,255,.5);border-radius:18px;padding:8px;
+    box-shadow:inset 0 2px 8px rgba(74,32,22,.08);
+  }
+  .item{
+    border:0;cursor:grab;font-family:inherit;background:rgba(255,255,255,.9);
+    border-radius:15px;display:grid;place-items:center;
+    font-size:28px;line-height:1;
+    box-shadow:0 4px 10px rgba(74,32,22,.14);
+    transition:transform .14s,opacity .3s,background .3s;
+  }
+  .item:active{transform:scale(.94)}
+  .item.ghost{opacity:.3}
+  .item.used{opacity:.25;filter:grayscale(1);cursor:default}
+  .item.no{animation:shake .4s}
+  @keyframes shake{0%,100%{transform:translateX(0)}22%{transform:translateX(-7px)}
+    55%{transform:translateX(6px)}80%{transform:translateX(-3px)}}
+  .item.tip{animation:tip 1.2s ease-in-out infinite}
+  @keyframes tip{0%,100%{box-shadow:0 4px 10px rgba(74,32,22,.14)}
+    50%{box-shadow:0 0 0 6px rgba(255,207,122,.95),0 4px 10px rgba(74,32,22,.16)}}
+
+  .fly{
+    position:absolute;z-index:14;pointer-events:none;line-height:1;
+    font-size:clamp(28px,8vw,46px);
+    filter:drop-shadow(0 6px 10px rgba(74,32,22,.3));
+  }
+  .fly.back{transition:transform .28s ease-in}
+  .fly.into{transition:transform .3s cubic-bezier(.4,0,.6,1),opacity .3s ease-in .08s;opacity:0}
+
+  .pop{
+    position:absolute;pointer-events:none;z-index:15;white-space:nowrap;
+    font-size:clamp(16px,4.6vw,21px);font-weight:600;color:#2E8B57;
+    text-shadow:0 2px 7px rgba(255,255,255,.95);animation:rise .9s ease-out forwards;
+  }
+  .pop.bad{color:#C0392B}
+  @keyframes rise{
+    0%{opacity:0;transform:translate(-50%,0) scale(.8)}
+    22%{opacity:1;transform:translate(-50%,-14px) scale(1.12)}
+    100%{opacity:0;transform:translate(-50%,-58px) scale(1)}
+  }
+
+  .flash{
+    position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(.7);
+    font-size:clamp(20px,6.2vw,31px);font-weight:600;color:#4A2016;opacity:0;
+    background:rgba(255,255,255,.94);border-radius:999px;padding:9px 22px;
+    box-shadow:0 10px 26px rgba(74,32,22,.28);pointer-events:none;white-space:nowrap;z-index:16;
+  }
+  .flash.go{animation:flash 1.3s ease-out forwards}
+  @keyframes flash{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}
+    18%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}
+    74%{opacity:1;transform:translate(-50%,-60%) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-76%) scale(1)}
+  }
+
+  .gift{
+    position:absolute;left:50%;top:40%;opacity:0;z-index:17;pointer-events:none;
+    font-size:clamp(54px,18vw,100px);line-height:1;
+    filter:drop-shadow(0 10px 22px rgba(74,32,22,.34));
+    transform:translate(-50%,-50%) scale(.3);
+  }
+  .gift.go{animation:gift 1.7s cubic-bezier(.2,1.2,.4,1) forwards}
+  @keyframes gift{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.3) rotate(-18deg)}
+    20%{opacity:1;transform:translate(-50%,-50%) scale(1.18) rotate(7deg)}
+    52%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}
+    100%{opacity:0;transform:translate(-50%,-146%) scale(.55)}
+  }
+
+  .boom{position:absolute;left:0;top:0;z-index:13;pointer-events:none}
+  .boom b{position:absolute;border-radius:50%;border:7px solid rgba(255,170,70,.95);
+    box-shadow:0 0 18px rgba(255,200,110,.75),inset 0 0 14px rgba(255,225,170,.6);
+    animation:boom-ring .62s cubic-bezier(.2,.8,.3,1) forwards}
+  .boom i{position:absolute;border-radius:50%;
+    box-shadow:0 0 10px rgba(255,255,255,.9),0 1px 3px rgba(74,32,22,.35);
+    animation:boom-dot .9s cubic-bezier(.15,.7,.3,1) forwards}
+  @keyframes boom-ring{from{transform:translate(-50%,-50%) scale(.2);opacity:.95}
+    to{transform:translate(-50%,-50%) scale(2.2);opacity:0}}
+  @keyframes boom-dot{from{transform:translate(-50%,-50%) scale(1);opacity:1}
+    to{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.3);opacity:0}}
+  .party{position:fixed;inset:0;z-index:30;pointer-events:none;overflow:hidden}
+  .party i{position:absolute;width:12px;height:16px;border-radius:3px;animation:fall linear forwards}
+  @keyframes fall{from{transform:translateY(-12vh) rotate(0)}to{transform:translateY(112vh) rotate(680deg)}}
+
+  .veil{
+    position:fixed;inset:0;z-index:20;display:flex;
+    background:rgba(232,154,114,.5);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    transition:opacity .3s;padding:18px;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .panel{
+    width:100%;max-width:400px;text-align:center;margin:auto;flex:none;
+    background:rgba(255,255,255,.88);border-radius:30px;padding:22px 20px 26px;
+    box-shadow:0 18px 44px rgba(74,32,22,.26);
+  }
+  .panel h1{font-size:clamp(23px,6.6vw,30px);font-weight:600}
+  .panel .ru{font-size:14px;color:rgba(74,32,22,.6);margin-top:2px}
+  .stats{
+    margin-top:14px;font-size:13.5px;line-height:1.55;color:rgba(74,32,22,.68);
+    background:rgba(255,255,255,.6);border-radius:16px;padding:10px 12px;
+  }
+  .stats b{color:#4A2016;font-weight:600}
+  .stats button{
+    width:auto;margin:8px auto 0;padding:6px 12px;font-size:12px;border-radius:9px;
+    border:0;background:rgba(74,32,22,.08);color:rgba(74,32,22,.6);
+    font-family:inherit;cursor:pointer;display:block;
+  }
+  .zoo{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-top:9px;font-size:21px;line-height:1.1}
+  .zoo span{transition:opacity .3s}
+  .zoo span.off{opacity:.26;filter:grayscale(1)}
+  .tip{margin-top:11px;font-size:12px;line-height:1.5;color:rgba(74,32,22,.55);padding:0 4px}
+  .big{
+    margin:20px auto 0;width:min(40vw,150px);aspect-ratio:1;border:0;border-radius:50%;cursor:pointer;
+    display:grid;place-items:center;color:#4A2016;
+    background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.98),rgba(255,255,255,.3) 30%,rgba(255,207,122,.5) 58%,rgba(212,102,74,.45) 80%,rgba(255,255,255,.92) 100%);
+    box-shadow:0 18px 44px rgba(74,32,22,.28),inset 0 0 34px rgba(255,255,255,.6);
+    animation:float 3.6s ease-in-out infinite;
+  }
+  .big svg{width:34%;height:34%;fill:currentColor;stroke:none}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  @media (max-height:560px){
+    .panel{padding:14px 18px 16px}
+    .panel h1{font-size:21px}
+    .stats{margin-top:9px;font-size:12.5px}
+    .zoo{font-size:16px;gap:2px;margin-top:6px}
+    .tip{margin-top:7px}
+    .big{margin-top:12px;width:min(24vh,104px)}
+    .pot .vessel{font-size:clamp(46px,17vh,92px)}
+    .steam{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .big,.steam i{animation:none}
+    .item.tip{animation:none;box-shadow:0 0 0 5px rgba(255,207,122,.95)}
+    .boom{display:none}
+  }
+</style>
+</head>
+<body>
+
+<script src="words.js"></script>
+
+<div class="top">
+  <div class="track" id="track">
+    <i class="fill" id="pfill"></i>
+    <span class="marks" id="marks"></span>
+    <b class="cnt" id="cnt"></b>
+  </div>
+  <div class="hp" id="hp"></div>
+  <button class="btn" id="btnAgain" aria-label="Заново">
+    <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.6 5.9"/><path d="M20 4v7h-7"/></svg>
+  </button>
+  <a class="btn" href="index.html" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>
+  </a>
+</div>
+
+<div class="stage" id="stage">
+  <div class="recipe">
+    <div class="dish" id="dish"></div>
+    <div class="ru" id="dishRu"></div>
+    <div class="slots" id="slots"></div>
+  </div>
+
+  <div class="pot" id="pot">
+    <div class="steam" id="steam"><i></i><i></i><i></i></div>
+    <div class="ring"></div>
+    <div class="vessel" id="vessel">🥣</div>
+    <button class="ask" id="ask" aria-label="Повторить">
+      <svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M16 9.2a4 4 0 0 1 0 5.6"/><path d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8"/></svg>
+      <span id="askText"></span>
+    </button>
+  </div>
+
+  <div class="shelf" id="shelf"></div>
+
+  <div class="boom" id="boom"></div>
+  <div class="gift" id="gift"></div>
+  <div class="flash" id="flash"></div>
+</div>
+
+<div class="veil" id="veil">
+  <div class="panel">
+    <h1>Kochen</h1>
+    <div class="ru">Готовка</div>
+    <div class="stats" id="stats"></div>
+    <div class="tip">Голос говорит, что положить в кастрюлю. Возьми это с полки
+      пальцем и перетащи — или просто нажми, само полетит. Положишь не то —
+      сгорает сердце. Нажми на подпись, чтобы услышать ещё раз</div>
+    <button class="big" id="btnStart" aria-label="Играть">
+      <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="party" id="party"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const YW = window.YEVA_WORDS || null;
+  const VOICE = 'voice/de/';
+
+  const K_LV = 'yeva.kochen.level';
+  const K_BEST = 'yeva.kochen.best';
+  const K_PTS = 'yeva.kochen.points';
+  const K_ZOO = 'yeva.kochen.zoo';
+
+  // призы этой игры — кухонная утварь
+  const ZOO = ['\u{1F944}', '\u{1F37D}️', '\u{1F52A}', '\u{1F373}', '\u{1F9C1}', '\u{1F36F}',
+               '\u{1F9C2}', '\u{1F9C8}', '\u{1F952}', '\u{1F9C4}', '\u{1F33D}', '\u{1F95C}',
+               '\u{1F36B}', '\u{1F9C3}', '\u{1F9CB}', '\u{1F9D1}‍\u{1F373}'];
+
+  // Рецепты собраны только из тех продуктов, что уже записаны голосом.
+  // Название блюда голосом не произносится — его записи нет, поэтому
+  // оно только написано.
+  const BOOK = [
+    { de: 'Die Gemüsesuppe', ru: 'Овощной суп',    e: '\u{1F372}', take: ['die Karotte', 'die Tomate', 'die Gurke'] },
+    { de: 'Das Butterbrot',  ru: 'Бутерброд',      e: '\u{1F96A}', take: ['das Brot', 'der Käse', 'die Tomate'] },
+    { de: 'Der Nachtisch',   ru: 'Десерт',         e: '\u{1F368}', take: ['das Eis', 'die Erdbeere', 'der Keks'] },
+    { de: 'Der Obstspieß',   ru: 'Фруктовый шашлычок', e: '\u{1F361}', take: ['der Apfel', 'die Erdbeere', 'die Traube'] },
+    { de: 'Der Obstsalat',   ru: 'Фруктовый салат', e: '\u{1F957}', take: ['der Apfel', 'die Banane', 'die Erdbeere', 'die Traube'] },
+    { de: 'Das Picknick',    ru: 'Пикник',          e: '\u{1F9FA}', take: ['das Brot', 'der Käse', 'der Apfel', 'die Gurke'] },
+    { de: 'Die Torte',       ru: 'Праздничный торт', e: '\u{1F382}', take: ['der Kuchen', 'die Erdbeere', 'der Keks', 'das Eis'] },
+    { de: 'Der große Salat', ru: 'Большой салат',   e: '\u{1F959}', take: ['die Tomate', 'die Gurke', 'der Käse', 'die Karotte'] }
+  ];
+
+  const FOOD = (() => {
+    if (!YW || !YW.pictured) return [];
+    return YW.pictured.filter(w => w.s === 'nom' && w.de !== 'der Mund')
+      .concat(YW.pictured.filter(w => /Kuchen|Eis$/.test(w.de)));
+  })();
+  const byDe = {};
+  FOOD.forEach(w => { byDe[w.de] = w; });
+  // рецепт годится, только если все продукты есть в словаре
+  const RECIPES = BOOK.filter(r => r.take.every(d => byDe[d]));
+
+  // Пустая посуда — миска, а не кастрюля: готовый суп тоже кастрюля,
+  // и превращение было бы незаметно.
+  const EMPTY = '\u{1F963}';
+
+  const CFG = {
+    base: 10, step: 5, top: 30,
+    prize: 10,
+    lives: 5,
+    lvMax: 12
+  };
+  const goalFor = lv => Math.min(CFG.top, CFG.base + CFG.step * (lv - 1));
+  const shelfSize = lv => Math.min(8, 4 + Math.floor((lv - 1) / 2));
+  const longOnes = lv => lv >= 3;        // с третьего уровня рецепты из четырёх
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+
+  /* ── звук ── */
+  let actx = null, master = null;
+  const vBuf = {}, vBad = {}, vHot = {};
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.3;
+    master.connect(actx.destination);
+  }
+
+  const vUrl = w => VOICE + (YW && YW.slug ? YW.slug(w) : w.de) + '.mp3';
+
+  function loadVoice(w) {
+    if (!actx || !w) return;
+    const u = vUrl(w);
+    if (vBuf[u] || vBad[u] || vHot[u]) return;
+    vHot[u] = 1;
+    fetch(u)
+      .then(r => r.ok ? r : fetch(u + '?v=' + Date.now(), { cache: 'no-store' }))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(ab => actx.decodeAudioData(ab))
+      .then(b => { vBuf[u] = b; })
+      .catch(e => { vBad[u] = true; console.warn('[voice] нет ' + u + ' — ' + e.message); });
+  }
+
+  function say(w) {
+    if (!actx || !w) return;
+    const u = vUrl(w);
+    if (!vBuf[u] && !vBad[u]) loadVoice(w);
+    let tries = 0;
+    (function wait() {
+      if (vBuf[u]) {
+        const src = actx.createBufferSource(), g = actx.createGain();
+        g.gain.value = 1.25;
+        src.buffer = vBuf[u];
+        src.connect(g); g.connect(master);
+        src.start();
+        return;
+      }
+      if (!vBad[u] && tries++ < 8) { setTimeout(wait, 110); return; }
+      try {
+        if (typeof speechSynthesis === 'undefined') return;
+        speechSynthesis.cancel();
+        const ut = new SpeechSynthesisUtterance(w.de);
+        ut.lang = 'de-DE'; ut.rate = 0.9; ut.pitch = 1.15;
+        speechSynthesis.speak(ut);
+      } catch (e) {}
+    })();
+  }
+
+  function tone(type, freq, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur * 0.9);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+
+  const plop = () => { tone('sine', 420, 0, 0.11, 0.3, 190); tone('triangle', 900, 0.02, 0.07, 0.14); };
+  const nope = () => tone('sawtooth', 240, 0, 0.24, 0.22, 90);
+  const ready = () => [587, 740, 880, 1175].forEach((f, i) => tone('triangle', f, i * 0.11, 0.32, 0.28));
+  const yay = () => [523, 659, 784, 1046].forEach((f, i) => tone('triangle', f, i * 0.1, 0.3, 0.3));
+  const sad = () => [392, 330, 262].forEach((f, i) => tone('triangle', f, i * 0.14, 0.3, 0.26));
+  const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+
+  /* ── состояние ── */
+  let level = 1, best = 0, target = CFG.base;
+  let pts = 0, bestPts = 0, zoo = [], life = 0;
+  let added = 0, wrong = 0, dishes = 0, locked = false;
+  let recipe = null, step = 0, shelf = [], lastDish = -1;
+  let phase = 'wait';
+  let timers = [];
+  const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
+  const clearLater = () => { timers.forEach(clearTimeout); timers = []; };
+
+  function paintProgress() {
+    $('pfill').style.width = Math.min(100, added / target * 100).toFixed(1) + '%';
+    $('cnt').innerHTML = added + ' / ' + target + ' <b>◆ ' + pts + '</b>';
+    const box = $('marks');
+    const want = [];
+    for (let p = CFG.prize; p < target; p += CFG.prize) want.push(p);
+    if (box.children.length !== want.length) {
+      box.innerHTML = '';
+      want.forEach(p => {
+        const i = document.createElement('i');
+        i.style.left = (p / target * 100).toFixed(1) + '%';
+        box.appendChild(i);
+      });
+    }
+    want.forEach((p, i) => box.children[i].classList.toggle('on', added >= p));
+  }
+
+  function anim(el, cls) {
+    if (!el) return;
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+  }
+
+  function paintLives(hit) {
+    const box = $('hp');
+    if (box.children.length !== CFG.lives) {
+      box.innerHTML = '';
+      for (let i = 0; i < CFG.lives; i++) {
+        const el = document.createElement('i');
+        el.textContent = '♥';
+        box.appendChild(el);
+      }
+    }
+    for (let i = 0; i < CFG.lives; i++) box.children[i].classList.toggle('off', i >= life);
+    if (hit === 'bye' && life >= 0 && life < CFG.lives) anim(box.children[life], 'bye');
+    if (hit === 'back' && life > 0) anim(box.children[life - 1], 'back');
+  }
+
+  const zooHtml = () => '<div class="zoo">' + ZOO.map((e, i) =>
+    '<span' + (zoo.indexOf(i) >= 0 ? '' : ' class="off"') + '>' + e + '</span>').join('') + '</div>';
+
+  function flash(text) {
+    const f = $('flash');
+    f.textContent = text;
+    anim(f, 'go');
+  }
+
+  function pop(text, x, y, bad) {
+    const d = document.createElement('div');
+    d.className = 'pop' + (bad ? ' bad' : '');
+    d.textContent = text;
+    d.style.left = Math.round(x) + 'px';
+    d.style.top = Math.round(Math.max(6, y)) + 'px';
+    $('stage').appendChild(d);
+    setTimeout(() => d.remove(), 950);
+  }
+
+  /* ── новое блюдо ── */
+  function newDish() {
+    const pool = RECIPES.filter(r => (longOnes(level) ? r.take.length >= 4 : r.take.length === 3));
+    const use = pool.length ? pool : RECIPES;
+    let idx = 0, guard = 0;
+    do { idx = Math.floor(Math.random() * use.length); guard++; }
+    while (use.length > 1 && use[idx].de === lastDish && guard < 50);
+    recipe = use[idx];
+    lastDish = recipe.de;
+    step = 0; wrong = 0; locked = false;
+
+    $('dish').textContent = recipe.de;
+    $('dishRu').textContent = recipe.ru;
+    $('vessel').textContent = EMPTY;
+
+    const sl = $('slots');
+    sl.innerHTML = '';
+    recipe.take.forEach(() => sl.appendChild(document.createElement('i')));
+
+    // на полке все продукты рецепта плюс лишние
+    const want = recipe.take.map(d => byDe[d]);
+    const n = Math.max(want.length + 1, shelfSize(level));
+    shelf = want.slice();
+    const used = {};
+    want.forEach(w => { used[w.de] = 1; });
+    let g2 = 0;
+    while (shelf.length < n && g2++ < 300) {
+      const w = FOOD[Math.floor(Math.random() * FOOD.length)];
+      if (used[w.de]) continue;
+      used[w.de] = 1;
+      shelf.push(w);
+    }
+    for (let i = shelf.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = shelf[i]; shelf[i] = shelf[j]; shelf[j] = t;
+    }
+
+    const sh = $('shelf');
+    sh.innerHTML = '';
+    shelf.forEach(w => {
+      const b = document.createElement('button');
+      b.className = 'item';
+      b.dataset.de = w.de;
+      b.textContent = w.e;
+      sh.appendChild(b);
+    });
+    sizeShelf();
+    want.forEach(loadVoice);
+    askNext();
+  }
+
+  // Плитки меряем от поля, а не от доли ширины: в альбомной ориентации
+  // квадратные плитки в четыре колонки занимали двести пикселей и на
+  // плиту не оставалось ничего.
+  function sizeShelf() {
+    const sh = $('shelf');
+    const n = sh.children.length;
+    if (!n) return;
+    requestAnimationFrame(() => {
+      const box = $('stage').getBoundingClientRect();
+      if (!box.width || !box.height) return;
+      const gap = parseFloat(getComputedStyle(sh).columnGap) || 7;
+      const pad = 16;
+      const rows = n > 4 ? 2 : 1;
+      const cols = Math.ceil(n / rows);
+      const byH = (box.height * (rows === 2 ? 0.34 : 0.21) - pad - (rows - 1) * gap) / rows;
+      const byW = (box.width - 20 - pad - (cols - 1) * gap) / cols;
+      const size = Math.max(32, Math.min(byW, byH, 88));
+      sh.style.gridTemplateColumns = 'repeat(' + cols + ',' + size.toFixed(1) + 'px)';
+      sh.style.justifyContent = 'center';
+      Array.prototype.forEach.call(sh.children, b => {
+        b.style.width = size.toFixed(1) + 'px';
+        b.style.height = size.toFixed(1) + 'px';
+        b.style.fontSize = Math.round(size * 0.56) + 'px';
+      });
+    });
+  }
+
+  function askNext() {
+    const w = byDe[recipe.take[step]];
+    if (!w) return;
+    $('askText').textContent = w.de;
+    anim($('ask'), 'say');
+    say(w);
+    Array.prototype.forEach.call($('shelf').children, b => b.classList.remove('tip'));
+    if (wrong >= 2) {
+      const right = Array.prototype.find.call($('shelf').children,
+        b => b.dataset.de === w.de && !b.classList.contains('used'));
+      if (right) right.classList.add('tip');
+    }
+  }
+
+  /* ── положили в кастрюлю ── */
+  function tryAdd(el, w, x, y) {
+    if (locked || phase !== 'play') return;
+    const need = recipe.take[step];
+    if (w.de !== need) {
+      wrong++;
+      anim(el, 'no');
+      nope(); buzz([40, 70, 40]);
+      life--;
+      paintLives('bye');
+      pts = Math.max(0, pts - 1);
+      pop('−♥', x, y, true);
+      paintProgress();
+      if (life <= 0) { phase = 'over'; locked = true; flash('Vorbei!'); later(() => finish('lives'), 620); return; }
+      later(() => { if (phase === 'play') askNext(); }, 520);
+      return;
+    }
+
+    // верно
+    el.classList.add('used');
+    const clean = wrong === 0;
+    added++;
+    pts += clean ? 3 : 1;
+    plop(); buzz(clean ? [10, 30, 10] : 14);
+    pop(clean ? '+3' : '+1', x, y);
+    anim($('pot'), 'open');
+    $('slots').children[step].classList.add('on');
+    $('slots').children[step].textContent = w.e;
+    step++;
+    wrong = 0;
+    if (added > best) { best = added; store.set(K_BEST, best); }
+    if (pts > bestPts) { bestPts = pts; store.set(K_PTS, bestPts); }
+    paintProgress();
+
+    const r = $('vessel').getBoundingClientRect(), s = $('stage').getBoundingClientRect();
+    const gift = added % CFG.prize === 0
+      ? givePrize(r.left - s.left + r.width / 2, r.top - s.top + r.height / 2) : false;
+
+    if (step >= recipe.take.length) {
+      dishes++;
+      locked = true;
+      later(() => {
+        $('vessel').textContent = recipe.e;
+        anim($('pot'), 'open');
+        ready();
+        flash('Fertig! ' + recipe.e);
+        confetti(22);
+      }, gift ? 1300 : 380);
+      if (added >= target) { phase = 'won'; later(win, gift ? 2400 : 1500); return; }
+      later(newDish, gift ? 3000 : 2000);
+      return;
+    }
+    if (added >= target) { phase = 'won'; later(win, gift ? 1400 : 600); return; }
+    later(askNext, gift ? 1500 : 520);
+  }
+
+  /* ── перетаскивание ── */
+  let drag = null;
+  function overPot(x, y) {
+    const r = $('pot').getBoundingClientRect();
+    const pad = 26;
+    return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
+  }
+
+  $('shelf').addEventListener('pointerdown', e => {
+    const el = e.target.closest('.item');
+    if (!el || el.classList.contains('used') || locked || phase !== 'play') return;
+    e.preventDefault();
+    initAudio();
+    const w = byDe[el.dataset.de];
+    if (!w) return;
+    const s = $('stage').getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const fly = document.createElement('div');
+    fly.className = 'fly';
+    fly.textContent = w.e;
+    fly.style.left = '0'; fly.style.top = '0';
+    $('stage').appendChild(fly);
+    const fw = r.width, fh = r.height;
+    drag = { el: el, w: w, fly: fly, fw: fw, fh: fh, sx: e.clientX, sy: e.clientY,
+             ox: r.left - s.left, oy: r.top - s.top, moved: false, id: e.pointerId };
+    fly.style.width = fw + 'px';
+    fly.style.height = fh + 'px';
+    fly.style.display = 'grid';
+    fly.style.placeItems = 'center';
+    moveFly(e.clientX, e.clientY);
+    el.classList.add('ghost');
+    try { $('shelf').setPointerCapture(e.pointerId); } catch (err) {}
+  });
+
+  function moveFly(cx, cy) {
+    if (!drag) return;
+    const s = $('stage').getBoundingClientRect();
+    const x = cx - s.left - drag.fw / 2;
+    const y = cy - s.top - drag.fh / 2;
+    drag.fly.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
+    $('pot').classList.toggle('over', overPot(cx, cy));
+  }
+
+  $('shelf').addEventListener('pointermove', e => {
+    if (!drag) return;
+    if (Math.abs(e.clientX - drag.sx) > 8 || Math.abs(e.clientY - drag.sy) > 8) drag.moved = true;
+    moveFly(e.clientX, e.clientY);
+  });
+
+  function endDrag(e) {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    $('pot').classList.remove('over');
+    d.el.classList.remove('ghost');
+    const s = $('stage').getBoundingClientRect();
+    const pr = $('pot').getBoundingClientRect();
+    const toPot = !d.moved || overPot(e.clientX, e.clientY);
+    if (toPot) {
+      // летит в кастрюлю: и когда перетащили, и когда просто нажали
+      const tx = pr.left - s.left + pr.width / 2 - d.fw / 2;
+      const ty = pr.top - s.top + pr.height / 2 - d.fh / 2;
+      d.fly.classList.add('into');
+      d.fly.style.transform = 'translate(' + tx.toFixed(1) + 'px,' + ty.toFixed(1) + 'px) scale(.5)';
+      setTimeout(() => d.fly.remove(), 420);
+      const vr = $('vessel').getBoundingClientRect();
+      tryAdd(d.el, d.w, vr.left - s.left + vr.width / 2, vr.top - s.top - 4);
+    } else {
+      d.fly.classList.add('back');
+      d.fly.style.transform = 'translate(' + d.ox.toFixed(1) + 'px,' + d.oy.toFixed(1) + 'px)';
+      setTimeout(() => d.fly.remove(), 320);
+    }
+  }
+  $('shelf').addEventListener('pointerup', endDrag);
+  $('shelf').addEventListener('pointercancel', e => {
+    if (!drag) return;
+    drag.el.classList.remove('ghost');
+    drag.fly.remove();
+    drag = null;
+    $('pot').classList.remove('over');
+  });
+
+  $('ask').addEventListener('click', e => {
+    e.stopPropagation();
+    initAudio();
+    if (recipe && phase === 'play') { anim($('ask'), 'say'); say(byDe[recipe.take[step]]); }
+  });
+
+  /* ── приз ── */
+  function givePrize(x, y) {
+    let idx;
+    if (zoo.length < ZOO.length) { idx = zoo.length; zoo.push(idx); store.set(K_ZOO, zoo.join(',')); }
+    else idx = Math.floor(Math.random() * ZOO.length);
+    const g = $('gift');
+    g.textContent = ZOO[idx];
+    anim(g, 'go');
+    boom(x, y);
+    confetti(26);
+    yay(); buzz([15, 40, 15, 40, 15]);
+    if (life < CFG.lives) {
+      life++;
+      paintLives('back');
+      tone('triangle', 740, 0.5, 0.18, 0.2, 1180);
+    }
+    return true;
+  }
+
+  const PAL = ['#E8705C', '#F0A24B', '#5FC45A', '#4FC3A1', '#58B8E8', '#8E86E0', '#E880A8'];
+  let boomClear = 0;
+  function boom(x, y) {
+    const box = $('boom');
+    clearTimeout(boomClear);
+    box.innerHTML = '';
+    box.style.left = Math.round(x) + 'px';
+    box.style.top = Math.round(y) + 'px';
+    const r = $('stage').getBoundingClientRect();
+    const d = Math.round(Math.min(r.width, r.height) * 0.34);
+    [0, 0.14].forEach(delay => {
+      const ring = document.createElement('b');
+      ring.style.width = ring.style.height = Math.round(d * (delay ? 0.62 : 1)) + 'px';
+      ring.style.animationDelay = delay + 's';
+      box.appendChild(ring);
+    });
+    for (let i = 0; i < 30; i++) {
+      const dot = document.createElement('i');
+      const ang = Math.random() * Math.PI * 2;
+      const dist = d * (0.45 + Math.random() * 0.95);
+      const sz = Math.max(7, Math.round(d * (0.05 + Math.random() * 0.08)));
+      dot.style.width = dot.style.height = sz + 'px';
+      dot.style.background = PAL[i % PAL.length];
+      dot.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(0) + 'px');
+      dot.style.setProperty('--dy', (Math.sin(ang) * dist).toFixed(0) + 'px');
+      dot.style.animationDelay = (Math.random() * 0.12).toFixed(2) + 's';
+      box.appendChild(dot);
+    }
+    boomClear = setTimeout(() => { box.innerHTML = ''; }, 1200);
+  }
+
+  function confetti(n) {
+    const box = $('party');
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement('i');
+      c.style.left = (Math.random() * 100) + 'vw';
+      c.style.background = PAL[i % PAL.length];
+      c.style.animationDuration = (1.8 + Math.random() * 1.6) + 's';
+      c.style.animationDelay = (Math.random() * 0.6) + 's';
+      box.appendChild(c);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 4200);
+  }
+
+  /* ── конец раунда ── */
+  function finish(why) {
+    phase = 'over';
+    sad();
+    later(() => {
+      $('stats').innerHTML = 'Положено <b>' + added + '</b> · блюд готово <b>' + dishes + '</b>' +
+        ' · очков <b>' + pts + '</b><br>' +
+        'Рекорд: <b>' + best + '</b> за раунд, <b>' + bestPts + '</b> очков<br>' +
+        '<span style="opacity:.75">' + (why === 'lives'
+          ? 'Сердца кончились — уровень остаётся, попробуй ещё раз'
+          : 'Попробуй ещё раз') + '</span>' + zooHtml();
+      $('veil').classList.remove('hidden');
+    }, 1000);
+  }
+
+  function win() {
+    phase = 'won';
+    locked = true;
+    yay(); buzz([20, 50, 20, 50, 20]);
+    const r = $('stage').getBoundingClientRect();
+    boom(r.width / 2, r.height * 0.42);
+    confetti(48);
+    flash('Super!');
+    if (level < CFG.lvMax) level++;
+    store.set(K_LV, level);
+    later(() => {
+      flash('Stufe ' + level + ' · ' + goalFor(level));
+      tone('triangle', 880, 0, 0.2, 0.25, 1320);
+    }, 1300);
+    later(round, 2800);
+  }
+
+  function round() {
+    clearLater();
+    added = 0; pts = 0; wrong = 0; dishes = 0;
+    life = CFG.lives;
+    target = goalFor(level);
+    lastDish = -1;
+    $('gift').classList.remove('go');
+    paintProgress(); paintLives();
+    phase = 'play';
+    newDish();
+  }
+
+  function start() {
+    initAudio();
+    FOOD.forEach(loadVoice);
+    $('veil').classList.add('hidden');
+    round();
+  }
+
+  let rz = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(rz);
+    rz = setTimeout(sizeShelf, 160);
+  });
+
+  $('btnStart').addEventListener('click', start);
+  $('btnAgain').addEventListener('click', () => {
+    if (!$('veil').classList.contains('hidden')) return;
+    round();
+  });
+
+  /* ── первый экран ── */
+  level = Math.max(1, Math.min(CFG.lvMax, +store.get(K_LV, 1) || 1));
+  best = Math.max(0, +store.get(K_BEST, 0) || 0);
+  bestPts = Math.max(0, +store.get(K_PTS, 0) || 0);
+  zoo = String(store.get(K_ZOO, '')).split(',')
+    .filter(v => v !== '').map(v => +v)
+    .filter(v => Number.isInteger(v) && v >= 0 && v < ZOO.length);
+  target = goalFor(level);
+  life = CFG.lives;
+  paintProgress(); paintLives();
+
+  function panel() {
+    $('stats').innerHTML = 'Уровень <b>' + level + '</b> · положить <b>' + target + '</b> продуктов<br>' +
+      'Рекорд: <b>' + best + '</b> за раунд, <b>' + bestPts + '</b> очков<br>' +
+      '<span style="opacity:.75">Утвари собрано: <b>' + zoo.length + '</b> из ' + ZOO.length + '</span>' +
+      zooHtml() +
+      (level > 1 || best || zoo.length ? '<button id="btnReset">начать сначала</button>' : '');
+    const rst = $('btnReset');
+    if (rst) rst.addEventListener('click', () => {
+      level = 1; best = 0; bestPts = 0; zoo = [];
+      store.set(K_LV, 1); store.set(K_BEST, 0); store.set(K_PTS, 0); store.set(K_ZOO, '');
+      target = goalFor(1);
+      paintProgress(); panel();
+    });
+  }
+  panel();
+
+  window.YEVA_KOCHEN = {
+    state: () => ({ phase: phase, level: level, target: target, added: added, pts: pts, life: life,
+                    best: best, bestPts: bestPts, zoo: zoo.slice(), wrong: wrong, dishes: dishes,
+                    recipes: RECIPES.length, food: FOOD.length,
+                    dish: recipe ? { de: recipe.de, n: recipe.take.length } : null,
+                    want: recipe && step < recipe.take.length ? recipe.take[step] : null,
+                    step: step,
+                    vessel: $('vessel').textContent,
+                    slots: Array.prototype.map.call($('slots').children,
+                      i => ({ on: i.classList.contains('on'), e: i.textContent })),
+                    shelf: Array.prototype.map.call($('shelf').children, b => ({
+                      de: b.dataset.de, used: b.classList.contains('used'),
+                      tip: b.classList.contains('tip') })) }),
+    // для тестов: положить продукт в кастрюлю (как нажатие по полке)
+    put: de => {
+      const el = Array.prototype.find.call($('shelf').children,
+        b => b.dataset.de === de && !b.classList.contains('used'));
+      if (!el) return false;
+      const v = $('vessel').getBoundingClientRect(), sg = $('stage').getBoundingClientRect();
+      tryAdd(el, byDe[de], v.left - sg.left + v.width / 2, v.top - sg.top - 4);
+      return true;
+    }
+  };
+})();
+</script>
+<script src="install.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
