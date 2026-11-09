@@ -22,7 +22,7 @@
    останется жить. Обычные правки html/js подхватываются сами.
 */
 
-const CACHE = 'yeva-v2';
+const CACHE = 'yeva-v3';
 
 const CORE = [
   '/',
@@ -30,6 +30,7 @@ const CORE = [
   '/bubbles.html',
   '/words.js',
   '/console.js',
+  '/home.js',
   '/install.js',
   '/icons/manifest.json',
   '/icons/icon-192.png',
