@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Zahlenfreunde</title>
+<meta name="theme-color" content="#2E7FA8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#2E7FA8}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#10394D;
+    background:linear-gradient(180deg,#2E7FA8 0%,#67B2CE 38%,#BCE0EC 72%,#F0F8FB 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 9px) 10px calc(env(safe-area-inset-bottom,0px) + 9px);
+  }
+
+  .top{display:flex;align-items:center;gap:6px;flex:none}
+  .track{
+    position:relative;flex:1;min-width:0;height:38px;border-radius:999px;overflow:hidden;
+    background:rgba(255,255,255,.8);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(16,57,77,.17);
+  }
+  .track .fill{position:absolute;left:0;top:0;bottom:0;width:0;
+    background:linear-gradient(90deg,#8FE0C8,#2FB4A8);transition:width .3s ease}
+  .track .marks{position:absolute;inset:0;pointer-events:none}
+  .track .marks i{position:absolute;top:76%;width:8px;height:8px;margin:-4px 0 0 -4px;
+    border-radius:50%;background:rgba(16,57,77,.22);
+    transition:background .3s,transform .3s,box-shadow .3s}
+  .track .marks i.on{background:#fff;transform:scale(1.25);box-shadow:0 0 0 2px rgba(47,180,168,.95)}
+  .track .cnt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:6px;
+    font-size:13px;font-weight:600;color:#10394D;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .track .cnt b{color:#1C7F96;font-weight:600}
+
+  .hp{
+    flex:none;display:flex;gap:2.5px;align-items:center;
+    background:rgba(255,255,255,.8);border-radius:999px;padding:10px 9px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(16,57,77,.17);font-size:13px;line-height:1;
+  }
+  .hp i{font-style:normal;color:#E8566B;transition:opacity .3s,transform .3s,color .3s}
+  .hp i.off{opacity:.2;color:#10394D;transform:scale(.78)}
+  .hp i.bye{animation:hbye .55s ease-out}
+  .hp i.back{animation:hback .6s ease-out}
+  @keyframes hbye{0%{transform:scale(1.5);opacity:1}35%{transform:scale(1.5) rotate(12deg)}
+    100%{transform:scale(.78);opacity:.2}}
+  @keyframes hback{0%{transform:scale(.78);opacity:.2}45%{transform:scale(1.6);opacity:1}
+    100%{transform:scale(1);opacity:1}}
+
+  .btn{
+    width:40px;height:40px;flex:none;border:0;border-radius:50%;
+    background:rgba(255,255,255,.8);color:#10394D;text-decoration:none;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(16,57,77,.18);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.9)}
+  .btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ── поле ── */
+  .stage{
+    flex:1;min-height:0;position:relative;display:flex;flex-direction:column;
+    gap:8px;padding:10px;margin-top:9px;border-radius:24px;overflow:hidden;
+    background:
+      radial-gradient(100% 50% at 50% 0%, rgba(255,250,220,.6), transparent 62%),
+      linear-gradient(180deg,#EAF6FA 0%,#F4FAFC 58%,#FDFEFE 100%);
+    box-shadow:inset 0 2px 14px rgba(16,57,77,.1);
+  }
+
+  .ask{
+    flex:none;display:flex;align-items:center;gap:9px;align-self:center;cursor:pointer;
+    border:0;font-family:inherit;
+    background:rgba(255,255,255,.94);border-radius:999px;padding:7px 16px 7px 12px;
+    box-shadow:0 6px 16px rgba(16,57,77,.2);
+    font-size:clamp(16px,4.8vw,22px);font-weight:600;color:#10394D;white-space:nowrap;
+  }
+  .ask svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;
+    stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+  .ask b{font-weight:600}
+  .ask .num{
+    display:inline-grid;place-items:center;min-width:1.7em;height:1.7em;padding:0 .25em;
+    border-radius:.5em;color:#fff;font-variant-numeric:tabular-nums;
+  }
+  .ask.say{animation:saypulse .5s}
+  @keyframes saypulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+
+  /* стройка */
+  .build{flex:1;min-height:0;display:grid;place-items:center;position:relative}
+  .shape{position:relative}
+  .cell{
+    position:absolute;border-radius:14%;
+    background:rgba(16,57,77,.05);
+    border:2px dashed rgba(16,57,77,.22);
+    transition:background .25s,border-color .25s,transform .25s;
+  }
+  .cell.on{
+    border:2px solid rgba(255,255,255,.5);
+    box-shadow:inset 0 14% 0 rgba(255,255,255,.3),inset 0 -16% 0 rgba(0,0,0,.14),
+               0 3px 6px rgba(16,57,77,.16);
+  }
+  .cell.pop{animation:cellin .34s cubic-bezier(.3,1.5,.5,1)}
+  @keyframes cellin{0%{transform:scale(.4)}60%{transform:scale(1.1)}100%{transform:scale(1)}}
+  .shape.hero{animation:heroin .5s cubic-bezier(.3,1.4,.5,1)}
+  @keyframes heroin{0%{transform:scale(.8)}55%{transform:scale(1.08)}100%{transform:scale(1)}}
+
+  /* полка друзей */
+  .shelf{
+    flex:none;display:grid;gap:clamp(5px,1.8vw,9px);justify-content:center;
+    background:rgba(255,255,255,.55);border-radius:18px;padding:8px;
+    box-shadow:inset 0 2px 8px rgba(16,57,77,.08);
+  }
+  .pal{
+    border:0;cursor:pointer;font-family:inherit;background:rgba(255,255,255,.92);
+    border-radius:15px;display:flex;flex-direction:column;align-items:center;
+    justify-content:flex-end;gap:2px;padding:5px 4px 4px;
+    box-shadow:0 4px 10px rgba(16,57,77,.14);
+    transition:transform .14s,box-shadow .3s;
+  }
+  .pal:active{transform:scale(.93)}
+  .pal .box{display:grid;place-items:end center;flex:1;min-height:0}
+  .pal b{font-size:13px;font-weight:600;color:#10394D;line-height:1;font-variant-numeric:tabular-nums}
+  .pal.no{animation:shake .4s}
+  @keyframes shake{0%,100%{transform:translateX(0)}22%{transform:translateX(-7px)}
+    55%{transform:translateX(6px)}80%{transform:translateX(-3px)}}
+  .pal.tip{animation:tip 1.2s ease-in-out infinite}
+  @keyframes tip{0%,100%{box-shadow:0 4px 10px rgba(16,57,77,.14)}
+    50%{box-shadow:0 0 0 6px rgba(255,216,110,.95),0 4px 10px rgba(16,57,77,.16)}}
+
+  .pop{
+    position:absolute;pointer-events:none;z-index:9;white-space:nowrap;
+    font-size:clamp(16px,4.6vw,21px);font-weight:600;color:#1C8F6E;
+    text-shadow:0 2px 7px rgba(255,255,255,.95);animation:rise .9s ease-out forwards;
+  }
+  .pop.bad{color:#C0392B}
+  @keyframes rise{
+    0%{opacity:0;transform:translate(-50%,0) scale(.8)}
+    22%{opacity:1;transform:translate(-50%,-14px) scale(1.12)}
+    100%{opacity:0;transform:translate(-50%,-58px) scale(1)}
+  }
+
+  .flash{
+    position:absolute;left:50%;top:34%;transform:translate(-50%,-50%) scale(.7);
+    font-size:clamp(20px,6.2vw,31px);font-weight:600;color:#10394D;opacity:0;
+    background:rgba(255,255,255,.94);border-radius:999px;padding:9px 22px;
+    box-shadow:0 10px 26px rgba(16,57,77,.28);pointer-events:none;white-space:nowrap;z-index:16;
+  }
+  .flash.go{animation:flash 1.3s ease-out forwards}
+  @keyframes flash{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}
+    18%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}
+    74%{opacity:1;transform:translate(-50%,-60%) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-76%) scale(1)}
+  }
+
+  .party{position:fixed;inset:0;z-index:30;pointer-events:none;overflow:hidden}
+  .party i{position:absolute;width:12px;height:16px;border-radius:3px;animation:fall linear forwards}
+  @keyframes fall{from{transform:translateY(-12vh) rotate(0)}to{transform:translateY(112vh) rotate(680deg)}}
+
+  /* ── старт ── */
+  .veil{
+    position:fixed;inset:0;z-index:20;display:flex;
+    background:rgba(103,178,206,.5);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    transition:opacity .3s;padding:16px;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .panel{
+    width:100%;max-width:430px;text-align:center;margin:auto;flex:none;
+    background:rgba(255,255,255,.88);border-radius:30px;padding:20px 16px 24px;
+    box-shadow:0 18px 44px rgba(16,57,77,.26);
+  }
+  .panel h1{font-size:clamp(22px,6.2vw,29px);font-weight:600}
+  .panel .ru{font-size:14px;color:rgba(16,57,77,.6);margin-top:2px}
+  .stats{
+    margin-top:12px;font-size:13.5px;line-height:1.5;color:rgba(16,57,77,.68);
+    background:rgba(255,255,255,.6);border-radius:16px;padding:9px 12px;
+  }
+  .stats b{color:#10394D;font-weight:600}
+  .stats button{
+    width:auto;margin:7px auto 0;padding:6px 12px;font-size:12px;border-radius:9px;
+    border:0;background:rgba(16,57,77,.08);color:rgba(16,57,77,.6);
+    font-family:inherit;cursor:pointer;display:block;
+  }
+
+  .gal{
+    display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-top:11px;
+  }
+  .gal button{
+    border:0;background:none;cursor:pointer;padding:2px 0 0;display:grid;
+    place-items:end center;border-radius:10px;transition:background .2s,transform .15s;
+  }
+  .gal button:active{transform:scale(.9)}
+  .gal button.off{opacity:.25;filter:grayscale(1)}
+  .gal button.sing{background:rgba(255,216,110,.55)}
+  .galrow{font-size:11.5px;color:rgba(16,57,77,.55);margin-top:8px}
+
+  .song{
+    margin:12px auto 0;display:flex;align-items:center;justify-content:center;gap:9px;
+    border:0;cursor:pointer;font-family:inherit;
+    border-radius:999px;padding:11px 20px;
+    background:linear-gradient(160deg,#FFD86E,#F2913A);color:#5A3200;
+    font-size:15.5px;font-weight:600;
+    box-shadow:0 8px 20px rgba(242,145,58,.45);transition:transform .12s;
+  }
+  .song:active{transform:scale(.96)}
+  .song svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.1;
+    stroke-linecap:round;stroke-linejoin:round}
+  .song.on{background:linear-gradient(160deg,#9FE6D4,#2FB4A8);color:#063A33}
+
+  .tip2{margin-top:10px;font-size:12px;line-height:1.5;color:rgba(16,57,77,.55);padding:0 4px}
+  .big{
+    margin:16px auto 0;width:min(36vw,132px);aspect-ratio:1;border:0;border-radius:50%;cursor:pointer;
+    display:grid;place-items:center;color:#10394D;
+    background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.98),rgba(255,255,255,.3) 30%,rgba(143,224,200,.5) 58%,rgba(46,127,168,.45) 80%,rgba(255,255,255,.92) 100%);
+    box-shadow:0 18px 44px rgba(16,57,77,.3),inset 0 0 34px rgba(255,255,255,.6);
+    animation:float 3.6s ease-in-out infinite;
+  }
+  .big svg{width:34%;height:34%;fill:currentColor;stroke:none}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  @media (max-height:600px){
+    .panel{padding:14px 14px 16px}
+    .panel h1{font-size:20px}
+    .stats{margin-top:8px;font-size:12.5px}
+    .gal{margin-top:8px;gap:3px}
+    .song{margin-top:9px;padding:9px 16px;font-size:14px}
+    .tip2{margin-top:7px}
+    .big{margin-top:11px;width:min(22vh,98px)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .big{animation:none}.pal.tip{animation:none;box-shadow:0 0 0 5px rgba(255,216,110,.95)}
+  }
+</style>
+</head>
+<body>
+
+<script src="words.js"></script>
+<script src="blocks.js"></script>
+
+<div class="top">
+  <div class="track" id="track">
+    <i class="fill" id="pfill"></i>
+    <span class="marks" id="marks"></span>
+    <b class="cnt" id="cnt"></b>
+  </div>
+  <div class="hp" id="hp"></div>
+  <button class="btn" id="btnAgain" aria-label="Заново">
+    <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.6 5.9"/><path d="M20 4v7h-7"/></svg>
+  </button>
+  <a class="btn" href="index.html" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>
+  </a>
+</div>
+
+<div class="stage" id="stage">
+  <button class="ask" id="ask" aria-label="Повторить">
+    <svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M16 9.2a4 4 0 0 1 0 5.6"/><path d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8"/></svg>
+    <span>Bau die</span>
+    <b id="askWord"></b>
+    <span class="num" id="askNum"></span>
+  </button>
+
+  <div class="build" id="build"><div class="shape" id="shape"></div></div>
+  <div class="shelf" id="shelf"></div>
+
+  <div class="flash" id="flash"></div>
+</div>
+
+<div class="veil" id="veil">
+  <div class="panel">
+    <h1>Zahlenfreunde</h1>
+    <div class="ru">Числодрузья</div>
+    <div class="stats" id="stats"></div>
+    <div class="gal" id="gal"></div>
+    <div class="galrow">Нажми на любого — он посчитает себя вслух</div>
+    <button class="song" id="btnSong">
+      <svg viewBox="0 0 24 24"><path d="M9 18V5l10-2v13"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="16.5" cy="16" r="2.6"/></svg>
+      <span id="songText">Песенка про числа</span>
+    </button>
+    <div class="tip2">Голос просит число — собери его из друзей. Два и три дают пять,
+      и пятёрка оживает и считает себя вслух. Друг больше дырки не влезет</div>
+    <button class="big" id="btnStart" aria-label="Играть">
+      <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="party" id="party"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const YW = window.YEVA_WORDS || null;
+  const NB = window.YEVA_BLOCKS;
+  const VOICE = 'voice/de/';
+
+  const K_LV = 'yeva.freunde.level';
+  const K_BEST = 'yeva.freunde.best';
+  const K_PTS = 'yeva.freunde.points';
+  const K_MET = 'yeva.freunde.met';      // какие числа уже знакомы
+
+  const TOP = 20;                        // дальше двадцати пока не идём
+
+  const CFG = {
+    base: 6, step: 2, top: 14,           // сколько чисел собрать за раунд
+    heart: 5,                            // через столько возвращается сердце
+    lives: 5,
+    lvMax: 10
+  };
+  const goalFor = lv => Math.min(CFG.top, CFG.base + CFG.step * (lv - 1));
+  // какие числа просим и каких друзей даём
+  const RANGE = [[2, 5], [3, 7], [4, 9], [5, 12], [6, 15], [8, 18], [10, 20]];
+  const range = lv => RANGE[Math.min(RANGE.length - 1, lv - 1)];
+  const maxPal = lv => Math.min(6, 2 + Math.ceil(lv / 2));
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+
+  /* ── звук ── */
+  let actx = null, master = null;
+  const vBuf = {}, vBad = {}, vHot = {};
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.28;
+    master.connect(actx.destination);
+  }
+
+  const NUMW = (() => {
+    const m = {};
+    const add = w => { if (w && typeof w.num === 'number') m[w.num] = w; };
+    if (YW && YW.numbers) YW.numbers.forEach(add);
+    if (YW && YW.numbersBig) YW.numbersBig.forEach(add);
+    return m;
+  })();
+  const word = n => NUMW[n] || { de: String(n) };
+  const vUrl = w => VOICE + (YW && YW.slug ? YW.slug(w) : w.de) + '.mp3';
+
+  function loadVoice(n) {
+    const w = NUMW[n];
+    if (!actx || !w) return;
+    const u = vUrl(w);
+    if (vBuf[u] || vBad[u] || vHot[u]) return;
+    vHot[u] = 1;
+    fetch(u)
+      .then(r => r.ok ? r : fetch(u + '?v=' + Date.now(), { cache: 'no-store' }))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(ab => actx.decodeAudioData(ab))
+      .then(b => { vBuf[u] = b; })
+      .catch(e => { vBad[u] = true; console.warn('[voice] нет ' + u + ' — ' + e.message); });
+  }
+
+  function say(n, when) {
+    const w = NUMW[n];
+    if (!actx || !w) return;
+    const u = vUrl(w);
+    if (!vBuf[u] && !vBad[u]) loadVoice(n);
+    const go = () => {
+      if (vBuf[u]) {
+        const src = actx.createBufferSource(), g = actx.createGain();
+        g.gain.value = 1.3;
+        src.buffer = vBuf[u];
+        src.connect(g); g.connect(master);
+        src.start();
+        return true;
+      }
+      return false;
+    };
+    let tries = 0;
+    setTimeout(function wait() {
+      if (go()) return;
+      if (!vBad[u] && tries++ < 8) { setTimeout(wait, 100); return; }
+      try {
+        if (typeof speechSynthesis === 'undefined') return;
+        speechSynthesis.cancel();
+        const ut = new SpeechSynthesisUtterance(w.de);
+        ut.lang = 'de-DE'; ut.rate = 0.92; ut.pitch = 1.15;
+        speechSynthesis.speak(ut);
+      } catch (e) {}
+    }, when || 0);
+  }
+
+  function tone(type, freq, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur * 0.9);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.014);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+
+  // пентатоника: по ней любая лесенка звучит складно
+  const LADDER = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28, 31, 33, 36, 38, 40, 43, 45, 48];
+  const step = i => 294 * Math.pow(2, LADDER[Math.min(i, LADDER.length - 1)] / 12);
+  const chord = (root, at, dur, vol) =>
+    [0, 4, 7, 12].forEach((s, i) => tone(i === 3 ? 'triangle' : 'sine',
+      root * Math.pow(2, s / 12), at + i * 0.015, dur, (vol || 0.2) / (1 + i * 0.4)));
+
+  const click = i => tone('triangle', step(i), 0, 0.14, 0.2);
+  const nope = () => { tone('sawtooth', 220, 0, 0.26, 0.22, 80); tone('square', 110, 0.02, 0.2, 0.1); };
+  const tada = () => { chord(392, 0, 0.5, 0.26); chord(523, 0.14, 0.7, 0.24); };
+  const sad = () => [392, 330, 262].forEach((f, i) => tone('triangle', f, i * 0.14, 0.3, 0.26));
+  const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+
+  /* ── состояние ── */
+  let level = 1, best = 0, target = CFG.base;
+  let pts = 0, bestPts = 0, met = [], life = 0;
+  let built = 0, mistakes = 0, locked = false;
+  let want = 0, have = 0, used = 0, parts = [];
+  let cellEls = [], cellSize = 40, shapeInfo = null;
+  let phase = 'wait', singing = 0;
+  let timers = [];
+  const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); return timers[timers.length - 1]; };
+  const clearLater = () => { timers.forEach(clearTimeout); timers = []; };
+
+  function paintProgress() {
+    $('pfill').style.width = Math.min(100, built / target * 100).toFixed(1) + '%';
+    $('cnt').innerHTML = built + ' / ' + target + ' <b>◆ ' + pts + '</b>';
+    const box = $('marks');
+    const list = [];
+    for (let p = CFG.heart; p < target; p += CFG.heart) list.push(p);
+    if (box.children.length !== list.length) {
+      box.innerHTML = '';
+      list.forEach(p => {
+        const i = document.createElement('i');
+        i.style.left = (p / target * 100).toFixed(1) + '%';
+        box.appendChild(i);
+      });
+    }
+    list.forEach((p, i) => box.children[i].classList.toggle('on', built >= p));
+  }
+
+  function anim(el, cls, ms) {
+    if (!el) return;
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    if (ms) setTimeout(() => el.classList.remove(cls), ms);
+  }
+
+  function paintLives(hit) {
+    const box = $('hp');
+    if (box.children.length !== CFG.lives) {
+      box.innerHTML = '';
+      for (let i = 0; i < CFG.lives; i++) {
+        const el = document.createElement('i');
+        el.textContent = '♥';
+        box.appendChild(el);
+      }
+    }
+    for (let i = 0; i < CFG.lives; i++) box.children[i].classList.toggle('off', i >= life);
+    if (hit === 'bye' && life >= 0 && life < CFG.lives) anim(box.children[life], 'bye');
+    if (hit === 'back' && life > 0) anim(box.children[life - 1], 'back');
+  }
+
+  function flash(text) {
+    const f = $('flash');
+    f.textContent = text;
+    anim(f, 'go');
+  }
+
+  function pop(text, x, y, bad) {
+    const d = document.createElement('div');
+    d.className = 'pop' + (bad ? ' bad' : '');
+    d.textContent = text;
+    d.style.left = Math.round(x) + 'px';
+    d.style.top = Math.round(Math.max(6, y)) + 'px';
+    $('stage').appendChild(d);
+    setTimeout(() => d.remove(), 950);
+  }
+
+  function confetti(n) {
+    const box = $('party');
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement('i');
+      c.style.left = (Math.random() * 100) + 'vw';
+      c.style.background = NB.palette[i % NB.palette.length];
+      c.style.animationDuration = (1.8 + Math.random() * 1.6) + 's';
+      c.style.animationDelay = (Math.random() * 0.6) + 's';
+      box.appendChild(c);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 4200);
+  }
+
+  /* ── контур числа ───────────────────────────────────────────
+     Клетки берём из blocks.js — те же, по которым он рисует фигурку.
+     Поэтому собранное число в точности превращается в персонажа. */
+  function drawShape(n) {
+    const g = NB.cells(n);
+    shapeInfo = g;
+    const box = $('build').getBoundingClientRect();
+    const pad = 10;
+    // Потолок обязателен: у двойки один столбец, и без него кубик
+    // раздувался на пол-экрана.
+    const s = Math.max(16, Math.min(78, Math.floor(Math.min(
+      (box.width - pad * 2) / g.cols,
+      (box.height - pad * 2) / g.rows))));
+    cellSize = s;
+    const sh = $('shape');
+    sh.className = 'shape';
+    sh.style.width = (g.cols * s) + 'px';
+    sh.style.height = (g.rows * s) + 'px';
+    sh.innerHTML = '';
+    cellEls = g.list.map(c => {
+      const d = document.createElement('div');
+      d.className = 'cell';
+      const gap = Math.max(1, s * 0.05);
+      d.style.left = (c.x * s + gap) + 'px';
+      d.style.top = (c.y * s + gap) + 'px';
+      d.style.width = (s - gap * 2) + 'px';
+      d.style.height = (s - gap * 2) + 'px';
+      sh.appendChild(d);
+      return d;
+    });
+  }
+
+  /* ── полка друзей ── */
+  function drawShelf() {
+    const m = maxPal(level);
+    const sh = $('shelf');
+    sh.innerHTML = '';
+    for (let k = 1; k <= m; k++) {
+      const b = document.createElement('button');
+      b.className = 'pal';
+      b.dataset.k = k;
+      const box = document.createElement('div');
+      box.className = 'box';
+      box.innerHTML = NB.svg(k, { id: 'p' + k });
+      b.appendChild(box);
+      const lab = document.createElement('b');
+      lab.textContent = k;
+      b.appendChild(lab);
+      b.addEventListener('click', () => take(k, b));
+      sh.appendChild(b);
+    }
+    sizeShelf();
+  }
+
+  function sizeShelf() {
+    const sh = $('shelf');
+    const n = sh.children.length;
+    if (!n) return;
+    requestAnimationFrame(() => {
+      const box = $('stage').getBoundingClientRect();
+      if (!box.width || !box.height) return;
+      const gap = parseFloat(getComputedStyle(sh).columnGap) || 7;
+      const w = Math.max(40, Math.min(92, (box.width - 20 - (n - 1) * gap) / n));
+      const h = Math.max(46, Math.min(box.height * 0.26, w * 1.5));
+      sh.style.gridTemplateColumns = 'repeat(' + n + ',' + w.toFixed(1) + 'px)';
+      Array.prototype.forEach.call(sh.children, b => {
+        b.style.width = w.toFixed(1) + 'px';
+        b.style.height = h.toFixed(1) + 'px';
+        const k = +b.dataset.k;
+        const inner = b.querySelector('.nblock');
+        // кубик такой, чтобы самый длинный друг влез по высоте
+        const cube = Math.max(5, Math.min((h - 22) / Math.max(3, maxPal(level)), (w - 10) / 2));
+        if (inner) NB.size(inner, cube);
+      });
+    });
+  }
+
+  /* ── просьба ── */
+  function askFor(n) {
+    want = n; have = 0; used = 0; parts = []; mistakes = 0; locked = false;
+    $('askWord').textContent = word(n).de;
+    const num = $('askNum');
+    num.textContent = n;
+    num.style.background = NB.color(n);
+    drawShape(n);
+    // Полка встаёт на место кадром позже, и до этого место под контур
+    // меряется слишком большим — перерисовываем, пока он пустой.
+    requestAnimationFrame(() => { if (have === 0 && want === n) drawShape(n); });
+    anim($('ask'), 'say', 520);
+    say(n);
+    Array.prototype.forEach.call($('shelf').children, b => b.classList.remove('tip'));
+    for (let k = Math.max(1, n - 2); k <= Math.min(TOP, n + 2); k++) loadVoice(k);
+  }
+
+  function hint() {
+    const need = want - have;
+    const b = Array.prototype.find.call($('shelf').children, x => +x.dataset.k === Math.min(need, maxPal(level)));
+    if (b) b.classList.add('tip');
+  }
+
+  /* ── берём друга ── */
+  function take(k, el) {
+    if (locked || phase !== 'play') return;
+    initAudio();
+    const need = want - have;
+    const sh = $('shape').getBoundingClientRect(), st = $('stage').getBoundingClientRect();
+
+    if (k > need) {
+      mistakes++;
+      anim(el, 'no', 420);
+      nope(); buzz([40, 70, 40]);
+      life--;
+      paintLives('bye');
+      pts = Math.max(0, pts - 1);
+      pop('−♥', sh.left - st.left + sh.width / 2, sh.top - st.top - 6, true);
+      flash('Zu groß!');
+      paintProgress();
+      if (life <= 0) { phase = 'over'; locked = true; later(() => finish('lives'), 700); return; }
+      if (mistakes >= 2) hint();
+      return;
+    }
+
+    // влезает: красим следующие k клеток цветом этого друга
+    const col = NB.color(k);
+    for (let i = 0; i < k; i++) {
+      const c = cellEls[have + i];
+      if (!c) break;
+      c.classList.add('on');
+      c.style.background = col;
+      c.style.borderColor = 'rgba(255,255,255,.5)';
+      c.style.animationDelay = (i * 0.045) + 's';
+      anim(c, 'pop', 420);
+    }
+    have += k; used++; parts.push(k);
+    click(Math.min(have - 1, LADDER.length - 1));
+    buzz(10);
+
+    if (have >= want) { later(() => done(), 320); locked = true; }
+  }
+
+  /* ── число собрано ── */
+  function done() {
+    const n = want;
+    built++;
+    const lean = Math.ceil(n / maxPal(level));     // сколько друзей хватило бы
+    const neat = used <= lean && mistakes === 0;
+    pts += neat ? 3 : 1;
+    if (built > best) { best = built; store.set(K_BEST, best); }
+    if (pts > bestPts) { bestPts = pts; store.set(K_PTS, bestPts); }
+    paintProgress();
+
+    const fresh = met.indexOf(n) < 0;
+    if (fresh) { met.push(n); met.sort((a, b) => a - b); store.set(K_MET, met.join(',')); }
+
+    // кусочки сливаются в одного персонажа
+    const sh = $('shape');
+    sh.innerHTML = NB.svg(n, { id: 'hero' });
+    const fig = sh.firstChild;
+    NB.size(fig, cellSize);
+    sh.style.width = ''; sh.style.height = '';
+    anim(sh, 'hero', 600);
+    cellEls = [];
+
+    const st = $('stage').getBoundingClientRect(), r = sh.getBoundingClientRect();
+    if (neat) pop('+3', r.left - st.left + r.width / 2, r.top - st.top - 8);
+    else pop('+1', r.left - st.left + r.width / 2, r.top - st.top - 8);
+
+    // и считает себя вслух
+    countAlong(fig, n, { voice: n <= 12 }, () => {
+      NB.react(fig, 'yay');
+      say(n, 60);
+      tada();
+      confetti(fresh ? 40 : 18);
+      if (fresh) flash('Neu! ' + n);
+      if (built % CFG.heart === 0 && life < CFG.lives) {
+        life++;
+        paintLives('back');
+        tone('triangle', 740, 0.45, 0.2, 0.2, 1180);
+      }
+      if (built >= target) { phase = 'won'; later(win, 1500); return; }
+      later(nextOne, 1700);
+    });
+  }
+
+  // кубики загораются снизу вверх, и каждый называют
+  function countAlong(fig, n, o, after) {
+    const cs = NB.cubes(fig);
+    const voice = o && o.voice;
+    const ms = Math.max(170, 470 - n * 14);
+    cs.forEach((c, i) => {
+      later(() => {
+        NB.lit(c);
+        tone('triangle', step(i), 0, 0.17, 0.2);
+        if (voice) say(i + 1);
+      }, 240 + i * ms);
+    });
+    later(after, 240 + cs.length * ms + 220);
+  }
+
+  function nextOne() {
+    if (phase !== 'play') return;
+    const [lo, hi] = range(level);
+    let n = want;
+    let guard = 0;
+    // сначала показываем то, чего она ещё не собирала
+    const unseen = [];
+    for (let k = lo; k <= hi; k++) if (met.indexOf(k) < 0) unseen.push(k);
+    if (unseen.length && Math.random() < 0.6) {
+      n = unseen[Math.floor(Math.random() * unseen.length)];
+    } else {
+      do { n = lo + Math.floor(Math.random() * (hi - lo + 1)); guard++; }
+      while (n === want && hi > lo && guard < 40);
+    }
+    askFor(n);
+  }
+
+  /* ── конец раунда ── */
+  function finish(why) {
+    phase = 'over';
+    sad();
+    later(() => {
+      panel('Собрано <b>' + built + '</b> чисел · очков <b>' + pts + '</b><br>' +
+        '<span style="opacity:.75">' + (why === 'lives'
+          ? 'Сердца кончились — уровень остаётся, попробуй ещё раз'
+          : 'Попробуй ещё раз') + '</span>');
+      $('veil').classList.remove('hidden');
+    }, 900);
+  }
+
+  function win() {
+    phase = 'won';
+    locked = true;
+    tada(); buzz([20, 50, 20, 50, 20]);
+    confetti(48);
+    flash('Super!');
+    if (level < CFG.lvMax) level++;
+    store.set(K_LV, level);
+    later(() => {
+      const [lo, hi] = range(level);
+      flash('Stufe ' + level + ' · ' + lo + '–' + hi);
+      chord(587, 0, 0.5, 0.24);
+    }, 1300);
+    later(round, 2700);
+  }
+
+  function round() {
+    clearLater();
+    built = 0; pts = 0; mistakes = 0;
+    life = CFG.lives;
+    target = goalFor(level);
+    paintProgress(); paintLives();
+    drawShelf();
+    phase = 'play';
+    const [lo] = range(level);
+    want = -1;
+    nextOne();
+  }
+
+  function start() {
+    initAudio();
+    for (let k = 1; k <= TOP; k++) loadVoice(k);
+    $('veil').classList.add('hidden');
+    round();
+  }
+
+  $('ask').addEventListener('click', e => {
+    e.stopPropagation();
+    initAudio();
+    if (phase === 'play' && want > 0) { anim($('ask'), 'say', 520); say(want); }
+  });
+  $('btnStart').addEventListener('click', start);
+  $('btnAgain').addEventListener('click', () => {
+    if (!$('veil').classList.contains('hidden')) return;
+    round();
+  });
+
+  let rz = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(rz);
+    rz = setTimeout(() => {
+      sizeShelf();
+      if (phase === 'play' && cellEls.length) {
+        const keep = have, ps = parts.slice();
+        drawShape(want);
+        let at = 0;
+        ps.forEach(k => {
+          const col = NB.color(k);
+          for (let i = 0; i < k && at < cellEls.length; i++, at++) {
+            cellEls[at].classList.add('on');
+            cellEls[at].style.background = col;
+            cellEls[at].style.borderColor = 'rgba(255,255,255,.5)';
+          }
+        });
+        have = keep;
+      }
+    }, 170);
+  });
+
+  /* ── галерея и песенка ─────────────────────────────────────── */
+  function drawGal() {
+    const g = $('gal');
+    g.innerHTML = '';
+    for (let n = 1; n <= TOP; n++) {
+      const b = document.createElement('button');
+      b.dataset.n = n;
+      b.className = met.indexOf(n) >= 0 ? '' : 'off';
+      b.innerHTML = NB.svg(n, { id: 'g' + n });
+      b.setAttribute('aria-label', n);
+      g.appendChild(b);
+      const fig = b.firstChild;
+      NB.size(fig, n <= 3 ? 9 : n <= 10 ? 8 : 7);
+      b.addEventListener('click', () => singOne(n, b));
+    }
+  }
+
+  function singOne(n, b) {
+    initAudio();
+    if (singing) return;
+    singing = 1;
+    b.classList.add('sing');
+    const fig = b.firstChild;
+    const guard = setTimeout(() => { b.classList.remove('sing'); singing = 0; }, 14000);
+    countAlong(fig, n, { voice: true }, () => {
+      clearTimeout(guard);
+      NB.react(fig, 'yay');
+      say(n, 60);
+      chord(NB_ROOT(n), 0.05, 0.5, 0.22);
+      setTimeout(() => { b.classList.remove('sing'); singing = 0; }, 700);
+    });
+  }
+  const NB_ROOT = n => 294 * Math.pow(2, (n % 5) * 2 / 12);
+
+  let songTimer = 0;
+  function playSong() {
+    initAudio();
+    if (singing) return;
+    singing = 2;
+    $('songText').textContent = 'Поём…';
+    $('btnSong').classList.add('on');
+    const beat = 0.62;
+    const upTo = Math.max(10, met.length ? met[met.length - 1] : 10);
+    const last = Math.min(TOP, upTo);
+    const ROOTS = [262, 392, 220, 349];            // I  V  vi  IV
+    for (let bar = 0; bar < Math.ceil(last / 4) + 1; bar++) {
+      chord(ROOTS[bar % 4], bar * beat * 4, beat * 3.4, 0.14);
+      tone('sine', ROOTS[bar % 4] / 2, bar * beat * 4, beat * 1.6, 0.22);
+    }
+    const btns = $('gal').children;
+    for (let n = 1; n <= last; n++) {
+      const at = (n - 1) * beat;
+      later(() => {
+        say(n);
+        tone('triangle', step(n - 1), 0, 0.2, 0.18);
+        const b = btns[n - 1];
+        if (b) { b.classList.add('sing'); setTimeout(() => b.classList.remove('sing'), 520); }
+      }, at * 1000);
+    }
+    const end = last * beat * 1000 + 400;
+    later(() => {
+      chord(523, 0, 0.7, 0.24);
+      $('songText').textContent = 'Песенка про числа';
+      $('btnSong').classList.remove('on');
+      singing = 0;
+    }, end);
+    clearTimeout(songTimer);
+    songTimer = setTimeout(() => { singing = 0; }, end + 1200);
+  }
+  $('btnSong').addEventListener('click', playSong);
+
+  /* ── первый экран ── */
+  level = Math.max(1, Math.min(CFG.lvMax, +store.get(K_LV, 1) || 1));
+  best = Math.max(0, +store.get(K_BEST, 0) || 0);
+  bestPts = Math.max(0, +store.get(K_PTS, 0) || 0);
+  met = String(store.get(K_MET, '')).split(',')
+    .filter(v => v !== '').map(v => +v)
+    .filter(v => Number.isInteger(v) && v >= 1 && v <= TOP);
+  target = goalFor(level);
+  life = CFG.lives;
+  paintProgress(); paintLives();
+
+  function panel(extra) {
+    const [lo, hi] = range(level);
+    $('stats').innerHTML = (extra ? extra + '<br>' : '') +
+      'Уровень <b>' + level + '</b> · числа от <b>' + lo + '</b> до <b>' + hi + '</b>' +
+      ' · собрать <b>' + target + '</b><br>' +
+      'Рекорд: <b>' + best + '</b> за раунд, <b>' + bestPts + '</b> очков · ' +
+      'знакомых чисел <b>' + met.length + '</b> из ' + TOP +
+      (level > 1 || best || met.length ? '<button id="btnReset">начать сначала</button>' : '');
+    const rst = $('btnReset');
+    if (rst) rst.addEventListener('click', () => {
+      level = 1; best = 0; bestPts = 0; met = [];
+      store.set(K_LV, 1); store.set(K_BEST, 0); store.set(K_PTS, 0); store.set(K_MET, '');
+      target = goalFor(1);
+      paintProgress(); drawGal(); panel();
+    });
+  }
+  panel();
+  drawGal();
+
+  window.YEVA_FREUNDE = {
+    state: () => ({ phase: phase, level: level, target: target, built: built, pts: pts, life: life,
+                    best: best, bestPts: bestPts, met: met.slice(), singing: singing,
+                    want: want, have: have, used: used, parts: parts.slice(), mistakes: mistakes,
+                    lo: range(level)[0], hi: range(level)[1], maxPal: maxPal(level),
+                    cells: cellEls.length, filled: cellEls.filter(c => c.classList.contains('on')).length,
+                    hero: !!$('shape').querySelector('.nblock'),
+                    tip: Array.prototype.filter.call($('shelf').children,
+                      b => b.classList.contains('tip')).map(b => +b.dataset.k),
+                    gal: Array.prototype.map.call($('gal').children,
+                      b => ({ n: +b.dataset.n, on: !b.classList.contains('off') })) }),
+    take: k => {
+      const b = Array.prototype.find.call($('shelf').children, x => +x.dataset.k === k);
+      if (!b) return false;
+      b.click();
+      return true;
+    },
+    ask: n => askFor(n),
+    sing: () => playSong()
+  };
+})();
+</script>
+<script src="install.js"></script>
+<script src="console.js"></script>
+</body>
+</html>

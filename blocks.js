@@ -280,6 +280,8 @@
 
   window.YEVA_BLOCKS = {
     svg: svg,
+    cells: cells,      // раскладка клеток числа: нужна, чтобы рисовать контур
+
     size: size,
     react: react,
     look: look,
