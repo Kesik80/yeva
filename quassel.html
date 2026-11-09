@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Quassel</title>
+<meta name="theme-color" content="#F2B544">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#F2B544}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#4A3312;
+    background:linear-gradient(180deg,#F2B544 0%,#F8D184 40%,#FBEBC8 74%,#FFF8EC 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 9px) 10px calc(env(safe-area-inset-bottom,0px) + 9px);
+  }
+
+  /* ── верх: только самое нужное, никаких очков ── */
+  .top{display:flex;align-items:center;gap:7px;flex:none}
+  .who{
+    flex:0 1 340px;min-width:0;margin-right:auto;display:flex;gap:5px;
+    background:rgba(255,255,255,.8);border-radius:999px;padding:5px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(74,51,18,.16);
+  }
+  .who button{
+    flex:1 1 0;border:0;border-radius:999px;cursor:pointer;font-family:inherit;
+    background:none;padding:6px 2px;font-size:21px;line-height:1.1;
+    transition:background .2s,transform .12s;
+  }
+  .who button.on{background:linear-gradient(160deg,#FFD86E,#F2913A)}
+  .who button:active{transform:scale(.92)}
+
+  .btn{
+    width:40px;height:40px;flex:none;border:0;border-radius:50%;
+    background:rgba(255,255,255,.8);color:#4A3312;text-decoration:none;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(74,51,18,.18);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s,background .3s;
+  }
+  .btn:active{transform:scale(.9)}
+  .btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .btn.live{background:linear-gradient(160deg,#9BE8A0,#4FBF63);color:#0F3D18}
+  .btn .off{display:none}
+  .btn.mute .on{display:none}
+  .btn.mute .off{display:block}
+  .btn.mute{background:rgba(255,255,255,.55);color:rgba(74,51,18,.5)}
+
+  /* ── комната ── */
+  .stage{
+    flex:1;min-height:0;position:relative;display:flex;flex-direction:column;
+    margin-top:9px;border-radius:24px;overflow:hidden;touch-action:none;
+    background:
+      radial-gradient(90% 46% at 50% 108%, rgba(246,202,130,.9), transparent 64%),
+      linear-gradient(180deg,#FFF3DC 0%,#FFE7BE 62%,#F6D79C 100%);
+    box-shadow:inset 0 2px 14px rgba(74,51,18,.1);
+    transition:background 1s ease,filter 1s ease;
+  }
+  .stage.night{
+    background:
+      radial-gradient(90% 46% at 50% 108%, rgba(70,74,120,.9), transparent 64%),
+      linear-gradient(180deg,#2E3358 0%,#3C4273 62%,#4A5190 100%);
+  }
+  .stage.night .floor{background:linear-gradient(180deg,#5A5F92,#43487A)}
+
+  /* ── небо ── */
+  .sky{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+  .sky i{position:absolute;display:block}
+  .sun,.moon{
+    width:clamp(40px,13vw,62px);aspect-ratio:1;border-radius:50%;
+    right:7%;top:5%;transition:opacity .9s ease;
+  }
+  .sun{background:radial-gradient(circle at 36% 32%,#FFF0C2,#FFD464 58%,#F6B92E);
+    box-shadow:0 0 0 10px rgba(255,212,100,.2),0 0 28px rgba(246,185,46,.35)}
+  .moon{opacity:0;background:#FFF4D4;box-shadow:0 0 24px rgba(255,244,212,.45);overflow:hidden}
+  .moon::after{content:'';position:absolute;inset:0;border-radius:50%;
+    background:#3C4273;transform:translate(26%,-16%) scale(.9)}
+  .stage.night .sun{opacity:0}
+  .stage.night .moon{opacity:1}
+
+  .star{width:7px;height:7px;opacity:0;transition:opacity .9s ease;background:#FFF4D4;
+    clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%)}
+  .stage.night .star{opacity:.9;animation:twink 3s ease-in-out infinite}
+  .s1{left:16%;top:9%}
+  .s2{left:30%;top:20%;width:10px;height:10px;animation-delay:.7s}
+  .s3{left:62%;top:14%;animation-delay:1.4s}
+  .s4{left:46%;top:28%;width:5px;height:5px;animation-delay:2.1s}
+  @keyframes twink{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+
+  .cloud{
+    width:clamp(58px,20vw,96px);height:clamp(24px,8vw,40px);
+    background:#fff;border-radius:999px;opacity:.72;transition:opacity .9s ease;
+  }
+  .cloud::before,.cloud::after{content:'';position:absolute;background:#fff;border-radius:50%}
+  .cloud::before{width:56%;height:124%;left:14%;bottom:36%}
+  .cloud::after{width:40%;height:92%;right:14%;bottom:40%}
+  .cloud.a{left:8%;top:17%}
+  .cloud.b{right:16%;top:32%;transform:scale(.72);opacity:.5}
+  .stage.night .cloud{opacity:.16}
+  @media (prefers-reduced-motion:reduce){.star{animation:none!important}}
+
+  .floor{
+    position:absolute;left:-8%;right:-8%;bottom:0;height:40%;border-radius:46% 46% 0 0;
+    background:linear-gradient(180deg,#E0B274,#C8964E);transition:background 1s ease;
+  }
+  .zzz{
+    position:absolute;right:18%;top:18%;font-size:clamp(20px,6vw,32px);opacity:0;
+    pointer-events:none;transition:opacity .5s;
+  }
+  .stage.night .zzz{opacity:1;animation:zzz 2.6s ease-in-out infinite}
+  @keyframes zzz{0%,100%{transform:translateY(0) scale(1);opacity:.4}
+    50%{transform:translateY(-16px) scale(1.15);opacity:.9}}
+
+  /* ── персонаж ── */
+  .guy{
+    flex:1;min-width:0;min-height:0;display:grid;place-items:end center;position:relative;
+    cursor:pointer;
+  }
+  .guy svg{display:block;overflow:visible;
+    filter:drop-shadow(0 7px 11px rgba(74,51,18,.22))}
+  .rig{transform-origin:50% 92%;animation:breathe 3.4s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:scaleY(1) scaleX(1)}50%{transform:scaleY(1.025) scaleX(.99)}}
+  .rig.hop{animation:hop .5s cubic-bezier(.3,1.5,.5,1)}
+  @keyframes hop{0%{transform:translateY(0) scale(1)}
+    35%{transform:translateY(-7%) scale(1.06,.95)}
+    70%{transform:translateY(0) scale(.97,1.04)}100%{transform:none}}
+  .rig.wig{animation:wig .6s ease-in-out}
+  @keyframes wig{0%,100%{transform:rotate(0)}25%{transform:rotate(-5deg)}75%{transform:rotate(5deg)}}
+  .rig.tick{animation:tick .8s ease-in-out}
+  @keyframes tick{0%,100%{transform:rotate(0) scale(1)}
+    20%{transform:rotate(-7deg) scale(1.04)}45%{transform:rotate(6deg) scale(1.04)}
+    70%{transform:rotate(-4deg) scale(1.02)}}
+
+  .eyelid{transition:transform .09s ease}
+  .pupil{transition:transform .35s cubic-bezier(.3,1,.4,1)}
+  .mouth{transition:transform .06s linear}
+  .blush{opacity:0;transition:opacity .4s}
+  .guy.happy .blush{opacity:1}
+
+  /* ── игрушки внизу ── */
+  .shelf{
+    flex:none;display:grid;gap:clamp(5px,2vw,10px);justify-content:center;
+    padding:9px 8px;background:rgba(255,255,255,.5);border-radius:20px;
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    position:relative;z-index:4;
+  }
+  .toy{
+    border:0;cursor:pointer;border-radius:16px;background:rgba(255,255,255,.9);
+    display:grid;place-items:center;line-height:1;
+    box-shadow:0 4px 10px rgba(74,51,18,.16);
+    transition:transform .14s,opacity .3s;
+  }
+  .toy:active{transform:scale(.92)}
+  .toy.gone{opacity:.35}
+
+  /* лёжа телефон широкий: полку ставим сбоку, зверьку отдаём всю высоту */
+  @media (min-aspect-ratio:13/10){
+    .stage{flex-direction:row}
+    .shelf{align-self:center;border-radius:20px;padding:8px 9px}
+  }
+
+  .fly{
+    position:absolute;z-index:8;pointer-events:none;line-height:1;
+    transition:transform .5s cubic-bezier(.4,0,.5,1),opacity .3s ease-in .3s;
+  }
+
+  .bubble{
+    position:absolute;left:50%;top:12%;transform:translateX(-50%) scale(.7);
+    background:rgba(255,255,255,.95);border-radius:999px;padding:8px 18px;
+    box-shadow:0 8px 20px rgba(74,51,18,.22);
+    font-size:clamp(16px,4.8vw,22px);font-weight:600;color:#4A3312;
+    opacity:0;pointer-events:none;white-space:nowrap;z-index:9;
+  }
+  .bubble.go{animation:bub 1.8s ease-out forwards}
+  @keyframes bub{
+    0%{opacity:0;transform:translateX(-50%) scale(.7)}
+    14%{opacity:1;transform:translateX(-50%) scale(1.06)}
+    78%{opacity:1;transform:translateX(-50%) scale(1)}
+    100%{opacity:0;transform:translateX(-50%) scale(1)}
+  }
+
+  /* огонёк «слушаю» */
+  .ear{
+    position:absolute;left:9px;top:8px;
+    display:flex;align-items:center;gap:7px;z-index:6;
+    background:rgba(255,255,255,.85);border-radius:999px;padding:6px 14px;
+    box-shadow:0 5px 14px rgba(74,51,18,.18);
+    font-size:13px;font-weight:600;color:#4A3312;
+    opacity:0;transition:opacity .3s;pointer-events:none;
+  }
+  .ear.on{opacity:1}
+  .ear b{width:9px;height:9px;border-radius:50%;background:#E8566B;
+    animation:beat 1.1s ease-in-out infinite}
+  .ear.hot b{background:#4FBF63;animation-duration:.45s}
+  @keyframes beat{0%,100%{transform:scale(.8);opacity:.6}50%{transform:scale(1.25);opacity:1}}
+
+  .level{position:absolute;left:0;top:0;height:3px;background:#4FBF63;
+    width:0;transition:width .08s linear;border-radius:0 3px 3px 0;z-index:7}
+
+  /* ── первый экран ── */
+  .veil{
+    position:fixed;inset:0;z-index:20;display:flex;
+    background:rgba(248,209,132,.55);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    transition:opacity .3s;padding:18px;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .panel{
+    width:100%;max-width:400px;text-align:center;margin:auto;flex:none;
+    background:rgba(255,255,255,.9);border-radius:30px;padding:22px 20px 26px;
+    box-shadow:0 18px 44px rgba(74,51,18,.26);
+  }
+  .panel h1{font-size:clamp(23px,6.6vw,30px);font-weight:600}
+  .panel .ru{font-size:14px;color:rgba(74,51,18,.6);margin-top:2px}
+  .tip{margin-top:13px;font-size:13px;line-height:1.55;color:rgba(74,51,18,.62);
+    background:rgba(255,255,255,.6);border-radius:16px;padding:10px 12px}
+  .tip b{color:#4A3312;font-weight:600}
+  .small{margin-top:9px;font-size:11.5px;line-height:1.5;color:rgba(74,51,18,.5);padding:0 4px}
+  .big{
+    margin:18px auto 0;width:min(40vw,150px);aspect-ratio:1;border:0;border-radius:50%;cursor:pointer;
+    display:grid;place-items:center;color:#4A3312;font-size:min(17vw,62px);line-height:1;
+    background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.98),rgba(255,255,255,.3) 30%,rgba(255,216,110,.6) 58%,rgba(242,145,58,.45) 80%,rgba(255,255,255,.92) 100%);
+    box-shadow:0 18px 44px rgba(74,51,18,.3),inset 0 0 34px rgba(255,255,255,.6);
+    animation:float 3.6s ease-in-out infinite;
+  }
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  @media (max-height:560px){
+    .panel{padding:14px 18px 16px}
+    .panel h1{font-size:21px}
+    .tip{margin-top:9px;font-size:12px}
+    .big{margin-top:11px;width:min(24vh,104px);font-size:min(11vh,44px)}
+  }
+  @media (max-height:440px){
+    .veil{padding:10px}
+    .panel{padding:11px 15px 13px;border-radius:22px}
+    .panel h1{font-size:19px}
+    .panel .ru{font-size:12.5px}
+    .tip{margin-top:7px;font-size:11.5px;line-height:1.45;padding:8px 10px}
+    .small{margin-top:6px;font-size:10.5px;line-height:1.4}
+    .big{margin-top:8px;width:min(21vh,86px);font-size:min(10vh,36px)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .big,.rig,.ear b{animation:none}
+  }
+</style>
+</head>
+<body>
+
+<script src="words.js"></script>
+
+<div class="top">
+  <div class="who" id="who"></div>
+  <button class="btn" id="btnMic" aria-label="Микрофон">
+    <svg class="on" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18v3"/></svg>
+    <svg class="off" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18v3"/><path d="M4 3l16 18"/></svg>
+  </button>
+  <a class="btn" href="index.html" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/></svg>
+  </a>
+</div>
+
+<div class="stage" id="stage">
+  <div class="sky" aria-hidden="true">
+    <i class="sun"></i>
+    <i class="moon"></i>
+    <i class="star s1"></i><i class="star s2"></i><i class="star s3"></i><i class="star s4"></i>
+    <i class="cloud a"></i><i class="cloud b"></i>
+  </div>
+  <div class="floor"></div>
+  <div class="zzz">💤</div>
+  <div class="guy" id="guy"></div>
+  <div class="bubble" id="bubble"></div>
+  <div class="ear" id="earBox"><b></b><span id="earText">Слушаю…</span></div>
+  <i class="level" id="level"></i>
+  <div class="shelf" id="shelf"></div>
+</div>
+
+<div class="veil" id="veil">
+  <div class="panel">
+    <h1>Quassel</h1>
+    <div class="ru">Болтуны</div>
+    <div class="tip">Скажи что-нибудь — и он повторит <b>твоим голосом, только смешным</b>.
+      Гладь его, щекочи, корми, укладывай спать. Тут нечего выигрывать и негде
+      проиграть — просто живой зверёк</div>
+    <div class="small">Голос никуда не уходит: он записывается в память телефона,
+      тут же проигрывается и забывается. Ни одного запроса в сеть.
+      Если микрофон не разрешить, всё остальное работает как есть</div>
+    <button class="big" id="btnStart" aria-label="Играть">🐹</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const YW = window.YEVA_WORDS || null;
+  const VOICE = 'voice/de/';
+  const NS = 'http://www.w3.org/2000/svg';
+  const K_WHO = 'yeva.quassel.who';
+
+  /* ── персонажи ─────────────────────────────────────────────
+     Рисунок свой. У каждого свой голос: хомяк пищит (быстрее и выше),
+     кактус говорит почти как есть, дракон рычит (медленнее и ниже). */
+  const CHARS = {
+    hamster: { emo: '\u{1F439}', rate: 1.62, body: '#E8A95C', dark: '#D08C3C',
+               soft: '#F6D3A2', blush: '#F08CB4', name: 'Fips' },
+    kaktus:  { emo: '\u{1F335}', rate: 1.28, body: '#56B05A', dark: '#3E8C44',
+               soft: '#8FD08C', blush: '#F2A0C0', name: 'Stachel' },
+    drache:  { emo: '\u{1F432}', rate: 0.74, body: '#7E8CE0', dark: '#5F6CC0',
+               soft: '#B6BEF2', blush: '#F09AB8', name: 'Brumm' }
+  };
+  const ORDER = ['hamster', 'kaktus', 'drache'];
+  let who = 'hamster';
+
+  /* ── то, чем можно его занять ── */
+  const TOYS = [
+    { e: '\u{1F34E}', act: 'eat',   de: 'der Apfel' },
+    { e: '\u{1F36A}', act: 'eat',   de: 'der Keks' },
+    { e: '\u{1F955}', act: 'eat',   de: 'die Karotte' },
+    { e: '\u26BD', act: 'play',  de: null },
+    { e: '\u{1F923}', act: 'tickle', de: null },
+    { e: '\u{1F319}', act: 'sleep', de: null }
+  ];
+
+  /* ── звук ── */
+  let actx = null, master = null;
+  const vBuf = {}, vBad = {}, vHot = {};
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.32;
+    master.connect(actx.destination);
+  }
+
+  const wordBy = de => (YW && YW.pictured ? YW.pictured.find(w => w.de === de) : null);
+  const vUrl = w => VOICE + (YW && YW.slug ? YW.slug(w) : w.de) + '.mp3';
+
+  function loadVoice(w) {
+    if (!actx || !w) return;
+    const u = vUrl(w);
+    if (vBuf[u] || vBad[u] || vHot[u]) return;
+    vHot[u] = 1;
+    fetch(u)
+      .then(r => r.ok ? r : fetch(u + '?v=' + Date.now(), { cache: 'no-store' }))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(ab => actx.decodeAudioData(ab))
+      .then(b => { vBuf[u] = b; })
+      .catch(e => { vBad[u] = true; console.warn('[voice] нет ' + u + ' — ' + e.message); });
+  }
+
+  function say(w, when) {
+    if (!actx || !w) return;
+    const u = vUrl(w);
+    if (!vBuf[u] && !vBad[u]) loadVoice(w);
+    let tries = 0;
+    setTimeout(function wait() {
+      if (vBuf[u]) {
+        const src = actx.createBufferSource(), g = actx.createGain();
+        g.gain.value = 1.3;
+        src.buffer = vBuf[u];
+        src.connect(g); g.connect(master);
+        src.start();
+        return;
+      }
+      if (!vBad[u] && tries++ < 8) { setTimeout(wait, 100); return; }
+    }, when || 0);
+  }
+
+  function tone(type, freq, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur * 0.9);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.014);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+
+  // маленькие звуки зверька — свои для каждого
+  const pitch = () => CHARS[who].rate;
+  const squeak = () => { tone('triangle', 520 * pitch(), 0, 0.12, 0.24, 900 * pitch());
+                         tone('sine', 700 * pitch(), 0.09, 0.1, 0.14); };
+  const giggle = () => [0, 0.11, 0.22, 0.33].forEach((t, i) =>
+    tone('triangle', (620 + i * 90) * pitch(), t, 0.1, 0.2, (760 + i * 90) * pitch()));
+  const munch = () => [0, 0.16, 0.32].forEach(t => {
+    tone('square', 180, t, 0.07, 0.12); tone('sine', 90, t + 0.02, 0.1, 0.18); });
+  const yawn = () => { tone('sine', 300 * pitch(), 0, 0.5, 0.2, 180 * pitch()); };
+  const boing = () => tone('sine', 300, 0, 0.25, 0.22, 900);
+  const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+
+  /* ── рисунок ────────────────────────────────────────────────
+     Общая оснастка на всех: глаза с веками и зрачками, щёки, рот
+     на одном и том же месте — чтобы мимика работала одинаково.
+     Всё остальное у каждого своё: у хомяка щёки и усы, кактус растёт
+     в горшке, у дракончика крылья, рожки и гребень. */
+  function svgFor(kind) {
+    const c = CHARS[kind];
+
+    const eye = (x, i) =>
+      '<ellipse cx="' + x + '" cy="104" rx="16" ry="18" fill="#fff"/>' +
+      '<circle class="pupil" cx="' + x + '" cy="106" r="8.5" fill="#2A2320"/>' +
+      '<circle cx="' + (x + 3.6) + '" cy="101" r="3.2" fill="#fff"/>' +
+      '<circle cx="' + (x - 4) + '" cy="110" r="1.8" fill="#fff" opacity=".7"/>' +
+      '<clipPath id="qc' + i + '"><ellipse cx="' + x + '" cy="104" rx="16.8" ry="18.8"/></clipPath>' +
+      '<g clip-path="url(#qc' + i + ')"><rect class="eyelid" x="' + (x - 18) + '" y="76" ' +
+        'width="36" height="50" rx="10" fill="' + c.body + '" transform="translate(0,-52)"/></g>';
+
+    // рот: в покое улыбка, с голосом раскрывается
+    const mouth =
+      '<g class="mouth" transform="translate(100,152)">' +
+      '<path class="smile" d="M-15 -3 Q0 9 15 -3" fill="none" stroke="#7E3030" ' +
+        'stroke-width="4.2" stroke-linecap="round"/>' +
+      '<ellipse class="hole" cx="0" cy="2" rx="15" ry="0" fill="#7E3030"/>' +
+      '<ellipse class="tongue" cx="0" cy="7" rx="8" ry="0" fill="#E8707F"/>' +
+      '</g>';
+
+    const blush =
+      '<ellipse class="blush" cx="44" cy="132" rx="15" ry="10" fill="' + c.blush + '" opacity="0"/>' +
+      '<ellipse class="blush" cx="156" cy="132" rx="15" ry="10" fill="' + c.blush + '" opacity="0"/>';
+
+    const wing = t =>
+      '<g' + t + '><g transform="translate(-6,-16)">' +
+      '<path d="M56 94C30 78 6 82 4 96c-2 10 10 17 19 19-11 5-14 15-5 20 9 5 25-2 36-12z" fill="' +
+        c.dark + '"/>' +
+      '<path d="M50 102C32 92 16 94 15 102c-1 7 8 12 15 13-7 4-9 10-3 13 6 3 16-2 24-9z" fill="' +
+        c.soft + '" opacity=".4"/></g></g>';
+
+    let back = '', front = '', nose = '';
+
+    if (kind === 'hamster') {
+      back =
+        '<ellipse cx="60" cy="196" rx="23" ry="12" fill="' + c.dark + '"/>' +
+        '<ellipse cx="140" cy="196" rx="23" ry="12" fill="' + c.dark + '"/>' +
+        '<circle cx="46" cy="66" r="17" fill="' + c.dark + '"/>' +
+        '<circle cx="154" cy="66" r="17" fill="' + c.dark + '"/>' +
+        '<circle cx="46" cy="67" r="9.5" fill="' + c.blush + '" opacity=".5"/>' +
+        '<circle cx="154" cy="67" r="9.5" fill="' + c.blush + '" opacity=".5"/>' +
+        '<ellipse cx="100" cy="126" rx="81" ry="78" fill="' + c.body + '"/>' +
+        '<ellipse cx="100" cy="152" rx="55" ry="48" fill="' + c.soft + '"/>';
+      front =
+        // защёчные мешки — то, по чему хомяка узнают
+        '<ellipse cx="44" cy="148" rx="26" ry="24" fill="' + c.dark + '" opacity=".32"/>' +
+        '<ellipse cx="156" cy="148" rx="26" ry="24" fill="' + c.dark + '" opacity=".32"/>' +
+        '<g stroke="' + c.dark + '" stroke-width="2.4" stroke-linecap="round" opacity=".75">' +
+        '<path d="M64 136H36"/><path d="M64 143l-29 6"/><path d="M64 129l-27-7"/>' +
+        '<path d="M136 136h28"/><path d="M136 143l29 6"/><path d="M136 129l27-7"/></g>' +
+        '<ellipse cx="74" cy="186" rx="15" ry="10" fill="' + c.soft + '"/>' +
+        '<ellipse cx="126" cy="186" rx="15" ry="10" fill="' + c.soft + '"/>';
+      nose =
+        '<path d="M100 134c-7 0-11-3.5-11-7.5S94 121 100 121s11 1 11 5.5-4 7.5-11 7.5z" fill="#4A3020"/>' +
+        '<path d="M100 134v9" stroke="#8A6A4A" stroke-width="2.6" stroke-linecap="round"/>';
+
+    } else if (kind === 'kaktus') {
+      back =
+        // руки: наружу и вверх, как у настоящего
+        '<g fill="none" stroke="' + c.body + '" stroke-width="23" stroke-linecap="round">' +
+        '<path d="M64 128H42c-7 0-11-5-11-12V96"/>' +
+        '<path d="M136 116h22c7 0 11-5 11-12V84"/></g>' +
+        '<rect x="54" y="24" width="92" height="160" rx="46" fill="' + c.body + '"/>' +
+        // рёбра
+        '<g fill="none" stroke="' + c.soft + '" stroke-width="5" stroke-linecap="round" opacity=".45">' +
+        '<path d="M78 52v120"/><path d="M122 52v120"/></g>' +
+        '<ellipse cx="100" cy="150" rx="33" ry="36" fill="' + c.soft + '" opacity=".4"/>';
+      front =
+        '<g stroke="' + c.soft + '" stroke-width="3" stroke-linecap="round" opacity=".9">' +
+        '<path d="M61 60l-8-5"/><path d="M61 60l-8 5"/>' +
+        '<path d="M61 92l-8-5"/><path d="M61 92l-8 5"/>' +
+        '<path d="M62 150l-8-5"/><path d="M62 150l-8 5"/>' +
+        '<path d="M139 60l8-5"/><path d="M139 60l8 5"/>' +
+        '<path d="M139 92l8-5"/><path d="M139 92l8 5"/>' +
+        '<path d="M138 150l8-5"/><path d="M138 150l8 5"/>' +
+        '<path d="M31 84l-7-4"/><path d="M31 84l-7 4"/>' +
+        '<path d="M169 72l7-4"/><path d="M169 72l7 4"/></g>' +
+        // горшок
+        '<path d="M66 178h68l-7 30a4 4 0 0 1-4 3H77a4 4 0 0 1-4-3z" fill="#C9743F"/>' +
+        '<rect x="60" y="170" width="80" height="15" rx="7" fill="#E08A50"/>' +
+        '<ellipse cx="100" cy="172" rx="31" ry="4" fill="#6B4A2E" opacity=".5"/>' +
+        // цветок
+        '<g transform="translate(100,20)">' +
+        '<circle cx="-14" cy="-3" r="10.5" fill="#F2A0C0"/><circle cx="14" cy="-3" r="10.5" fill="#F2A0C0"/>' +
+        '<circle cx="0" cy="-15" r="10.5" fill="#F2A0C0"/><circle cx="-9" cy="9" r="10.5" fill="#F2A0C0"/>' +
+        '<circle cx="9" cy="9" r="10.5" fill="#F2A0C0"/>' +
+        '<circle cx="0" cy="-3" r="7.5" fill="#FFD86E"/></g>';
+      nose = '<ellipse cx="100" cy="128" rx="8" ry="6" fill="#3E6B3E"/>';
+
+    } else {
+      back =
+        // хвост
+        '<path d="M168 190c18-4 24-18 20-30s-16-16-22-10" fill="none" stroke="' + c.dark +
+          '" stroke-width="15" stroke-linecap="round"/>' +
+        '<path d="M186 158l12-8-2 15z" fill="' + c.soft + '"/>' +
+        // крылья
+        wing('') + wing(' transform="translate(200,0) scale(-1,1)"') +
+        // лапы
+        '<ellipse cx="62" cy="196" rx="24" ry="12" fill="' + c.dark + '"/>' +
+        '<ellipse cx="138" cy="196" rx="24" ry="12" fill="' + c.dark + '"/>' +
+        // рожки растут из головы, а не висят рядом
+        '<path d="M70 62c-5-14-12-22-20-26 3 11 4 22 4 32z" fill="' + c.dark + '"/>' +
+        '<path d="M130 62c5-14 12-22 20-26-3 11-4 22-4 32z" fill="' + c.dark + '"/>' +
+        '<ellipse cx="100" cy="128" rx="78" ry="76" fill="' + c.body + '"/>' +
+        // гребень
+        '<path d="M82 58l7-16 7 14 7-18 7 16 6-12 4 14z" fill="' + c.soft + '"/>' +
+        '<ellipse cx="100" cy="150" rx="50" ry="46" fill="' + c.soft + '"/>';
+      front =
+        '<g fill="none" stroke="' + c.dark + '" stroke-width="2.8" stroke-linecap="round" opacity=".22">' +
+        '<path d="M80 170q20 8 40 0"/><path d="M84 184q16 7 32 0"/></g>' +
+        '<ellipse cx="70" cy="190" rx="13" ry="8" fill="' + c.soft + '"/>' +
+        '<ellipse cx="130" cy="190" rx="13" ry="8" fill="' + c.soft + '"/>';
+      nose =
+        '<ellipse cx="100" cy="131" rx="19" ry="12" fill="' + c.soft + '"/>' +
+        '<ellipse cx="94" cy="128" rx="2.4" ry="3.2" fill="#3A3560" opacity=".8"/>' +
+        '<ellipse cx="106" cy="128" rx="2.4" ry="3.2" fill="#3A3560" opacity=".8"/>';
+    }
+
+    return '<svg viewBox="0 0 200 215" aria-hidden="true"><g class="rig">' +
+      back + front + eye(74, 1) + eye(126, 2) + blush + nose + mouth + '</g></svg>';
+  }
+
+  /* ── оживление ── */
+  let rig = null, lids = [], pupils = [], mouth = null;
+  function mount() {
+    const g = $('guy');
+    g.innerHTML = svgFor(who);
+    rig = g.querySelector('.rig');
+    lids = Array.prototype.slice.call(g.querySelectorAll('.eyelid'));
+    pupils = Array.prototype.slice.call(g.querySelectorAll('.pupil'));
+    mouth = g.querySelector('.mouth');
+    hole = g.querySelector('.hole');
+    tongue = g.querySelector('.tongue');
+    smile = g.querySelector('.smile');
+    setMouth(0);
+    look(0, 0);
+    sizeGuy();
+  }
+
+  // svg с viewBox сам выбирает размер непредсказуемо (в альбоме вылезал
+  // за комнату), поэтому задаём ширину и высоту в пикселях руками
+  const AR = 200 / 215;
+  function sizeGuy() {
+    const g = $('guy'), s = g.querySelector('svg');
+    if (!s) return;
+    requestAnimationFrame(() => {
+      const r = g.getBoundingClientRect();
+      const w = r.width * 0.94, h = r.height * 0.97;
+      if (w < 20 || h < 20) return;
+      let hh = h, ww = h * AR;
+      if (ww > w) { ww = w; hh = w / AR; }
+      s.style.width = ww.toFixed(1) + 'px';
+      s.style.height = hh.toFixed(1) + 'px';
+    });
+  }
+
+  let hole = null, tongue = null, smile = null;
+  function setMouth(v) {
+    if (!hole) return;
+    const k = Math.min(1, Math.max(0, v));
+    hole.setAttribute('ry', (k * 13).toFixed(1));
+    tongue.setAttribute('ry', (k * 6).toFixed(1));
+    smile.style.opacity = Math.max(0, 1 - k * 2.2).toFixed(2);
+  }
+
+  function look(dx, dy) {
+    pupils.forEach(p => p.setAttribute('transform',
+      'translate(' + (dx * 5).toFixed(1) + ',' + (dy * 4).toFixed(1) + ')'));
+  }
+
+  let blinkT = 0;
+  function blink() {
+    lids.forEach(l => l.setAttribute('transform', 'translate(0,0)'));
+    setTimeout(() => lids.forEach(l => l.setAttribute('transform', 'translate(0,-52)')), 110);
+  }
+  function blinkLoop() {
+    clearTimeout(blinkT);
+    blinkT = setTimeout(() => { if (!asleep) blink(); blinkLoop(); }, 2200 + Math.random() * 3200);
+  }
+
+  function react(cls, ms) {
+    if (!rig) return;
+    rig.classList.remove('hop', 'wig', 'tick');
+    void rig.offsetWidth;
+    rig.classList.add(cls);
+    setTimeout(() => rig && rig.classList.remove(cls), ms || 700);
+  }
+
+  let happyT = 0;
+  function happy(ms) {
+    $('guy').classList.add('happy');
+    clearTimeout(happyT);
+    happyT = setTimeout(() => $('guy').classList.remove('happy'), ms || 1400);
+  }
+
+  function bubble(text) {
+    const b = $('bubble');
+    b.textContent = text;
+    b.classList.remove('go');
+    void b.offsetWidth;
+    b.classList.add('go');
+  }
+
+  /* ── что он умеет ── */
+  let asleep = false;
+  function wake() {
+    if (!asleep) return;
+    asleep = false;
+    $('stage').classList.remove('night');
+    lids.forEach(l => l.setAttribute('transform', 'translate(0,-52)'));
+    react('hop'); squeak(); listenOn();
+  }
+
+  function doSleep() {
+    if (asleep) { wake(); return; }
+    asleep = true;
+    hush();
+    $('stage').classList.add('night');
+    lids.forEach(l => l.setAttribute('transform', 'translate(0,0)'));
+    yawn(); listenOff(true);
+    bubble('Gute Nacht');
+  }
+
+  function pet() {
+    if (asleep) { wake(); return; }
+    react('wig'); happy(); squeak(); buzz(12);
+    look(0, -0.6);
+    setTimeout(() => look(0, 0), 700);
+  }
+
+  function tickle() {
+    if (asleep) { wake(); return; }
+    react('tick', 900); happy(1800); giggle(); buzz([10, 40, 10, 40, 10]);
+    mouthBurst(0.9, 850);
+  }
+
+  function playBall() {
+    if (asleep) { wake(); return; }
+    react('hop'); boing(); happy();
+    look(1, -0.4);
+    setTimeout(() => look(-1, -0.4), 320);
+    setTimeout(() => look(0, 0), 700);
+  }
+
+  function feed(toy, el) {
+    if (asleep) { wake(); return; }
+    const g = $('guy').getBoundingClientRect(), st = $('stage').getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const f = document.createElement('div');
+    f.className = 'fly';
+    f.textContent = toy.e;
+    f.style.fontSize = Math.round(r.width * 0.6) + 'px';
+    f.style.left = (r.left - st.left + r.width / 2 - r.width * 0.3) + 'px';
+    f.style.top = (r.top - st.top) + 'px';
+    $('stage').appendChild(f);
+    requestAnimationFrame(() => {
+      f.style.transform = 'translate(' +
+        (g.left - st.left + g.width / 2 - (r.left - st.left + r.width / 2)).toFixed(0) + 'px,' +
+        (g.top - st.top + g.height * 0.62 - (r.top - st.top)).toFixed(0) + 'px) scale(.5)';
+      f.style.opacity = '0';
+    });
+    setTimeout(() => f.remove(), 900);
+    setTimeout(() => {
+      munch(); react('hop'); happy(1600);
+      mouthBurst(0.55, 700);
+      const w = wordBy(toy.de);
+      if (w) { say(w, 420); bubble(w.de); }
+    }, 520);
+  }
+
+  // рот жуёт/смеётся сам по себе, когда голоса нет
+  let burst = 0;
+  function mouthBurst(amp, ms) {
+    clearInterval(burst);
+    const t0 = Date.now();
+    burst = setInterval(() => {
+      const k = (Date.now() - t0) / ms;
+      if (k >= 1) { clearInterval(burst); setMouth(0); return; }
+      setMouth(Math.abs(Math.sin(k * 14)) * amp * (1 - k));
+    }, 40);
+  }
+
+  /* ── повторялка ─────────────────────────────────────────────
+     Слушаем микрофон, ловим начало и конец фразы по громкости,
+     пишем MediaRecorder, потом проигрываем быстрее и выше. Пока
+     зверёк говорит, микрофон закрыт — иначе он услышит сам себя
+     и начнёт повторять бесконечно. */
+  let micStream = null, micSrc = null, micAna = null, micData = null;
+  let rec = null, chunks = [], recOn = false, micWanted = true;
+  let raf = 0, talking = false, micState = 'off';
+
+  function micLabel(state, text) {
+    micState = state;
+    const box = $('earBox');
+    box.classList.toggle('on', state === 'listen' || state === 'hear' || state === 'talk');
+    box.classList.toggle('hot', state === 'hear' || state === 'talk');
+    $('earText').textContent = text;
+  }
+
+  async function listenOn() {
+    if (!micWanted || asleep) return;
+    initAudio();
+    if (micStream) { micLabel('listen', 'Слушаю…'); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      micLabel('no', 'Микрофона нет');
+      $('btnMic').classList.add('mute');
+      return;
+    }
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+    } catch (e) {
+      micWanted = false;
+      $('btnMic').classList.add('mute');
+      micLabel('no', 'Без микрофона');
+      bubble('\u{1F910}');
+      console.warn('[mic] ' + e.name);
+      return;
+    }
+    micSrc = actx.createMediaStreamSource(micStream);
+    micAna = actx.createAnalyser();
+    micAna.fftSize = 1024;
+    micData = new Uint8Array(micAna.fftSize);
+    micSrc.connect(micAna);
+    $('btnMic').classList.add('live');
+    micLabel('listen', 'Слушаю…');
+    loop();
+  }
+
+  function listenOff(keepStream) {
+    cancelAnimationFrame(raf); raf = 0;
+    stopRec();
+    chunks = [];
+    $('level').style.width = '0';
+    $('btnMic').classList.remove('live');
+    micLabel('off', '');
+    if (!keepStream && micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null; micSrc = null; micAna = null;
+    }
+  }
+
+  function level() {
+    if (!micAna) return 0;
+    micAna.getByteTimeDomainData(micData);
+    let sum = 0;
+    for (let i = 0; i < micData.length; i++) {
+      const v = (micData[i] - 128) / 128;
+      sum += v * v;
+    }
+    return Math.sqrt(sum / micData.length);
+  }
+
+  /* Порог подстраивается под комнату: в тишине слышно шёпот, при шуме
+     холодильник не считается речью. И всё решается по времени, а не по
+     кадрам: телефон подтормаживает, кадры редеют — миллисекунды нет. */
+  const MINON = 70, MINOFF = 650, MAXREC = 6000;
+  let floor = 0.012, onAt = 0, offAt = 0;
+  const gate = () => Math.max(0.03, floor * 3 + 0.01);
+
+  function loop() {
+    raf = requestAnimationFrame(loop);
+    if (talking || asleep || !micAna) return;
+    const v = level(), now = Date.now(), g = gate();
+    $('level').style.width =
+      Math.min(100, v / Math.max(g * 2.2, 0.12) * 100).toFixed(0) + '%';
+    if (!recOn) {
+      floor = floor * 0.99 + Math.min(v, 0.2) * 0.01;   // медленно запоминаем тишину
+      if (v > g) { if (!onAt) onAt = now; else if (now - onAt > MINON) startRec(); }
+      else onAt = 0;
+      return;
+    }
+    if (v > g * 0.7) offAt = 0;
+    else if (!offAt) offAt = now;
+    else if (now - offAt > MINOFF) stopRec();
+    if (now - recStart > MAXREC) stopRec();
+  }
+
+  let recStart = 0;
+  function startRec() {
+    if (recOn || !micStream || typeof MediaRecorder === 'undefined') return;
+    chunks = [];
+    try { rec = new MediaRecorder(micStream); } catch (e) { micWanted = false; return; }
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = () => play();
+    try { rec.start(); } catch (e) { return; }
+    recOn = true; recStart = Date.now(); onAt = 0; offAt = 0;
+    micLabel('hear', 'Слышу тебя!');
+    look(0, -0.5);
+  }
+
+  function stopRec() {
+    if (!recOn) return;
+    recOn = false;
+    try { if (rec && rec.state !== 'inactive') rec.stop(); } catch (e) {}
+    micLabel('listen', 'Слушаю…');
+  }
+
+  let live = null;
+  function hush() {
+    if (live) { try { live.stop(); } catch (e) {} live = null; }
+    talking = false; setMouth(0);
+  }
+
+  function play() {
+    if (!chunks.length || !actx || asleep) { chunks = []; return; }
+    const blob = new Blob(chunks, { type: chunks[0].type || 'audio/webm' });
+    chunks = [];
+    blob.arrayBuffer()
+      .then(ab => actx.decodeAudioData(ab))
+      .then(buf => {
+        if (!buf || buf.duration < 0.18) { micLabel('listen', 'Слушаю…'); return; }
+        if (asleep) return;
+        talking = true;
+        micLabel('talk', 'Повторяю!');
+        const src = actx.createBufferSource();
+        live = src;
+        src.buffer = buf;
+        src.playbackRate.value = CHARS[who].rate;
+        const g = actx.createGain();
+        g.gain.value = 1.25;
+        const ana = actx.createAnalyser();
+        ana.fftSize = 512;
+        const d = new Uint8Array(ana.fftSize);
+        src.connect(g); g.connect(ana); ana.connect(master);
+        react('hop');
+        happy(buf.duration / CHARS[who].rate * 1000 + 600);
+        let mr = 0;
+        const mloop = () => {
+          mr = requestAnimationFrame(mloop);
+          ana.getByteTimeDomainData(d);
+          let s = 0;
+          for (let i = 0; i < d.length; i++) { const x = (d[i] - 128) / 128; s += x * x; }
+          setMouth(Math.sqrt(s / d.length) * 4.5);
+        };
+        mloop();
+        src.onended = () => {
+          cancelAnimationFrame(mr);
+          setMouth(0);
+          if (live === src) live = null;
+          talking = false;
+          onAt = 0; offAt = 0;
+          if (!asleep) micLabel('listen', 'Слушаю…');
+        };
+        src.start();
+      })
+      .catch(e => { console.warn('[mic] ' + e.message); micLabel('listen', 'Слушаю…'); });
+  }
+
+  /* ── полка ── */
+  function drawShelf() {
+    const sh = $('shelf');
+    sh.innerHTML = '';
+    TOYS.forEach(t => {
+      const b = document.createElement('button');
+      b.className = 'toy';
+      b.dataset.act = t.act;
+      b.textContent = t.e;
+      b.addEventListener('click', () => {
+        initAudio();
+        if (t.act === 'eat') feed(t, b);
+        else if (t.act === 'play') playBall();
+        else if (t.act === 'tickle') tickle();
+        else if (t.act === 'sleep') doSleep();
+      });
+      sh.appendChild(b);
+    });
+    sizeShelf();
+  }
+
+  function sizeShelf() {
+    const sh = $('shelf');
+    const n = sh.children.length;
+    if (!n) return;
+    requestAnimationFrame(() => {
+      const r = $('stage').getBoundingClientRect();
+      if (!r.width) return;
+      const side = r.width >= r.height * 1.3;   // лёжа полка стоит сбоку
+      const gap = parseFloat(getComputedStyle(sh).rowGap) || 7;
+      const along = (side ? r.height : r.width) - 20 - (n - 1) * gap;
+      const across = side ? r.width * 0.15 : r.height * 0.17;
+      const d = Math.max(34, Math.min(74, Math.min(along / n, across)));
+      sh.style.gridTemplateColumns = side ? d.toFixed(1) + 'px'
+                                          : 'repeat(' + n + ',' + d.toFixed(1) + 'px)';
+      Array.prototype.forEach.call(sh.children, b => {
+        b.style.width = d.toFixed(1) + 'px';
+        b.style.height = d.toFixed(1) + 'px';
+        b.style.fontSize = Math.round(d * 0.54) + 'px';
+      });
+      sizeGuy();
+    });
+  }
+
+  /* ── кто сейчас ── */
+  function drawWho() {
+    const box = $('who');
+    box.innerHTML = '';
+    ORDER.forEach(k => {
+      const b = document.createElement('button');
+      b.dataset.k = k;
+      b.textContent = CHARS[k].emo;
+      b.className = k === who ? 'on' : '';
+      b.setAttribute('aria-label', CHARS[k].name);
+      b.addEventListener('click', () => setWho(k));
+      box.appendChild(b);
+    });
+  }
+
+  function setWho(k) {
+    if (!CHARS[k]) return;
+    who = k;
+    try { localStorage.setItem(K_WHO, k); } catch (e) {}
+    Array.prototype.forEach.call($('who').children,
+      b => b.classList.toggle('on', b.dataset.k === k));
+    mount();
+    if (!asleep) { react('hop'); squeak(); bubble(CHARS[k].name); }
+    $('btnStart').textContent = CHARS[k].emo;
+  }
+
+  /* ── ввод ── */
+  $('guy').addEventListener('pointerdown', e => {
+    e.preventDefault();
+    initAudio();
+    pet();
+  });
+
+  $('btnMic').addEventListener('click', () => {
+    initAudio();
+    micWanted = !micWanted;
+    $('btnMic').classList.toggle('mute', !micWanted);
+    if (micWanted) listenOn(); else listenOff();
+  });
+
+  $('btnStart').addEventListener('click', () => {
+    initAudio();
+    $('veil').classList.add('hidden');
+    TOYS.forEach(t => { if (t.de) loadVoice(wordBy(t.de)); });
+    blinkLoop();
+    react('hop'); squeak();
+    listenOn();
+  });
+
+  let rz = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(rz);
+    rz = setTimeout(sizeShelf, 160);
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') listenOff();
+    else if (micWanted && !$('veil').classList.contains('hidden') === false) listenOn();
+  });
+
+  /* ── пуск ── */
+  try { const k = localStorage.getItem(K_WHO); if (k && CHARS[k]) who = k; } catch (e) {}
+  drawWho();
+  drawShelf();
+  mount();
+  $('btnStart').textContent = CHARS[who].emo;
+
+  window.YEVA_QUASSEL = {
+    state: () => ({ who: who, asleep: asleep, talking: talking, micState: micState,
+                    micWanted: micWanted, hasStream: !!micStream, recOn: recOn,
+                    rate: CHARS[who].rate,
+                    mouth: hole ? +hole.getAttribute('ry') : -1,
+                    happy: $('guy').classList.contains('happy'),
+                    night: $('stage').classList.contains('night'),
+                    cubes: $('guy').querySelectorAll('ellipse,circle,rect,path').length,
+                    toys: Array.prototype.map.call($('shelf').children, b => b.dataset.act),
+                    bubble: ($('bubble').textContent || '').trim() }),
+    setWho: setWho,
+    pet: pet, tickle: tickle, sleep: doSleep,
+    toy: act => {
+      const b = Array.prototype.find.call($('shelf').children, x => x.dataset.act === act);
+      if (!b) return false;
+      b.click();
+      return true;
+    }
+  };
+})();
+</script>
+<script src="install.js"></script>
+<script src="home.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
