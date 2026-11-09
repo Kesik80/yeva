@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Regenbogen</title>
+<meta name="theme-color" content="#7E8CA8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#7E8CA8}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#243244;
+    background:linear-gradient(180deg,#7E8CA8 0%,#A9B4C6 40%,#D4DBE4 74%,#F2F5F8 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 9px) 10px calc(env(safe-area-inset-bottom,0px) + 9px);
+  }
+
+  .top{display:flex;align-items:center;gap:6px;flex:none}
+  .track{
+    position:relative;flex:1;min-width:0;height:38px;border-radius:999px;overflow:hidden;
+    background:rgba(255,255,255,.82);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(36,50,68,.18);
+  }
+  .track .fill{position:absolute;left:0;top:0;bottom:0;width:0;
+    background:linear-gradient(90deg,#E63B2E,#F08020,#F5C92A,#43A84B,#2F6FD0,#8B5FBF);
+    transition:width .35s ease}
+  .track .marks{position:absolute;inset:0;pointer-events:none}
+  .track .marks i{position:absolute;top:76%;width:8px;height:8px;margin:-4px 0 0 -4px;
+    border-radius:50%;background:rgba(36,50,68,.22);
+    transition:background .3s,transform .3s,box-shadow .3s}
+  .track .marks i.on{background:#fff;transform:scale(1.25);box-shadow:0 0 0 2px rgba(240,128,32,.95)}
+  .track .cnt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:6px;
+    font-size:13px;font-weight:600;color:#243244;font-variant-numeric:tabular-nums;white-space:nowrap;
+    text-shadow:0 1px 3px rgba(255,255,255,.9)}
+  .track .cnt b{color:#1F5E8C;font-weight:600}
+
+  .hp{
+    flex:none;display:flex;gap:2.5px;align-items:center;
+    background:rgba(255,255,255,.82);border-radius:999px;padding:10px 9px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(36,50,68,.18);font-size:13px;line-height:1;
+  }
+  .hp i{font-style:normal;color:#E8566B;transition:opacity .3s,transform .3s,color .3s}
+  .hp i.off{opacity:.2;color:#243244;transform:scale(.78)}
+  .hp i.bye{animation:hbye .55s ease-out}
+  .hp i.back{animation:hback .6s ease-out}
+  @keyframes hbye{0%{transform:scale(1.5);opacity:1}35%{transform:scale(1.5) rotate(12deg)}
+    100%{transform:scale(.78);opacity:.2}}
+  @keyframes hback{0%{transform:scale(.78);opacity:.2}45%{transform:scale(1.6);opacity:1}
+    100%{transform:scale(1);opacity:1}}
+
+  .btn{
+    width:40px;height:40px;flex:none;border:0;border-radius:50%;
+    background:rgba(255,255,255,.82);color:#243244;text-decoration:none;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(36,50,68,.19);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.9)}
+  .btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ── небо ── */
+  .stage{
+    flex:1;min-height:0;position:relative;display:flex;flex-direction:column;
+    margin-top:9px;border-radius:24px;overflow:hidden;
+    background:linear-gradient(180deg,#7C8AA6 0%,#9AA7BC 46%,#BCC6D2 100%);
+    box-shadow:inset 0 2px 14px rgba(36,50,68,.14);
+    transition:background 1.2s ease;
+  }
+  .stage.sunny{background:linear-gradient(180deg,#4FA8DE 0%,#8FD0EC 48%,#CDEAF7 100%)}
+
+  .sky{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+  .rain{position:absolute;inset:0;transition:opacity 1s ease}
+  .stage.sunny .rain{opacity:0}
+  .rain i{
+    position:absolute;top:-14%;width:2px;height:16px;border-radius:2px;
+    background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.75));
+    animation:drop linear infinite;
+  }
+  @keyframes drop{to{transform:translateY(125vh)}}
+
+  .cloud{
+    position:absolute;border-radius:999px;background:rgba(255,255,255,.5);
+    transition:opacity 1s ease,transform 1s ease;
+  }
+  .stage.sunny .cloud{opacity:.75;transform:translateY(-8px)}
+
+  .sun{
+    position:absolute;right:7%;top:6%;font-size:clamp(34px,10vw,64px);line-height:1;
+    opacity:0;transform:scale(.3) translateY(26px);
+    transition:opacity .9s ease,transform .9s cubic-bezier(.2,1.3,.4,1);
+    filter:drop-shadow(0 0 16px rgba(255,214,110,.85));
+  }
+  .stage.sunny .sun{opacity:1;transform:none}
+
+  .hill{
+    position:absolute;bottom:-14%;height:34%;border-radius:50% 50% 0 0;
+    background:#6E7A6A;transition:background 1.2s ease;
+  }
+  .stage.sunny .hill{background:#63B055}
+  .hill.b{background:#5E6A5C}
+  .stage.sunny .hill.b{background:#4E9A46}
+
+  .bloom{
+    position:absolute;bottom:15%;font-size:clamp(16px,4.6vw,24px);line-height:1;
+    opacity:0;transform:scale(.3);
+    transition:opacity .7s ease,transform .7s cubic-bezier(.2,1.4,.4,1);
+  }
+  .stage.sunny .bloom{opacity:1;transform:none}
+
+  .flyer{
+    position:absolute;font-size:clamp(18px,5vw,28px);line-height:1;pointer-events:none;
+    opacity:0;
+  }
+  .flyer.go{animation:fly 3.4s ease-in-out forwards}
+  @keyframes fly{
+    0%{opacity:0;transform:translate(0,0) rotate(-8deg)}
+    12%{opacity:1}
+    50%{transform:translate(42vw,-26px) rotate(8deg)}
+    88%{opacity:1}
+    100%{opacity:0;transform:translate(86vw,10px) rotate(-6deg)}
+  }
+
+  /* ── сама радуга ── */
+  .bow{position:absolute;inset:0;pointer-events:none;overflow:visible}
+  .bow path{fill:none;stroke-linecap:butt}
+  .bow .slot{stroke:rgba(255,255,255,.34);stroke-dasharray:7 9}
+  .bow .slot.next{stroke:rgba(255,255,255,.85);animation:waiting 1.4s ease-in-out infinite}
+  @keyframes waiting{0%,100%{opacity:.55}50%{opacity:1}}
+  .bow .band{transition:stroke-dashoffset .62s cubic-bezier(.3,0,.2,1)}
+  .bow .band.lit{animation:bandlit .6s ease-out}
+  @keyframes bandlit{0%{filter:none}40%{filter:brightness(1.5) saturate(1.3)}100%{filter:none}}
+
+  /* ── задание ── */
+  .ask{
+    position:absolute;left:50%;top:9px;transform:translateX(-50%);z-index:6;
+    display:flex;align-items:center;gap:9px;cursor:pointer;border:0;font-family:inherit;
+    background:rgba(255,255,255,.93);border-radius:999px;padding:8px 17px 8px 12px;
+    box-shadow:0 6px 18px rgba(36,50,68,.26);max-width:92%;
+    font-size:clamp(16px,4.8vw,22px);font-weight:600;color:#243244;white-space:nowrap;
+  }
+  .ask svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;
+    stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+  .ask small{font-size:.62em;font-weight:500;opacity:.6}
+  .ask.say{animation:saypulse .5s}
+  @keyframes saypulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.06)}}
+
+  /* ── краски ── */
+  .pots{
+    position:relative;z-index:5;margin-top:auto;flex:none;
+    display:grid;gap:clamp(5px,2vw,10px);justify-content:center;
+    padding:9px 8px;background:rgba(255,255,255,.42);
+    border-radius:20px 20px 24px 24px;
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  }
+  .pot{
+    border:0;cursor:pointer;border-radius:50%;padding:0;
+    box-shadow:0 5px 12px rgba(36,50,68,.3),inset 0 -5px 0 rgba(0,0,0,.14),
+               inset 0 4px 0 rgba(255,255,255,.35);
+    transition:transform .14s,box-shadow .3s;
+  }
+  .pot:active{transform:scale(.9)}
+  .pot.no{animation:shake .4s}
+  @keyframes shake{0%,100%{transform:translateX(0)}22%{transform:translateX(-7px)}
+    55%{transform:translateX(6px)}80%{transform:translateX(-3px)}}
+  .pot.tip{animation:tip 1.2s ease-in-out infinite}
+  @keyframes tip{0%,100%{box-shadow:0 5px 12px rgba(36,50,68,.3),inset 0 -5px 0 rgba(0,0,0,.14),inset 0 4px 0 rgba(255,255,255,.35)}
+    50%{box-shadow:0 0 0 6px rgba(255,255,255,.95),0 5px 12px rgba(36,50,68,.3),inset 0 -5px 0 rgba(0,0,0,.14)}}
+
+  .pop{
+    position:absolute;pointer-events:none;z-index:9;white-space:nowrap;
+    font-size:clamp(16px,4.6vw,21px);font-weight:600;color:#fff;
+    text-shadow:0 2px 8px rgba(36,50,68,.65);animation:rise .9s ease-out forwards;
+  }
+  .pop.bad{color:#FFD2CC}
+  @keyframes rise{
+    0%{opacity:0;transform:translate(-50%,0) scale(.8)}
+    22%{opacity:1;transform:translate(-50%,-14px) scale(1.12)}
+    100%{opacity:0;transform:translate(-50%,-58px) scale(1)}
+  }
+
+  .flash{
+    position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(.7);
+    font-size:clamp(20px,6.2vw,31px);font-weight:600;color:#243244;opacity:0;
+    background:rgba(255,255,255,.94);border-radius:999px;padding:9px 22px;
+    box-shadow:0 10px 26px rgba(36,50,68,.3);pointer-events:none;white-space:nowrap;z-index:16;
+  }
+  .flash.go{animation:flash 1.3s ease-out forwards}
+  @keyframes flash{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}
+    18%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}
+    74%{opacity:1;transform:translate(-50%,-60%) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-76%) scale(1)}
+  }
+
+  .gift{
+    position:absolute;left:50%;top:40%;opacity:0;z-index:17;pointer-events:none;
+    font-size:clamp(54px,18vw,100px);line-height:1;
+    filter:drop-shadow(0 10px 22px rgba(36,50,68,.36));
+    transform:translate(-50%,-50%) scale(.3);
+  }
+  .gift.go{animation:gift 1.7s cubic-bezier(.2,1.2,.4,1) forwards}
+  @keyframes gift{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.3) rotate(-18deg)}
+    20%{opacity:1;transform:translate(-50%,-50%) scale(1.18) rotate(7deg)}
+    52%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}
+    100%{opacity:0;transform:translate(-50%,-146%) scale(.55)}
+  }
+
+  .party{position:fixed;inset:0;z-index:30;pointer-events:none;overflow:hidden}
+  .party i{position:absolute;width:12px;height:16px;border-radius:3px;animation:fall linear forwards}
+  @keyframes fall{from{transform:translateY(-12vh) rotate(0)}to{transform:translateY(112vh) rotate(680deg)}}
+
+  /* ── старт ── */
+  .veil{
+    position:fixed;inset:0;z-index:20;display:flex;
+    background:rgba(169,180,198,.5);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    transition:opacity .3s;padding:18px;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .panel{
+    width:100%;max-width:400px;text-align:center;margin:auto;flex:none;
+    background:rgba(255,255,255,.9);border-radius:30px;padding:22px 20px 26px;
+    box-shadow:0 18px 44px rgba(36,50,68,.28);
+  }
+  .panel h1{
+    font-size:clamp(23px,6.6vw,30px);font-weight:600;
+    background:linear-gradient(90deg,#E63B2E,#F08020,#F5C92A,#43A84B,#2F6FD0,#8B5FBF);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .panel .ru{font-size:14px;color:rgba(36,50,68,.6);margin-top:2px}
+  .stats{
+    margin-top:14px;font-size:13.5px;line-height:1.55;color:rgba(36,50,68,.68);
+    background:rgba(255,255,255,.6);border-radius:16px;padding:10px 12px;
+  }
+  .stats b{color:#243244;font-weight:600}
+  .stats button{
+    width:auto;margin:8px auto 0;padding:6px 12px;font-size:12px;border-radius:9px;
+    border:0;background:rgba(36,50,68,.08);color:rgba(36,50,68,.6);
+    font-family:inherit;cursor:pointer;display:block;
+  }
+  .zoo{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-top:9px;font-size:21px;line-height:1.1}
+  .zoo span{transition:opacity .3s}
+  .zoo span.off{opacity:.26;filter:grayscale(1)}
+  .tip{margin-top:11px;font-size:12px;line-height:1.5;color:rgba(36,50,68,.55);padding:0 4px}
+  .big{
+    margin:20px auto 0;width:min(40vw,150px);aspect-ratio:1;border:0;border-radius:50%;cursor:pointer;
+    display:grid;place-items:center;color:#243244;
+    background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.98),rgba(255,255,255,.3) 30%,rgba(245,201,42,.5) 58%,rgba(47,111,208,.4) 80%,rgba(255,255,255,.92) 100%);
+    box-shadow:0 18px 44px rgba(36,50,68,.3),inset 0 0 34px rgba(255,255,255,.6);
+    animation:float 3.6s ease-in-out infinite;
+  }
+  .big svg{width:34%;height:34%;fill:currentColor;stroke:none}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  @media (max-height:560px){
+    .panel{padding:14px 18px 16px}
+    .panel h1{font-size:21px}
+    .stats{margin-top:9px;font-size:12.5px}
+    .zoo{font-size:16px;gap:2px;margin-top:6px}
+    .tip{margin-top:7px}
+    .big{margin-top:12px;width:min(24vh,104px)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .big,.rain i,.bow .slot.next{animation:none}
+    .flyer.go{animation-duration:.1s}
+  }
+</style>
+</head>
+<body>
+
+<script src="words.js"></script>
+
+<div class="top">
+  <div class="track" id="track">
+    <i class="fill" id="pfill"></i>
+    <span class="marks" id="marks"></span>
+    <b class="cnt" id="cnt"></b>
+  </div>
+  <div class="hp" id="hp"></div>
+  <button class="btn" id="btnAgain" aria-label="Заново">
+    <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.6 5.9"/><path d="M20 4v7h-7"/></svg>
+  </button>
+  <a class="btn" href="index.html" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>
+  </a>
+</div>
+
+<div class="stage" id="stage">
+  <div class="sky" id="sky">
+    <div class="rain" id="rain"></div>
+    <div class="sun">☀️</div>
+  </div>
+  <svg class="bow" id="bow"></svg>
+
+  <button class="ask" id="ask" aria-label="Повторить">
+    <svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M16 9.2a4 4 0 0 1 0 5.6"/><path d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8"/></svg>
+    <span id="askText"></span>
+  </button>
+
+  <div class="pots" id="pots"></div>
+
+  <div class="gift" id="gift"></div>
+  <div class="flash" id="flash"></div>
+</div>
+
+<div class="veil" id="veil">
+  <div class="panel">
+    <h1>Regenbogen</h1>
+    <div class="ru">Радуга</div>
+    <div class="stats" id="stats"></div>
+    <div class="tip">Идёт дождь, и радуга пустая. Голос называет цвет — найди
+      такую краску, и полоска закрасится. Когда радуга готова, дождь кончается
+      и выходит солнце</div>
+    <button class="big" id="btnStart" aria-label="Играть">
+      <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="party" id="party"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const YW = window.YEVA_WORDS || null;
+  const VOICE = 'voice/de/';
+  const NS = 'http://www.w3.org/2000/svg';
+
+  const K_LV = 'yeva.regen.level';
+  const K_BEST = 'yeva.regen.best';
+  const K_PTS = 'yeva.regen.points';
+  const K_ZOO = 'yeva.regen.zoo';
+
+  // призы — что бывает в небе и на лугу
+  const ZOO = ['\u{1F308}', '☀️', '⛅', '\u{1F326}️', '☁️', '⚡',
+               '❄️', '\u{1F338}', '\u{1F98B}', '\u{1F426}', '\u{1F33B}', '\u{1F340}',
+               '\u{1F319}', '⭐', '\u{1F41D}', '\u{1F33F}'];
+
+  // Порядок радуги настоящий, снаружи внутрь. Это и есть то, что
+  // стоит запомнить, поэтому цвета всегда спрашиваются по порядку.
+  const BOW = [
+    { de: 'rot',    hex: '#E63B2E' },
+    { de: 'orange', hex: '#F08020' },
+    { de: 'gelb',   hex: '#F5C92A' },
+    { de: 'grün', hex: '#43A84B' },
+    { de: 'blau',   hex: '#2F6FD0' },
+    { de: 'lila',   hex: '#8B5FBF' }
+  ];
+  // лишние краски на палитре — чтобы было из чего выбирать
+  const EXTRA = [
+    { de: 'rosa',    hex: '#F08CB4' },
+    { de: 'braun',   hex: '#8B5A2B' },
+    { de: 'weiß', hex: '#F7FAFB' },
+    { de: 'schwarz', hex: '#333A40' }
+  ];
+
+  const CFG = { base: 10, step: 5, top: 30, prize: 10, lives: 5, lvMax: 10 };
+  const goalFor = lv => Math.min(CFG.top, CFG.base + CFG.step * (lv - 1));
+  const bandsFor = lv => Math.min(BOW.length, 3 + lv);        // 4, 5, 6, 6…
+  const extraFor = lv => Math.min(EXTRA.length, lv - 1);      // 0, 1, 2, 3, 4
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+
+  /* ── звук ── */
+  let actx = null, master = null;
+  const vBuf = {}, vBad = {}, vHot = {};
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.3;
+    master.connect(actx.destination);
+  }
+
+  const NUMW = (() => {
+    const m = {};
+    const add = w => { if (w && typeof w.num === 'number') m[w.num] = w; };
+    if (YW && YW.numbers) YW.numbers.forEach(add);
+    return m;
+  })();
+  const SONNE = (YW && YW.pictured ? YW.pictured.find(w => w.de === 'die Sonne') : null);
+
+  const vUrl = w => VOICE + (YW && YW.slug ? YW.slug(w) : w.de) + '.mp3';
+
+  function loadVoice(w) {
+    if (!actx || !w) return;
+    const u = vUrl(w);
+    if (vBuf[u] || vBad[u] || vHot[u]) return;
+    vHot[u] = 1;
+    fetch(u)
+      .then(r => r.ok ? r : fetch(u + '?v=' + Date.now(), { cache: 'no-store' }))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(ab => actx.decodeAudioData(ab))
+      .then(b => { vBuf[u] = b; })
+      .catch(e => { vBad[u] = true; console.warn('[voice] нет ' + u + ' — ' + e.message); });
+  }
+
+  function say(w, when) {
+    if (!actx || !w) return;
+    const u = vUrl(w);
+    if (!vBuf[u] && !vBad[u]) loadVoice(w);
+    let tries = 0;
+    setTimeout(function wait() {
+      if (vBuf[u]) {
+        const src = actx.createBufferSource(), g = actx.createGain();
+        g.gain.value = 1.3;
+        src.buffer = vBuf[u];
+        src.connect(g); g.connect(master);
+        src.start();
+        return;
+      }
+      if (!vBad[u] && tries++ < 8) { setTimeout(wait, 100); return; }
+      try {
+        if (typeof speechSynthesis === 'undefined') return;
+        speechSynthesis.cancel();
+        const ut = new SpeechSynthesisUtterance(w.de);
+        ut.lang = 'de-DE'; ut.rate = 0.92; ut.pitch = 1.15;
+        speechSynthesis.speak(ut);
+      } catch (e) {}
+    }, when || 0);
+  }
+  const sayNum = (n, when) => say(NUMW[n], when);
+
+  function tone(type, freq, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur * 0.9);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.014);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+  const LADDER = [0, 2, 4, 7, 9, 12, 14, 16];
+  const step = i => 330 * Math.pow(2, LADDER[Math.min(i, LADDER.length - 1)] / 12);
+  const chord = (root, at, dur, vol) =>
+    [0, 4, 7, 12].forEach((s, i) => tone(i === 3 ? 'triangle' : 'sine',
+      root * Math.pow(2, s / 12), at + i * 0.015, dur, (vol || 0.2) / (1 + i * 0.4)));
+
+  const swish = i => { tone('sine', step(i), 0, 0.3, 0.22, step(i) * 1.5); };
+  const nope = () => tone('sawtooth', 230, 0, 0.26, 0.22, 85);
+  const shine = () => { chord(392, 0, 0.6, 0.24); chord(523, 0.18, 0.8, 0.22); };
+  const sad = () => [392, 330, 262].forEach((f, i) => tone('triangle', f, i * 0.14, 0.3, 0.26));
+  const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+
+  /* ── состояние ── */
+  let level = 1, best = 0, target = CFG.base;
+  let pts = 0, bestPts = 0, zoo = [], life = 0;
+  let painted = 0, bows = 0, wrong = 0, locked = false;
+  let bands = 4, step_ = 0, palette = [], slots = [], arcs = [];
+  let phase = 'wait';
+  let timers = [];
+  const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
+  const clearLater = () => { timers.forEach(clearTimeout); timers = []; };
+
+  function paintProgress() {
+    $('pfill').style.width = Math.min(100, painted / target * 100).toFixed(1) + '%';
+    $('cnt').innerHTML = painted + ' / ' + target + ' <b>◆ ' + pts + '</b>';
+    const box = $('marks');
+    const want = [];
+    for (let p = CFG.prize; p < target; p += CFG.prize) want.push(p);
+    if (box.children.length !== want.length) {
+      box.innerHTML = '';
+      want.forEach(p => {
+        const i = document.createElement('i');
+        i.style.left = (p / target * 100).toFixed(1) + '%';
+        box.appendChild(i);
+      });
+    }
+    want.forEach((p, i) => box.children[i].classList.toggle('on', painted >= p));
+  }
+
+  function anim(el, cls, ms) {
+    if (!el) return;
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    if (ms) setTimeout(() => el.classList.remove(cls), ms);
+  }
+
+  function paintLives(hit) {
+    const box = $('hp');
+    if (box.children.length !== CFG.lives) {
+      box.innerHTML = '';
+      for (let i = 0; i < CFG.lives; i++) {
+        const el = document.createElement('i');
+        el.textContent = '♥';
+        box.appendChild(el);
+      }
+    }
+    for (let i = 0; i < CFG.lives; i++) box.children[i].classList.toggle('off', i >= life);
+    if (hit === 'bye' && life >= 0 && life < CFG.lives) anim(box.children[life], 'bye');
+    if (hit === 'back' && life > 0) anim(box.children[life - 1], 'back');
+  }
+
+  const zooHtml = () => '<div class="zoo">' + ZOO.map((e, i) =>
+    '<span' + (zoo.indexOf(i) >= 0 ? '' : ' class="off"') + '>' + e + '</span>').join('') + '</div>';
+
+  function flash(text) {
+    const f = $('flash');
+    f.textContent = text;
+    anim(f, 'go');
+  }
+
+  function pop(text, x, y, bad) {
+    const d = document.createElement('div');
+    d.className = 'pop' + (bad ? ' bad' : '');
+    d.textContent = text;
+    d.style.left = Math.round(x) + 'px';
+    d.style.top = Math.round(Math.max(6, y)) + 'px';
+    $('stage').appendChild(d);
+    setTimeout(() => d.remove(), 950);
+  }
+
+  function confetti(n) {
+    const box = $('party');
+    const all = BOW.concat(EXTRA);
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement('i');
+      c.style.left = (Math.random() * 100) + 'vw';
+      c.style.background = all[i % all.length].hex;
+      c.style.animationDuration = (1.8 + Math.random() * 1.6) + 's';
+      c.style.animationDelay = (Math.random() * 0.6) + 's';
+      box.appendChild(c);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 4200);
+  }
+
+  /* ── погода ── */
+  function weather() {
+    const sky = $('sky');
+    sky.querySelectorAll('.cloud,.hill,.bloom').forEach(e => e.remove());
+    const r = $('stage').getBoundingClientRect();
+    const rain = $('rain');
+    rain.innerHTML = '';
+    for (let i = 0; i < 34; i++) {
+      const d = document.createElement('i');
+      d.style.left = (Math.random() * 100) + '%';
+      d.style.height = (12 + Math.random() * 14) + 'px';
+      d.style.animationDuration = (0.55 + Math.random() * 0.5) + 's';
+      d.style.animationDelay = (-Math.random() * 1.2) + 's';
+      rain.appendChild(d);
+    }
+    for (let i = 0; i < 3; i++) {
+      const c = document.createElement('div');
+      const w = r.width * (0.2 + Math.random() * 0.2);
+      c.className = 'cloud';
+      c.style.width = w + 'px';
+      c.style.height = (w * 0.33) + 'px';
+      c.style.left = (4 + i * 31 + Math.random() * 8) + '%';
+      c.style.top = (5 + Math.random() * 16) + '%';
+      c.style.opacity = (0.3 + Math.random() * 0.25).toFixed(2);
+      sky.appendChild(c);
+    }
+    [['', -8, 56], ['b', 52, 62]].forEach(([cls, left, w]) => {
+      const h = document.createElement('div');
+      h.className = 'hill' + (cls ? ' ' + cls : '');
+      h.style.left = left + '%';
+      h.style.width = w + '%';
+      sky.appendChild(h);
+    });
+    ['\u{1F33C}', '\u{1F33F}', '\u{1F338}', '\u{1F33B}', '\u{1F340}'].forEach((e, i) => {
+      const b = document.createElement('div');
+      b.className = 'bloom';
+      b.textContent = e;
+      b.style.left = (7 + i * 20 + Math.random() * 6) + '%';
+      b.style.transitionDelay = (0.25 + i * 0.12) + 's';
+      sky.appendChild(b);
+    });
+  }
+
+  /* ── радуга ──────────────────────────────────────────────────
+     Дуги концентрические: внешняя — красная, как в небе. Пустая
+     полоска рисуется пунктиром, закрашенная проявляется росчерком
+     от края до края. */
+  function drawBow() {
+    const r = $('stage').getBoundingClientRect();
+    const pots = $('pots').getBoundingClientRect();
+    const W = r.width, H = Math.max(80, pots.top - r.top - 12);
+    const svg = $('bow');
+    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(0) + ' ' + Math.round(r.height));
+    svg.innerHTML = '';
+    // Полукруг во всю ширину всё равно вдвое ниже, чем широк, поэтому
+    // ставим его не на самый низ, а так, чтобы ноги стояли в траве,
+    // а над дугой осталось небо для солнца и облаков.
+    const cx = W / 2, cy = H * 0.86;
+    const R = Math.min(W * 0.52, H * 0.58);
+    const bw = Math.max(7, R / (bands + 1.6));
+    slots = []; arcs = [];
+    for (let i = 0; i < bands; i++) {
+      const rad = R - i * bw - bw / 2;
+      const d = 'M ' + (cx - rad).toFixed(1) + ' ' + cy.toFixed(1) +
+                ' A ' + rad.toFixed(1) + ' ' + rad.toFixed(1) + ' 0 0 1 ' +
+                (cx + rad).toFixed(1) + ' ' + cy.toFixed(1);
+      const slot = document.createElementNS(NS, 'path');
+      slot.setAttribute('class', 'slot');
+      slot.setAttribute('d', d);
+      slot.setAttribute('stroke-width', bw * 0.82);
+      svg.appendChild(slot);
+      slots.push(slot);
+
+      const band = document.createElementNS(NS, 'path');
+      band.setAttribute('class', 'band');
+      band.setAttribute('d', d);
+      band.setAttribute('stroke-width', bw * 0.9);
+      band.setAttribute('stroke', BOW[i].hex);
+      const len = Math.PI * rad;
+      band.style.strokeDasharray = len.toFixed(1);
+      band.style.strokeDashoffset = len.toFixed(1);
+      band.dataset.len = len.toFixed(1);
+      svg.appendChild(band);
+      arcs.push(band);
+    }
+    for (let i = 0; i < step_; i++) fillBand(i, true);
+    markNext();
+  }
+
+  function fillBand(i, quiet) {
+    const band = arcs[i];
+    if (!band) return;
+    if (quiet) band.style.transition = 'none';
+    band.style.strokeDashoffset = '0';
+    if (quiet) requestAnimationFrame(() => { band.style.transition = ''; });
+    slots[i].classList.remove('next');
+    slots[i].style.opacity = '0';
+  }
+
+  function markNext() {
+    slots.forEach((s, i) => s.classList.toggle('next', i === step_));
+  }
+
+  /* ── палитра ── */
+  function drawPots() {
+    const need = BOW.slice(0, bands);
+    const list = need.concat(EXTRA.slice(0, extraFor(level)));
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = list[i]; list[i] = list[j]; list[j] = t;
+    }
+    palette = list;
+    const box = $('pots');
+    box.innerHTML = '';
+    list.forEach(c => {
+      const b = document.createElement('button');
+      b.className = 'pot';
+      b.dataset.de = c.de;
+      b.style.background = c.hex;
+      b.setAttribute('aria-label', c.de);
+      b.addEventListener('click', () => pick(c, b));
+      box.appendChild(b);
+    });
+    sizePots();
+  }
+
+  function sizePots() {
+    const box = $('pots');
+    const n = box.children.length;
+    if (!n) return;
+    requestAnimationFrame(() => {
+      const r = $('stage').getBoundingClientRect();
+      if (!r.width) return;
+      const gap = parseFloat(getComputedStyle(box).columnGap) || 7;
+      const d = Math.max(34, Math.min(72, Math.min(
+        (r.width - 20 - (n - 1) * gap) / n, r.height * 0.17)));
+      box.style.gridTemplateColumns = 'repeat(' + n + ',' + d.toFixed(1) + 'px)';
+      Array.prototype.forEach.call(box.children, b => {
+        b.style.width = d.toFixed(1) + 'px';
+        b.style.height = d.toFixed(1) + 'px';
+      });
+    });
+  }
+
+  /* ── задание ── */
+  function ask() {
+    const c = BOW[step_];
+    if (!c) return;
+    $('askText').innerHTML = '<small>Welche Farbe?</small> ' + c.de;
+    anim($('ask'), 'say', 520);
+    say(c);
+    Array.prototype.forEach.call($('pots').children, b => b.classList.remove('tip'));
+    if (wrong >= 2) {
+      const b = Array.prototype.find.call($('pots').children, x => x.dataset.de === c.de);
+      if (b) b.classList.add('tip');
+    }
+  }
+
+  /* ── выбрали краску ── */
+  function pick(c, el) {
+    if (locked || phase !== 'play') return;
+    initAudio();
+    const need = BOW[step_];
+    const r = el.getBoundingClientRect(), st = $('stage').getBoundingClientRect();
+
+    if (c.de !== need.de) {
+      wrong++;
+      anim(el, 'no', 420);
+      nope(); buzz([40, 70, 40]);
+      life--;
+      paintLives('bye');
+      pts = Math.max(0, pts - 1);
+      pop('−♥', r.left - st.left + r.width / 2, r.top - st.top - 8, true);
+      paintProgress();
+      if (life <= 0) { phase = 'over'; locked = true; flash('Vorbei!'); later(() => finish('lives'), 640); return; }
+      later(() => { if (phase === 'play') ask(); }, 520);
+      return;
+    }
+
+    // та самая краска
+    const clean = wrong === 0;
+    painted++;
+    pts += clean ? 3 : 1;
+    fillBand(step_);
+    swish(step_);
+    buzz(clean ? [10, 30, 10] : 14);
+    pop(clean ? '+3' : '+1', r.left - st.left + r.width / 2, r.top - st.top - 8);
+    step_++;
+    wrong = 0;
+    markNext();
+    if (painted > best) { best = painted; store.set(K_BEST, best); }
+    if (pts > bestPts) { bestPts = pts; store.set(K_PTS, bestPts); }
+    paintProgress();
+
+    const gift = painted % CFG.prize === 0 ? givePrize(st.width / 2, st.height * 0.4) : false;
+
+    if (step_ >= bands) { locked = true; later(() => sunshine(gift), gift ? 1500 : 560); return; }
+    if (painted >= target) { phase = 'won'; later(win, gift ? 1400 : 620); return; }
+    later(ask, gift ? 1500 : 560);
+  }
+
+  /* ── радуга готова: дождь кончается ── */
+  function sunshine(afterGift) {
+    bows++;
+    $('stage').classList.add('sunny');
+    shine();
+    $('askText').innerHTML = '<small>Fertig!</small> \u{1F308}';
+    // радуга считает свои цвета
+    arcs.forEach((b, i) => {
+      later(() => {
+        anim(b, 'lit', 620);
+        tone('triangle', step(i), 0, 0.18, 0.2);
+        sayNum(i + 1);
+      }, 520 + i * 420);
+    });
+    const after = 520 + bands * 420;
+    later(() => { say(SONNE); flyers(); confetti(34); flash('Die Sonne!'); }, after + 120);
+
+    if (painted >= target) { phase = 'won'; later(win, after + 1400); return; }
+    later(() => {
+      $('stage').classList.remove('sunny');
+      newBow();
+    }, after + 2100);
+  }
+
+  function flyers() {
+    ['\u{1F98B}', '\u{1F426}', '\u{1F98B}'].forEach((e, i) => {
+      const f = document.createElement('div');
+      f.className = 'flyer';
+      f.textContent = e;
+      f.style.left = '-8%';
+      f.style.top = (22 + i * 13) + '%';
+      f.style.animationDelay = (i * 0.5) + 's';
+      $('stage').appendChild(f);
+      requestAnimationFrame(() => f.classList.add('go'));
+      setTimeout(() => f.remove(), 4600);
+    });
+  }
+
+  function newBow() {
+    step_ = 0; wrong = 0; locked = false;
+    bands = bandsFor(level);
+    weather();
+    drawPots();
+    requestAnimationFrame(() => { drawBow(); ask(); });
+  }
+
+  /* ── приз ── */
+  function givePrize(x, y) {
+    let idx;
+    if (zoo.length < ZOO.length) { idx = zoo.length; zoo.push(idx); store.set(K_ZOO, zoo.join(',')); }
+    else idx = Math.floor(Math.random() * ZOO.length);
+    const g = $('gift');
+    g.textContent = ZOO[idx];
+    anim(g, 'go');
+    confetti(26);
+    chord(523, 0, 0.5, 0.24);
+    buzz([15, 40, 15, 40, 15]);
+    if (life < CFG.lives) {
+      life++;
+      paintLives('back');
+      tone('triangle', 740, 0.5, 0.18, 0.2, 1180);
+    }
+    return true;
+  }
+
+  /* ── конец раунда ── */
+  function finish(why) {
+    phase = 'over';
+    sad();
+    later(() => {
+      $('stats').innerHTML = 'Закрашено <b>' + painted + '</b> полосок · радуг <b>' + bows + '</b>' +
+        ' · очков <b>' + pts + '</b><br>' +
+        'Рекорд: <b>' + best + '</b> за раунд, <b>' + bestPts + '</b> очков<br>' +
+        '<span style="opacity:.75">' + (why === 'lives'
+          ? 'Сердца кончились — уровень остаётся, попробуй ещё раз'
+          : 'Попробуй ещё раз') + '</span>' + zooHtml();
+      $('veil').classList.remove('hidden');
+    }, 1000);
+  }
+
+  function win() {
+    phase = 'won';
+    locked = true;
+    $('stage').classList.add('sunny');
+    shine(); buzz([20, 50, 20, 50, 20]);
+    confetti(48);
+    flash('Super!');
+    if (level < CFG.lvMax) level++;
+    store.set(K_LV, level);
+    later(() => {
+      flash('Stufe ' + level + ' · ' + bandsFor(level) + ' Farben');
+      chord(587, 0, 0.5, 0.24);
+    }, 1300);
+    later(round, 2800);
+  }
+
+  function round() {
+    clearLater();
+    painted = 0; pts = 0; wrong = 0; bows = 0;
+    life = CFG.lives;
+    target = goalFor(level);
+    $('gift').classList.remove('go');
+    $('stage').classList.remove('sunny');
+    paintProgress(); paintLives();
+    phase = 'play';
+    newBow();
+  }
+
+  function start() {
+    initAudio();
+    BOW.concat(EXTRA).forEach(loadVoice);
+    loadVoice(SONNE);
+    for (let n = 1; n <= 6; n++) loadVoice(NUMW[n]);
+    $('veil').classList.add('hidden');
+    round();
+  }
+
+  $('ask').addEventListener('click', e => {
+    e.stopPropagation();
+    initAudio();
+    if (phase === 'play' && !locked && BOW[step_]) { anim($('ask'), 'say', 520); say(BOW[step_]); }
+  });
+  $('btnStart').addEventListener('click', start);
+  $('btnAgain').addEventListener('click', () => {
+    if (!$('veil').classList.contains('hidden')) return;
+    round();
+  });
+
+  let rz = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(rz);
+    rz = setTimeout(() => {
+      sizePots();
+      if (phase === 'play') requestAnimationFrame(drawBow);
+    }, 170);
+  });
+
+  /* ── первый экран ── */
+  level = Math.max(1, Math.min(CFG.lvMax, +store.get(K_LV, 1) || 1));
+  best = Math.max(0, +store.get(K_BEST, 0) || 0);
+  bestPts = Math.max(0, +store.get(K_PTS, 0) || 0);
+  zoo = String(store.get(K_ZOO, '')).split(',')
+    .filter(v => v !== '').map(v => +v)
+    .filter(v => Number.isInteger(v) && v >= 0 && v < ZOO.length);
+  target = goalFor(level);
+  bands = bandsFor(level);
+  life = CFG.lives;
+  paintProgress(); paintLives();
+
+  function panel() {
+    $('stats').innerHTML = 'Уровень <b>' + level + '</b> · в радуге <b>' + bandsFor(level) +
+      '</b> цветов · закрасить <b>' + target + '</b> полосок<br>' +
+      'Рекорд: <b>' + best + '</b> за раунд, <b>' + bestPts + '</b> очков<br>' +
+      '<span style="opacity:.75">Находок собрано: <b>' + zoo.length + '</b> из ' + ZOO.length + '</span>' +
+      zooHtml() +
+      (level > 1 || best || zoo.length ? '<button id="btnReset">начать сначала</button>' : '');
+    const rst = $('btnReset');
+    if (rst) rst.addEventListener('click', () => {
+      level = 1; best = 0; bestPts = 0; zoo = [];
+      store.set(K_LV, 1); store.set(K_BEST, 0); store.set(K_PTS, 0); store.set(K_ZOO, '');
+      target = goalFor(1); bands = bandsFor(1);
+      paintProgress(); panel();
+    });
+  }
+  panel();
+
+  window.YEVA_REGEN = {
+    state: () => ({ phase: phase, level: level, target: target, painted: painted, pts: pts,
+                    life: life, best: best, bestPts: bestPts, zoo: zoo.slice(), bows: bows,
+                    bands: bands, step: step_, wrong: wrong, locked: locked,
+                    want: BOW[step_] ? BOW[step_].de : null,
+                    sunny: $('stage').classList.contains('sunny'),
+                    palette: palette.map(c => c.de),
+                    filled: arcs.filter(a => a.style.strokeDashoffset === '0').length,
+                    next: slots.reduce((acc, s, i) => s.classList.contains('next') ? i : acc, -1),
+                    tip: Array.prototype.filter.call($('pots').children,
+                      b => b.classList.contains('tip')).map(b => b.dataset.de) }),
+    pick: de => {
+      const b = Array.prototype.find.call($('pots').children, x => x.dataset.de === de);
+      if (!b) return false;
+      b.click();
+      return true;
+    }
+  };
+})();
+</script>
+<script src="install.js"></script>
+<script src="home.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
