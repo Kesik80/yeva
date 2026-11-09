@@ -92,6 +92,7 @@
   .ask svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;
     stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
   .ask b{font-weight:600}
+  .ask .line{display:flex;align-items:center;gap:7px}
   .ask .num{
     display:inline-grid;place-items:center;min-width:1.7em;height:1.7em;padding:0 .25em;
     border-radius:.5em;color:#fff;font-variant-numeric:tabular-nums;
@@ -117,6 +118,33 @@
   @keyframes cellin{0%{transform:scale(.4)}60%{transform:scale(1.1)}100%{transform:scale(1)}}
   .shape.hero{animation:heroin .5s cubic-bezier(.3,1.4,.5,1)}
   @keyframes heroin{0%{transform:scale(.8)}55%{transform:scale(1.08)}100%{transform:scale(1)}}
+
+  /* ── разбиение: целое сверху, половинки снизу ── */
+  .split{flex:1;min-height:0;display:none;flex-direction:column;align-items:center;
+    justify-content:center;gap:2px}
+  .split.on{display:flex}
+  .build.off{display:none}
+  .whole{display:grid;place-items:center;flex:none;position:relative}
+  .whole.big{animation:heroin .5s cubic-bezier(.3,1.4,.5,1)}
+  .eqline{
+    flex:none;display:flex;align-items:flex-end;justify-content:center;
+    gap:clamp(6px,2.4vw,14px);margin-top:4px;
+    transition:transform .45s cubic-bezier(.4,0,.2,1),opacity .45s;
+  }
+  .eqline.gone{transform:translateY(-14%) scale(.72);opacity:0}
+  .half{display:grid;place-items:end center;min-width:0}
+  .sign{
+    font-size:clamp(20px,6vw,30px);font-weight:600;color:rgba(16,57,77,.5);
+    padding-bottom:clamp(6px,2vh,18px);
+  }
+  .qbox{
+    border:3px dashed rgba(16,57,77,.3);border-radius:16px;
+    background:rgba(16,57,77,.05);display:grid;place-items:center;cursor:default;
+    font-size:clamp(26px,8vw,44px);font-weight:600;color:rgba(16,57,77,.45);
+    transition:background .3s,border-color .3s,transform .25s;
+  }
+  .qbox.no{animation:shake .4s}
+  .qbox.got{border:3px solid transparent;background:none;animation:cellin .4s cubic-bezier(.3,1.5,.5,1)}
 
   /* полка друзей */
   .shelf{
@@ -197,6 +225,17 @@
     font-family:inherit;cursor:pointer;display:block;
   }
 
+  .modes{display:flex;gap:8px;justify-content:center;margin-top:11px}
+  .modes button{
+    flex:1 1 0;max-width:160px;padding:10px 8px;border:0;border-radius:15px;cursor:pointer;
+    font-family:inherit;font-size:14px;font-weight:600;line-height:1.25;
+    background:rgba(16,57,77,.08);color:rgba(16,57,77,.6);
+    transition:background .2s,color .2s,transform .12s;
+  }
+  .modes button small{display:block;font-size:11.5px;opacity:.75;font-weight:500}
+  .modes button.on{background:linear-gradient(160deg,#5FD3C0,#2FB4A8);color:#063A33}
+  .modes button:active{transform:scale(.96)}
+
   .gal{
     display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-top:11px;
   }
@@ -269,12 +308,20 @@
 <div class="stage" id="stage">
   <button class="ask" id="ask" aria-label="Повторить">
     <svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4z"/><path d="M16 9.2a4 4 0 0 1 0 5.6"/><path d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8"/></svg>
-    <span>Bau die</span>
-    <b id="askWord"></b>
-    <span class="num" id="askNum"></span>
+    <span class="line" id="askLine"></span>
   </button>
 
   <div class="build" id="build"><div class="shape" id="shape"></div></div>
+
+  <div class="split" id="split">
+    <div class="whole" id="whole"></div>
+    <div class="eqline" id="eqline">
+      <div class="half" id="halfA"></div>
+      <div class="sign">+</div>
+      <div class="qbox" id="halfB">?</div>
+    </div>
+  </div>
+
   <div class="shelf" id="shelf"></div>
 
   <div class="flash" id="flash"></div>
@@ -284,6 +331,10 @@
   <div class="panel">
     <h1>Zahlenfreunde</h1>
     <div class="ru">Числодрузья</div>
+    <div class="modes">
+      <button id="mBau">Bauen<small>собирать</small></button>
+      <button id="mTeil">Teilen<small>разбивать</small></button>
+    </div>
     <div class="stats" id="stats"></div>
     <div class="gal" id="gal"></div>
     <div class="galrow">Нажми на любого — он посчитает себя вслух</div>
@@ -291,8 +342,7 @@
       <svg viewBox="0 0 24 24"><path d="M9 18V5l10-2v13"/><circle cx="6.5" cy="18" r="2.6"/><circle cx="16.5" cy="16" r="2.6"/></svg>
       <span id="songText">Песенка про числа</span>
     </button>
-    <div class="tip2">Голос просит число — собери его из друзей. Два и три дают пять,
-      и пятёрка оживает и считает себя вслух. Друг больше дырки не влезет</div>
+    <div class="tip2" id="tip2"></div>
     <button class="big" id="btnStart" aria-label="Играть">
       <svg viewBox="0 0 24 24"><path d="M8 4.8v14.4L20 12z"/></svg>
     </button>
@@ -314,6 +364,7 @@
   const K_BEST = 'yeva.freunde.best';
   const K_PTS = 'yeva.freunde.points';
   const K_MET = 'yeva.freunde.met';      // какие числа уже знакомы
+  const K_MODE = 'yeva.freunde.mode';    // bau — собирать, teil — разбивать
 
   const TOP = 20;                        // дальше двадцати пока не идём
 
@@ -434,6 +485,7 @@
   let pts = 0, bestPts = 0, met = [], life = 0;
   let built = 0, mistakes = 0, locked = false;
   let want = 0, have = 0, used = 0, parts = [];
+  let mode = 'bau', known = 0, answer = 0;   // разбиение: 6 = known + answer
   let cellEls = [], cellSize = 40, shapeInfo = null;
   let phase = 'wait', singing = 0;
   let timers = [];
@@ -541,6 +593,19 @@
     });
   }
 
+  // поставить фигурку так, чтобы она влезла в отведённый прямоугольник
+  const badge = n => '<span class="num" style="background:' + NB.color(n) + '">' + n + '</span>';
+  function askLine(html) { $('askLine').innerHTML = html; }
+
+  function fitFigure(box, n, maxW, maxH, idp) {
+    const g = NB.cells(n);
+    box.innerHTML = NB.svg(n, { id: idp });
+    const fig = box.firstChild;
+    const s = Math.max(7, Math.min(74, Math.floor(Math.min(maxW / g.cols, maxH / g.rows))));
+    NB.size(fig, s);
+    return fig;
+  }
+
   /* ── полка друзей ── */
   function drawShelf() {
     const m = maxPal(level);
@@ -588,11 +653,10 @@
 
   /* ── просьба ── */
   function askFor(n) {
+    if (mode === 'teil') return askSplit(n);
     want = n; have = 0; used = 0; parts = []; mistakes = 0; locked = false;
-    $('askWord').textContent = word(n).de;
-    const num = $('askNum');
-    num.textContent = n;
-    num.style.background = NB.color(n);
+    $('ask').dataset.m = 'bau';
+    askLine('<span>Bau die</span><b>' + word(n).de + '</b>' + badge(n));
     drawShape(n);
     // Полка встаёт на место кадром позже, и до этого место под контур
     // меряется слишком большим — перерисовываем, пока он пустой.
@@ -602,6 +666,42 @@
     Array.prototype.forEach.call($('shelf').children, b => b.classList.remove('tip'));
     for (let k = Math.max(1, n - 2); k <= Math.min(TOP, n + 2); k++) loadVoice(k);
   }
+
+  /* ── разбиение: 6 — это 4 и сколько? ───────────────────────
+     Второй кусок всегда не больше самого большого друга на полке —
+     иначе ответа на полке просто не было бы. */
+  function askSplit(n) {
+    want = n; have = 0; used = 0; parts = []; mistakes = 0; locked = false;
+    const top = Math.min(maxPal(level), n - 1);
+    answer = 1 + Math.floor(Math.random() * Math.max(1, top));
+    known = n - answer;
+    $('ask').dataset.m = 'teil';
+    askLine(badge(n) + '<b>' + word(n).de + '</b><span>ist</span><b>' +
+      word(known).de + '</b><span>und \u2026?</span>');
+
+    const box = $('split').getBoundingClientRect();
+    const w = Math.max(60, box.width - 16);
+    const h = Math.max(80, box.height - 10);
+    fitFigure($('whole'), n, w * 0.8, h * 0.44, 'whole');
+    const qb = $('halfB');
+    qb.className = 'qbox';
+    qb.textContent = '?';
+    const figA = fitFigure($('halfA'), known, w * 0.36, h * 0.44, 'ha');
+    const ra = figA.getBoundingClientRect();
+    const side = Math.max(44, Math.min(ra.width || 60, ra.height || 60));
+    qb.style.width = side + 'px';
+    qb.style.height = side + 'px';
+    $('eqline').classList.remove('gone');
+    anim($('whole'), 'big', 600);
+
+    anim($('ask'), 'say', 520);
+    sayPair(n, known);
+    Array.prototype.forEach.call($('shelf').children, b2 => b2.classList.remove('tip'));
+    loadVoice(n); loadVoice(known); loadVoice(answer);
+  }
+
+  // «шесть… четыре…» — само задание и есть вопрос
+  function sayPair(a, b2) { say(a); say(b2, 820); }
 
   function hint() {
     const need = want - have;
@@ -613,6 +713,7 @@
   function take(k, el) {
     if (locked || phase !== 'play') return;
     initAudio();
+    if (mode === 'teil') return guess(k, el);
     const need = want - have;
     const sh = $('shape').getBoundingClientRect(), st = $('stage').getBoundingClientRect();
 
@@ -647,6 +748,80 @@
     buzz(10);
 
     if (have >= want) { later(() => done(), 320); locked = true; }
+  }
+
+  /* ── ответ в разбиении ── */
+  function guess(k, el) {
+    const st = $('stage').getBoundingClientRect();
+    if (k !== answer) {
+      mistakes++;
+      anim(el, 'no', 420);
+      anim($('halfB'), 'no', 420);
+      nope(); buzz([40, 70, 40]);
+      life--;
+      paintLives('bye');
+      pts = Math.max(0, pts - 1);
+      const q = $('halfB').getBoundingClientRect();
+      pop('\u2212\u2665', q.left - st.left + q.width / 2, q.top - st.top - 8, true);
+      paintProgress();
+      if (life <= 0) { phase = 'over'; locked = true; later(() => finish('lives'), 700); return; }
+      if (mistakes >= 2) {
+        const b2 = Array.prototype.find.call($('shelf').children, x => +x.dataset.k === answer);
+        if (b2) b2.classList.add('tip');
+      }
+      // подсказываем ещё раз, из чего складываем
+      later(() => { if (phase === 'play') sayPair(want, known); }, 520);
+      return;
+    }
+
+    // угадала: вторая половинка встаёт на место
+    locked = true;
+    const qb = $('halfB');
+    const side = parseFloat(qb.style.height) || 60;
+    qb.className = 'qbox got';
+    qb.style.width = ''; qb.style.height = '';
+    fitFigure(qb, answer, side * 1.4, side, 'hb');
+    click(Math.min(answer - 1, LADDER.length - 1));
+    say(answer);
+    buzz(10);
+    later(() => { if (phase === 'play') doneSplit(); }, 820);
+  }
+
+  function doneSplit() {
+    const n = want;
+    built++;
+    const neat = mistakes === 0;
+    pts += neat ? 3 : 1;
+    if (built > best) { best = built; store.set(K_BEST, best); }
+    if (pts > bestPts) { bestPts = pts; store.set(K_PTS, bestPts); }
+    paintProgress();
+    const fresh = met.indexOf(n) < 0;
+    if (fresh) { met.push(n); met.sort((a, b) => a - b); store.set(K_MET, met.join(',')); }
+
+    // половинки съезжаются обратно в целое
+    $('eqline').classList.add('gone');
+    const st = $('stage').getBoundingClientRect(), r = $('whole').getBoundingClientRect();
+    pop(neat ? '+3' : '+1', r.left - st.left + r.width / 2, r.top - st.top - 8);
+
+    later(() => {
+      const box = $('split').getBoundingClientRect();
+      const fig = fitFigure($('whole'), n, box.width - 16, box.height * 0.72, 'whole2');
+      anim($('whole'), 'big', 600);
+      countAlong(fig, n, { voice: n <= 12 }, () => {
+        NB.react(fig, 'yay');
+        say(n, 60);
+        tada();
+        confetti(fresh ? 40 : 18);
+        if (fresh) flash('Neu! ' + n);
+        if (built % CFG.heart === 0 && life < CFG.lives) {
+          life++;
+          paintLives('back');
+          tone('triangle', 740, 0.45, 0.2, 0.2, 1180);
+        }
+        if (built >= target) { phase = 'won'; later(win, 1500); return; }
+        later(nextOne, 1500);
+      });
+    }, 480);
   }
 
   /* ── число собрано ── */
@@ -710,7 +885,8 @@
 
   function nextOne() {
     if (phase !== 'play') return;
-    const [lo, hi] = range(level);
+    let [lo, hi] = range(level);
+    if (mode === 'teil') lo = Math.max(2, lo);     // единицу не разбить
     let n = want;
     let guard = 0;
     // сначала показываем то, чего она ещё не собирала
@@ -754,6 +930,19 @@
     later(round, 2700);
   }
 
+  function setMode(m, quiet) {
+    mode = m === 'teil' ? 'teil' : 'bau';
+    store.set(K_MODE, mode);
+    $('mBau').classList.toggle('on', mode === 'bau');
+    $('mTeil').classList.toggle('on', mode === 'teil');
+    $('build').classList.toggle('off', mode === 'teil');
+    $('split').classList.toggle('on', mode === 'teil');
+    $('tip2').textContent = mode === 'teil'
+      ? 'Голос называет число, а потом одну его половинку. Вторую найди на полке. Шесть — это четыре и сколько?'
+      : 'Голос просит число — собери его из друзей. Два и три дают пять, и пятёрка оживает и считает себя вслух. Друг больше дырки не влезет';
+    if (!quiet) panel();
+  }
+
   function round() {
     clearLater();
     built = 0; pts = 0; mistakes = 0;
@@ -777,8 +966,12 @@
   $('ask').addEventListener('click', e => {
     e.stopPropagation();
     initAudio();
-    if (phase === 'play' && want > 0) { anim($('ask'), 'say', 520); say(want); }
+    if (phase !== 'play' || want <= 0) return;
+    anim($('ask'), 'say', 520);
+    if (mode === 'teil') sayPair(want, known); else say(want);
   });
+  $('mBau').addEventListener('click', () => setMode('bau'));
+  $('mTeil').addEventListener('click', () => setMode('teil'));
   $('btnStart').addEventListener('click', start);
   $('btnAgain').addEventListener('click', () => {
     if (!$('veil').classList.contains('hidden')) return;
@@ -890,10 +1083,11 @@
   paintProgress(); paintLives();
 
   function panel(extra) {
+    const task = mode === 'teil' ? 'разбить' : 'собрать';
     const [lo, hi] = range(level);
     $('stats').innerHTML = (extra ? extra + '<br>' : '') +
       'Уровень <b>' + level + '</b> · числа от <b>' + lo + '</b> до <b>' + hi + '</b>' +
-      ' · собрать <b>' + target + '</b><br>' +
+      ' · ' + task + ' <b>' + target + '</b><br>' +
       'Рекорд: <b>' + best + '</b> за раунд, <b>' + bestPts + '</b> очков · ' +
       'знакомых чисел <b>' + met.length + '</b> из ' + TOP +
       (level > 1 || best || met.length ? '<button id="btnReset">начать сначала</button>' : '');
@@ -905,6 +1099,7 @@
       paintProgress(); drawGal(); panel();
     });
   }
+  setMode(store.get(K_MODE, 'bau'), true);
   panel();
   drawGal();
 
@@ -912,6 +1107,10 @@
     state: () => ({ phase: phase, level: level, target: target, built: built, pts: pts, life: life,
                     best: best, bestPts: bestPts, met: met.slice(), singing: singing,
                     want: want, have: have, used: used, parts: parts.slice(), mistakes: mistakes,
+                    mode: mode, known: known, answer: answer,
+                    qShown: ($('halfB').textContent || '').trim(),
+                    halfCubes: $('halfA').querySelectorAll('.nb-cube').length,
+                    wholeCubes: $('whole').querySelectorAll('.nb-cube').length,
                     lo: range(level)[0], hi: range(level)[1], maxPal: maxPal(level),
                     cells: cellEls.length, filled: cellEls.filter(c => c.classList.contains('on')).length,
                     hero: !!$('shape').querySelector('.nblock'),
@@ -926,6 +1125,12 @@
       return true;
     },
     ask: n => askFor(n),
+    setMode: m => setMode(m, true),
+    // для тестов: задать разбиение с заранее известным ответом
+    split: (n, b2) => { askSplit(n); answer = b2; known = n - b2;
+      const box = $('split').getBoundingClientRect();
+      fitFigure($('halfA'), known, Math.max(40, box.width * 0.34), Math.max(40, box.height * 0.42), 'ha2');
+      return { known: known, answer: answer }; },
     sing: () => playSong()
   };
 })();
