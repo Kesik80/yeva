@@ -700,18 +700,26 @@
   }
 
   /* ── повторялка ─────────────────────────────────────────────
-     Слушаем микрофон, ловим начало и конец фразы по громкости,
-     пишем MediaRecorder, потом проигрываем быстрее и выше. Пока
-     зверёк говорит, микрофон закрыт — иначе он услышит сам себя
-     и начнёт повторять бесконечно. */
-  let micStream = null, micSrc = null, micAna = null, micData = null;
-  let rec = null, chunks = [], recOn = false, micWanted = true;
-  let raf = 0, talking = false, micState = 'off';
+     Микрофон пишется непрерывно в кольцо на 12 секунд. Когда слышно
+     речь, берём кусок, начиная за полсекунды ДО неё — поэтому первые
+     слова больше не пропадают. Ни кодека, ни декодирования: отвечает
+     сразу. Речь ищем в самом звуковом потоке, а не в кадрах анимации —
+     телефон может подтормаживать, звук идёт ровно. */
+  const PRE = 0.5, TAIL = 0.25, MINOFF = 900, MAXREC = 8000, RING = 12;
+
+  let micStream = null, micSrc = null, tap = null, sink = null;
+  let ring = null, ringLen = 0, wrote = 0, sr = 48000, blockMs = 43;
+  let micWanted = true, talking = false, micState = 'off', phrase = false;
+  let startAt = 0, loudAt = 0, freeFrom = 0, playFrom = 0;
+  let onBl = 0, offBl = 0, lvl = 0, aec = false, raf = 0;
+
+  let floor = 0.012;
+  const gate = () => Math.max(0.025, floor * 2.6 + 0.008);
 
   function micLabel(state, text) {
     micState = state;
     const box = $('earBox');
-    box.classList.toggle('on', state === 'listen' || state === 'hear' || state === 'talk');
+    box.classList.toggle('on', state !== 'off');
     box.classList.toggle('hot', state === 'hear' || state === 'talk');
     $('earText').textContent = text;
   }
@@ -719,12 +727,15 @@
   async function listenOn() {
     if (!micWanted || asleep) return;
     initAudio();
-    if (micStream) { micLabel('listen', 'Слушаю…'); return; }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      micLabel('no', 'Микрофона нет');
+    if (micStream) { if (!talking) micLabel('listen', 'Слушаю…'); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !actx ||
+        !actx.createScriptProcessor) {
+      micWanted = false;
+      micLabel('no', 'Без микрофона');
       $('btnMic').classList.add('mute');
       return;
     }
+    micLabel('wake', 'Просыпаюсь…');
     try {
       micStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
@@ -737,11 +748,23 @@
       console.warn('[mic] ' + e.name);
       return;
     }
+    const tr = micStream.getAudioTracks()[0];
+    const set = tr && tr.getSettings ? tr.getSettings() : {};
+    aec = set.echoCancellation === true;   // перебивать можно только если эхо гасится
+
+    sr = actx.sampleRate;
+    ringLen = Math.ceil(sr * RING);
+    ring = new Float32Array(ringLen);
+    wrote = 0; freeFrom = 0; phrase = false; floor = 0.012;
+
     micSrc = actx.createMediaStreamSource(micStream);
-    micAna = actx.createAnalyser();
-    micAna.fftSize = 1024;
-    micData = new Uint8Array(micAna.fftSize);
-    micSrc.connect(micAna);
+    tap = actx.createScriptProcessor(2048, 1, 1);
+    blockMs = 2048 / sr * 1000;
+    tap.onaudioprocess = onBlock;
+    sink = actx.createGain();
+    sink.gain.value = 0;                   // узел должен быть подключён, но молчать
+    micSrc.connect(tap); tap.connect(sink); sink.connect(actx.destination);
+
     $('btnMic').classList.add('live');
     micLabel('listen', 'Слушаю…');
     loop();
@@ -749,122 +772,147 @@
 
   function listenOff(keepStream) {
     cancelAnimationFrame(raf); raf = 0;
-    stopRec();
-    chunks = [];
+    phrase = false; onBl = 0; offBl = 0; lvl = 0;
     $('level').style.width = '0';
     $('btnMic').classList.remove('live');
     micLabel('off', '');
-    if (!keepStream && micStream) {
-      micStream.getTracks().forEach(t => t.stop());
-      micStream = null; micSrc = null; micAna = null;
-    }
+    if (keepStream) return;
+    if (tap) { try { tap.onaudioprocess = null; tap.disconnect(); } catch (e) {} tap = null; }
+    if (sink) { try { sink.disconnect(); } catch (e) {} sink = null; }
+    if (micSrc) { try { micSrc.disconnect(); } catch (e) {} micSrc = null; }
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    ring = null;
   }
 
-  function level() {
-    if (!micAna) return 0;
-    micAna.getByteTimeDomainData(micData);
-    let sum = 0;
-    for (let i = 0; i < micData.length; i++) {
-      const v = (micData[i] - 128) / 128;
-      sum += v * v;
+  // каждый блок звука: кладём в кольцо и тут же решаем — речь или тишина
+  function onBlock(e) {
+    const d = e.inputBuffer.getChannelData(0), n = d.length;
+    let s = 0;
+    for (let i = 0; i < n; i++) {
+      const x = d[i];
+      ring[(wrote + i) % ringLen] = x;
+      s += x * x;
     }
-    return Math.sqrt(sum / micData.length);
-  }
+    wrote += n;
+    lvl = Math.sqrt(s / n);
+    const v = lvl, g = gate();
 
-  /* Порог подстраивается под комнату: в тишине слышно шёпот, при шуме
-     холодильник не считается речью. И всё решается по времени, а не по
-     кадрам: телефон подтормаживает, кадры редеют — миллисекунды нет. */
-  const MINON = 70, MINOFF = 650, MAXREC = 6000;
-  let floor = 0.012, onAt = 0, offAt = 0;
-  const gate = () => Math.max(0.03, floor * 3 + 0.01);
+    if (asleep || !micWanted) { phrase = false; return; }
 
-  function loop() {
-    raf = requestAnimationFrame(loop);
-    if (talking || asleep || !micAna) return;
-    const v = level(), now = Date.now(), g = gate();
-    $('level').style.width =
-      Math.min(100, v / Math.max(g * 2.2, 0.12) * 100).toFixed(0) + '%';
-    if (!recOn) {
-      floor = floor * 0.99 + Math.min(v, 0.2) * 0.01;   // медленно запоминаем тишину
-      if (v > g) { if (!onAt) onAt = now; else if (now - onAt > MINON) startRec(); }
-      else onAt = 0;
+    if (talking) {
+      // громко заговорили поверх — замолкаем и слушаем
+      if (aec && v > Math.max(0.14, g * 3) && wrote - playFrom > sr * 0.45) {
+        if (++onBl * blockMs > 180) {
+          hush();
+          freeFrom = wrote - Math.floor(sr * 0.15);
+          begin();
+        }
+      } else onBl = 0;
       return;
     }
-    if (v > g * 0.7) offAt = 0;
-    else if (!offAt) offAt = now;
-    else if (now - offAt > MINOFF) stopRec();
-    if (now - recStart > MAXREC) stopRec();
+
+    if (!phrase) {
+      floor = floor * 0.97 + Math.min(v, 0.2) * 0.03;   // запоминаем шум комнаты
+      if (v > g) { if (++onBl * blockMs >= 60) begin(); } else onBl = 0;
+      return;
+    }
+
+    if (v > g * 0.55) { loudAt = wrote; offBl = 0; }
+    else if (++offBl * blockMs > MINOFF) { end(); return; }
+    if ((wrote - startAt) / sr * 1000 > MAXREC) end();
   }
 
-  let recStart = 0;
-  function startRec() {
-    if (recOn || !micStream || typeof MediaRecorder === 'undefined') return;
-    chunks = [];
-    try { rec = new MediaRecorder(micStream); } catch (e) { micWanted = false; return; }
-    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-    rec.onstop = () => play();
-    try { rec.start(); } catch (e) { return; }
-    recOn = true; recStart = Date.now(); onAt = 0; offAt = 0;
+  function begin() {
+    phrase = true; onBl = 0; offBl = 0;
+    startAt = Math.max(freeFrom, wrote - Math.floor(sr * PRE));
+    loudAt = wrote;
     micLabel('hear', 'Слышу тебя!');
     look(0, -0.5);
   }
 
-  function stopRec() {
-    if (!recOn) return;
-    recOn = false;
-    try { if (rec && rec.state !== 'inactive') rec.stop(); } catch (e) {}
+  function end() {
+    if (!phrase) return;
+    phrase = false; onBl = 0; offBl = 0;
     micLabel('listen', 'Слушаю…');
+    const buf = grab(startAt, loudAt + Math.floor(sr * TAIL));
+    if (buf) play(buf);
+  }
+
+  // кусок кольца в обычный буфер, с короткими затуханиями по краям
+  function grab(from, to) {
+    if (!ring || !actx) return null;
+    const oldest = Math.max(0, wrote - ringLen);
+    const a = Math.floor(Math.max(from, oldest));
+    const b = Math.floor(Math.min(to, wrote));
+    const n = b - a;
+    if (n < sr * 0.1) return null;
+    const buf = actx.createBuffer(1, n, sr);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = ring[(a + i) % ringLen];
+    const f = Math.min(Math.round(sr * 0.005), n >> 2);
+    for (let i = 0; i < f; i++) { d[i] *= i / f; d[n - 1 - i] *= i / f; }
+    return buf;
+  }
+
+  function loop() {
+    raf = requestAnimationFrame(loop);
+    const g = Math.max(gate() * 2.2, 0.12);
+    $('level').style.width = Math.min(100, lvl / g * 100).toFixed(0) + '%';
   }
 
   let live = null;
   function hush() {
-    if (live) { try { live.stop(); } catch (e) {} live = null; }
-    talking = false; setMouth(0);
+    if (live) { try { live.onended = null; live.stop(); } catch (e) {} live = null; }
+    talking = false; setMouth(0); onBl = 0;
+    guard();
   }
 
-  function play() {
-    if (!chunks.length || !actx || asleep) { chunks = []; return; }
-    const blob = new Blob(chunks, { type: chunks[0].type || 'audio/webm' });
-    chunks = [];
-    blob.arrayBuffer()
-      .then(ab => actx.decodeAudioData(ab))
-      .then(buf => {
-        if (!buf || buf.duration < 0.18) { micLabel('listen', 'Слушаю…'); return; }
-        if (asleep) return;
-        talking = true;
-        micLabel('talk', 'Повторяю!');
-        const src = actx.createBufferSource();
-        live = src;
-        src.buffer = buf;
-        src.playbackRate.value = CHARS[who].rate;
-        const g = actx.createGain();
-        g.gain.value = 1.25;
-        const ana = actx.createAnalyser();
-        ana.fftSize = 512;
-        const d = new Uint8Array(ana.fftSize);
-        src.connect(g); g.connect(ana); ana.connect(master);
-        react('hop');
-        happy(buf.duration / CHARS[who].rate * 1000 + 600);
-        let mr = 0;
-        const mloop = () => {
-          mr = requestAnimationFrame(mloop);
-          ana.getByteTimeDomainData(d);
-          let s = 0;
-          for (let i = 0; i < d.length; i++) { const x = (d[i] - 128) / 128; s += x * x; }
-          setMouth(Math.sqrt(s / d.length) * 4.5);
-        };
-        mloop();
-        src.onended = () => {
-          cancelAnimationFrame(mr);
-          setMouth(0);
-          if (live === src) live = null;
-          talking = false;
-          onAt = 0; offAt = 0;
-          if (!asleep) micLabel('listen', 'Слушаю…');
-        };
-        src.start();
-      })
-      .catch(e => { console.warn('[mic] ' + e.message); micLabel('listen', 'Слушаю…'); });
+  /* Запас в полсекунды нельзя брать там, где только что звучал сам зверёк,
+     иначе он повторит собственный голос. Но если браузер подтвердил, что
+     гасит эхо, его голоса в записи и нет — тогда запас берём целиком, и
+     начало фразы не теряется, даже если заговорили сразу после ответа. */
+  function guard() { freeFrom = aec ? 0 : wrote; }
+
+  function play(buf) {
+    if (!actx || asleep || !buf) return;
+    talking = true;
+    playFrom = wrote;
+    onBl = 0;
+    micLabel('talk', 'Повторяю!');
+
+    const src = actx.createBufferSource();
+    live = src;
+    src.buffer = buf;
+    src.playbackRate.value = CHARS[who].rate;
+    const g = actx.createGain();
+    g.gain.value = 1.3;
+    const ana = actx.createAnalyser();
+    ana.fftSize = 512;
+    const d = new Uint8Array(ana.fftSize);
+    src.connect(g); g.connect(ana); ana.connect(master);
+    react('hop');
+    happy(buf.duration / CHARS[who].rate * 1000 + 600);
+
+    let mr = 0;
+    const mloop = () => {
+      mr = requestAnimationFrame(mloop);
+      ana.getByteTimeDomainData(d);
+      let s = 0;
+      for (let i = 0; i < d.length; i++) { const x = (d[i] - 128) / 128; s += x * x; }
+      setMouth(Math.sqrt(s / d.length) * 4.5);
+    };
+    mloop();
+
+    src.onended = () => {
+      cancelAnimationFrame(mr);
+      setMouth(0);
+      if (live === src) live = null;
+      talking = false;
+      onBl = 0; offBl = 0;
+      guard();                       // своё эхо в следующую фразу не попадёт
+      if (!asleep && micWanted) micLabel('listen', 'Слушаю…');
+    };
+    src.start();
   }
 
   /* ── полка ── */
@@ -968,7 +1016,7 @@
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') listenOff();
-    else if (micWanted && !$('veil').classList.contains('hidden') === false) listenOn();
+    else if (micWanted && $('veil').classList.contains('hidden')) listenOn();
   });
 
   /* ── пуск ── */
@@ -980,7 +1028,8 @@
 
   window.YEVA_QUASSEL = {
     state: () => ({ who: who, asleep: asleep, talking: talking, micState: micState,
-                    micWanted: micWanted, hasStream: !!micStream, recOn: recOn,
+                    micWanted: micWanted, hasStream: !!micStream, recOn: phrase,
+                    aec: aec, floor: +floor.toFixed(4), gate: +gate().toFixed(4),
                     rate: CHARS[who].rate,
                     mouth: hole ? +hole.getAttribute('ry') : -1,
                     happy: $('guy').classList.contains('happy'),
