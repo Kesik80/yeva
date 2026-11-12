@@ -22,7 +22,7 @@
    останется жить. Обычные правки html/js подхватываются сами.
 */
 
-const CACHE = 'yeva-v4';
+const CACHE = 'yeva-v5';
 
 const CORE = [
   '/',

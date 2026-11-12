@@ -98,6 +98,46 @@
   .game.soon{opacity:.45;pointer-events:none}
   .game.soon .art{animation:none;background:rgba(255,255,255,.5);font-size:44px;color:rgba(30,61,87,.4)}
 
+  /* кнопка «закрыть приложение» — видна только у установленной YEVA */
+  .quit{
+    display:none;position:fixed;z-index:4;
+    top:calc(env(safe-area-inset-top,0px) + 12px);
+    right:calc(env(safe-area-inset-right,0px) + 14px);
+    width:46px;height:46px;border:0;border-radius:50%;
+    background:rgba(255,255,255,.62);
+    -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    color:#1E3D57;cursor:pointer;place-items:center;
+    box-shadow:0 10px 26px rgba(30,61,87,.2);
+    transition:transform .12s;
+  }
+  body.app .quit{display:grid}
+  .quit:active{transform:scale(.9)}
+  .quit svg{width:23px;height:23px;fill:none;stroke:currentColor;
+    stroke-width:2.3;stroke-linecap:round}
+
+  .ask{
+    position:fixed;inset:0;z-index:30;display:none;
+    align-items:center;justify-content:center;padding:22px;
+    background:rgba(30,61,87,.42);
+    -webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);
+  }
+  .ask.on{display:flex}
+  .ask .box{
+    width:100%;max-width:330px;text-align:center;
+    background:rgba(255,255,255,.96);border-radius:26px;padding:24px 22px 20px;
+    box-shadow:0 18px 44px rgba(30,61,87,.3);
+  }
+  .ask h2{font-size:21px;font-weight:600}
+  .ask p{font-size:13.5px;line-height:1.5;color:rgba(30,61,87,.6);margin-top:9px}
+  .ask .row{display:flex;gap:10px;margin-top:20px}
+  .ask button{
+    flex:1;border:0;border-radius:16px;padding:14px 10px;cursor:pointer;
+    font-family:inherit;font-size:16px;font-weight:600;transition:transform .12s;
+  }
+  .ask button:active{transform:scale(.95)}
+  .ask .no{background:rgba(30,61,87,.1);color:#1E3D57}
+  .ask .yes{background:linear-gradient(160deg,#FF9AD5,#F2679F);color:#fff}
+
   @media (prefers-reduced-motion:reduce){
     .bg i,.game .art{animation:none}
   }
@@ -250,6 +290,22 @@
   </div>
 </div>
 
+
+<button class="quit" id="quit" aria-label="Закрыть YEVA">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v8.5"/><path d="M6.6 7a8 8 0 1 0 10.8 0"/></svg>
+</button>
+
+<div class="ask" id="ask">
+  <div class="box">
+    <h2 id="askHead">Закрыть YEVA?</h2>
+    <p id="askNote">Игра закроется, всё сохранится</p>
+    <div class="row">
+      <button class="no" id="askNo">Остаться</button>
+      <button class="yes" id="askYes">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (() => {
   'use strict';
@@ -350,6 +406,53 @@
   title.addEventListener('pointerleave', stop);
   title.addEventListener('pointercancel', stop);
   title.addEventListener('contextmenu', e => e.preventDefault());
+
+  /* ── «закрыть приложение» ──────────────────────────────────────
+     Кнопка нужна только установленной YEVA: во вкладке браузера есть
+     своя крестик, и закрыть себя там всё равно не дадут.
+     Окно само себя закрывает лишь когда в истории одна запись —
+     так требуют правила браузера. Если Android откажет, не делаем
+     вид, что получилось, а говорим, как выйти. */
+  const standalone = ['standalone', 'fullscreen', 'minimal-ui'].some(m => {
+    try { return matchMedia('(display-mode: ' + m + ')').matches; } catch (e) { return false; }
+  }) || navigator.standalone === true ||
+       document.referrer.indexOf('android-app://') === 0 ||
+       location.search.indexOf('app') >= 0;
+  if (standalone) document.body.classList.add('app');
+
+  const ask = document.getElementById('ask');
+  const askHead = document.getElementById('askHead');
+  const askNote = document.getElementById('askNote');
+  const askYes = document.getElementById('askYes');
+  const askNo = document.getElementById('askNo');
+  let told = false;
+
+  function askReset() {
+    told = false;
+    askHead.textContent = 'Закрыть YEVA?';
+    askNote.textContent = 'Игра закроется, всё сохранится';
+    askYes.textContent = 'Закрыть';
+    askNo.style.display = '';
+  }
+  function askShow(on) { ask.classList.toggle('on', on); if (!on) askReset(); }
+
+  document.getElementById('quit').addEventListener('click', () => askShow(true));
+  askNo.addEventListener('click', () => askShow(false));
+  ask.addEventListener('click', e => { if (e.target === ask) askShow(false); });
+
+  askYes.addEventListener('click', () => {
+    if (told) { askShow(false); return; }
+    try { window.close(); } catch (e) {}
+    setTimeout(() => {
+      if (document.hidden) return;          // всё-таки закрылось
+      told = true;
+      askHead.textContent = 'Android не отпускает';
+      askNote.textContent = 'Окно закрыть не дал. Выйти можно жестом снизу вверх ' +
+        'или кнопкой «Назад» — игра при этом ничего не теряет';
+      askYes.textContent = 'Понятно';
+      askNo.style.display = 'none';
+    }, 450);
+  });
 
   // запасной вход, если удержание не сработает: /?voice
   if (location.search.indexOf('voice') >= 0) location.href = 'voicegen.html';
