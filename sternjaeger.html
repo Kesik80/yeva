@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Sternjäger</title>
+<meta name="theme-color" content="#05060F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#05060F}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#CFE4FF;background:#05060F;
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 8px) 9px calc(env(safe-area-inset-bottom,0px) + 8px);
+  }
+
+  /* ── верх: счёт, рекорд, жизни, выход ── */
+  .top{display:flex;align-items:center;gap:7px;flex:none}
+  .pill{
+    display:flex;align-items:baseline;gap:6px;
+    background:rgba(120,170,255,.1);border:1px solid rgba(120,170,255,.22);
+    border-radius:12px;padding:6px 11px;min-height:38px;align-items:center;
+    font-size:16px;font-weight:600;line-height:1;white-space:nowrap;
+    font-variant-numeric:tabular-nums;
+  }
+  .pill small{font-size:10.5px;font-weight:500;opacity:.6;letter-spacing:.06em}
+  .pill.score{flex:1;justify-content:center;min-width:0}
+  .pill.score b{color:#FFE48A}
+  .pill.hi b{color:#7FE3FF}
+  .lives{display:flex;gap:4px;align-items:center}
+  .lives i{width:13px;height:15px;display:block;
+    background:#7FE3FF;clip-path:polygon(50% 0,100% 72%,72% 72%,72% 100%,28% 100%,28% 72%,0 72%)}
+
+  .btn{
+    width:38px;height:38px;flex:none;border:0;border-radius:11px;
+    background:rgba(120,170,255,.1);border:1px solid rgba(120,170,255,.22);
+    color:#CFE4FF;text-decoration:none;
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.9)}
+  .btn svg{width:19px;height:19px;fill:none;stroke:currentColor;
+    stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ── поле ── */
+  .field{flex:1;min-height:0;position:relative;margin-top:8px;
+    border-radius:14px;overflow:hidden;border:1px solid rgba(120,170,255,.16)}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  .flash{
+    position:absolute;left:50%;top:38%;transform:translateX(-50%) scale(.8);
+    font-size:clamp(20px,6.4vw,30px);font-weight:600;letter-spacing:.1em;
+    color:#FFE48A;text-shadow:0 0 18px rgba(255,228,138,.7);
+    opacity:0;pointer-events:none;white-space:nowrap;
+  }
+  .flash.go{animation:fl 1.7s ease-out forwards}
+  @keyframes fl{
+    0%{opacity:0;transform:translateX(-50%) scale(.8)}
+    16%{opacity:1;transform:translateX(-50%) scale(1.05)}
+    74%{opacity:1;transform:translateX(-50%) scale(1)}
+    100%{opacity:0;transform:translateX(-50%) scale(1)}
+  }
+
+  /* ── панели ── */
+  .veil{
+    position:absolute;inset:0;z-index:10;display:flex;
+    background:rgba(5,6,15,.84);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    transition:opacity .28s;padding:16px;
+    overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .panel{
+    width:100%;max-width:400px;text-align:center;margin:auto;flex:none;
+    background:linear-gradient(180deg,rgba(22,30,60,.96),rgba(12,16,34,.96));
+    border:1px solid rgba(120,170,255,.26);
+    border-radius:22px;padding:22px 20px 26px;
+    box-shadow:0 18px 50px rgba(0,0,0,.6);
+  }
+  .panel h1{font-size:clamp(23px,6.6vw,30px);font-weight:600;letter-spacing:.04em;color:#CFE4FF}
+  .panel .ru{font-size:13.5px;color:rgba(207,228,255,.52);margin-top:3px}
+  .tip{margin-top:14px;font-size:13.5px;line-height:1.6;color:rgba(207,228,255,.74);
+    background:rgba(120,170,255,.08);border-radius:14px;padding:12px 13px;text-align:left}
+  .tip b{color:#FFE48A;font-weight:600}
+  .tip .row{display:flex;gap:9px;margin-top:8px}
+  .tip .row:first-child{margin-top:0}
+  .tip .k{flex:none;width:22px;text-align:center;color:#7FE3FF}
+
+  .big{
+    margin:18px auto 0;width:min(38vw,136px);aspect-ratio:1;border:0;border-radius:50%;
+    cursor:pointer;display:grid;place-items:center;line-height:1;
+    background:radial-gradient(circle at 34% 28%,rgba(160,220,255,.95),rgba(80,150,255,.5) 44%,rgba(30,60,160,.5) 76%,rgba(120,180,255,.3) 100%);
+    box-shadow:0 0 40px rgba(90,160,255,.45),inset 0 0 30px rgba(180,220,255,.35);
+    animation:pulse 2.6s ease-in-out infinite;
+  }
+  .big svg{width:48%;height:48%;fill:#EAF4FF;filter:drop-shadow(0 0 6px rgba(140,200,255,.9))}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+
+  .score2{display:flex;justify-content:center;align-items:flex-end;gap:8px;margin-top:16px}
+  .score2 .n{font-size:clamp(38px,12vw,54px);font-weight:600;line-height:.95;
+    color:#FFE48A;font-variant-numeric:tabular-nums;text-shadow:0 0 20px rgba(255,228,138,.45)}
+  .was{margin-top:7px;font-size:14px;color:rgba(207,228,255,.6)}
+  .was b{color:#7FE3FF}
+  .nice{
+    margin-top:12px;display:inline-block;
+    background:linear-gradient(160deg,#FFE48A,#F2A33A);color:#2A1A00;
+    border-radius:999px;padding:7px 18px;font-size:15px;font-weight:600;
+  }
+
+  @media (max-height:600px){
+    .panel{padding:14px 18px 16px}
+    .panel h1{font-size:21px}
+    .tip{margin-top:10px;font-size:12px;padding:9px 11px}
+    .big{margin-top:12px;width:min(24vh,100px)}
+    .score2{margin-top:10px}
+    .score2 .n{font-size:min(9vh,40px)}
+  }
+  @media (max-height:430px){
+    .veil{padding:8px}
+    .panel{padding:10px 14px 12px;border-radius:18px}
+    .panel h1{font-size:18px}
+    .panel .ru{font-size:11.5px}
+    .tip{margin-top:6px;font-size:11px;line-height:1.4;padding:7px 9px}
+    .tip .row{margin-top:5px;gap:7px}
+    .big{margin-top:7px;width:min(17vh,66px)}
+  }
+  /* кнопка «домой» от home.js светлая — перекрашиваем под тёмный космос */
+  .yv-home{
+    background:rgba(18,26,52,.92)!important;color:#CFE4FF!important;
+    border:1px solid rgba(120,170,255,.3);
+    box-shadow:0 8px 22px rgba(0,0,0,.5)!important;
+  }
+
+  @media (prefers-reduced-motion:reduce){ .big{animation:none} }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="pill hi"><small>РЕКОРД</small><b id="hi">0</b></div>
+  <div class="pill score"><b id="score">0</b></div>
+  <div class="pill"><span class="lives" id="lives"></span></div>
+  <a class="btn" href="index.html" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/></svg>
+  </a>
+</div>
+
+<div class="field" id="field">
+  <canvas id="cv"></canvas>
+  <div class="flash" id="flash"></div>
+
+  <div class="veil" id="veil">
+    <div class="panel">
+      <h1>Sternjäger</h1>
+      <div class="ru">Звёздный охотник</div>
+      <div class="tip">
+        <div class="row"><span class="k">☝</span><span>Веди пальцем — корабль идёт за ним и стреляет сам</span></div>
+        <div class="row"><span class="k">✦</span><span><b>В полёте только один выстрел.</b> Промазал — ждёшь, пока долетит</span></div>
+        <div class="row"><span class="k">↯</span><span>Звенья срываются со строя и пикируют. Сбитый в пике стоит вдвое</span></div>
+        <div class="row"><span class="k">♛</span><span>Вожак с двумя ведомыми — <b>800</b>. Собьёшь ведомых первыми — потеряешь куш</span></div>
+      </div>
+      <button class="big" id="go" aria-label="Играть">
+        <svg viewBox="0 0 24 24"><path d="M12 1.5 L20 20 L12 16 L4 20 Z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="veil hidden" id="over">
+    <div class="panel">
+      <h1 id="overHead">Конец</h1>
+      <div class="score2"><span class="n" id="sScore">0</span></div>
+      <div class="was" id="sWas"></div>
+      <div class="was" id="sWave"></div>
+      <button class="big" id="again" aria-label="Ещё раз">
+        <svg viewBox="0 0 24 24"><path d="M12 4V1L7 5l5 4V6a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const K_BEST = 'yeva.sternjaeger.best';
+
+  /* ── настройки ──────────────────────────────────────────────── */
+  const CFG = {
+    cols: 8,
+    top: 0.1,          // где начинается строй, доля высоты
+    shipY: 0.9,        // где стоит корабль
+    sway: 0.055,       // размах качания строя, доля ширины
+    swaySec: 3.4,      // период качания
+    shotV: 1.75,       // скорость патрона, высот в секунду
+    bombV: 0.5,
+    diveV: 0.72,       // скорость пике
+    peel: 0.34,        // сколько длится отрыв от строя
+    swing: 1.9,        // как сильно виляет в пике
+    homing: 0.22,      // доворот на цель, взятую В МОМЕНТ ОТРЫВА:
+                       // звено идёт по своей дуге, а не гонится за тобой —
+                       // иначе уворот превращается в лотерею
+    backV: 0.95,       // возвращение в строй
+    lives: 3,
+    inv: 2.0,          // неуязвимость после возрождения
+    pause: 1.4,        // пауза после гибели
+    wave0: 2.6,        // пауза между вылетами в первой волне
+    waveMin: 0.5,
+    waveStep: 0.74,    // во сколько раз реже с каждой волной
+    maxOut: 2,         // сколько звеньев в воздухе сразу (волна 1)
+    maxOutTop: 7,
+    bombHigh: 0.52,    // ниже этой черты бомбы уже не роняют:
+                       // с ближней дистанции от них не увернуться
+    bombEvery: 0.9,    // как часто пикирующий роняет бомбу
+    bombMax: 5
+  };
+
+  /* Строй: сверху двое вожаков, под ними ряды пошире.
+     Своя раскладка и свои корабли — не чужие. */
+  const ROWS = [
+    { n: 2, kind: 'lead',  pts: 150 },
+    { n: 4, kind: 'red',   pts: 50 },
+    { n: 6, kind: 'violet', pts: 40 },
+    { n: 8, kind: 'green', pts: 30 },
+    { n: 8, kind: 'green', pts: 30 }
+  ];
+
+  const TINT = {
+    lead:   { a: '#FFD24A', b: '#F07A1A', c: '#FFF0B8' },
+    red:    { a: '#FF6B5E', b: '#C12B22', c: '#FFD2CC' },
+    violet: { a: '#C98CFF', b: '#7B3BD6', c: '#EBD8FF' },
+    green:  { a: '#6BE06B', b: '#1F9C3C', c: '#D2FFD2' }
+  };
+
+  /* ── звук ── */
+  let actx = null, master = null;
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.22;
+    master.connect(actx.destination);
+  }
+
+  function tone(type, f, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + dur * 0.92);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+
+  function noise(dur, vol, at) {
+    if (!actx) return;
+    const t = actx.currentTime + (at || 0);
+    const n = Math.floor(actx.sampleRate * dur);
+    const b = actx.createBuffer(1, n, actx.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = actx.createBufferSource();
+    src.buffer = b;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(g); g.connect(master);
+    src.start(t);
+  }
+
+  const sPew = () => tone('square', 900, 0, 0.09, 0.16, 300);
+  const sBoom = () => { noise(0.3, 0.3); tone('sawtooth', 160, 0, 0.3, 0.16, 50); };
+  const sDive = () => tone('sawtooth', 240, 0, 0.42, 0.1, 620);
+  const sHurt = () => { noise(0.6, 0.38); tone('sawtooth', 220, 0, 0.6, 0.22, 36); };
+  const sWave = () => [0, 7, 12, 19].forEach((n, i) =>
+    tone('square', 330 * Math.pow(2, n / 12), i * 0.1, 0.16, 0.14));
+  const sCatch = () => [0, 4, 7, 12, 16].forEach((n, i) =>
+    tone('triangle', 440 * Math.pow(2, n / 12), i * 0.06, 0.2, 0.17));
+  const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+
+  /* ── холст ── */
+  const cv = $('cv');
+  const ctx = cv.getContext('2d');
+  let W = 0, H = 0, dpr = 1;
+
+  function fit() {
+    const r = $('field').getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    W = r.width; H = r.height;
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  // лёжа экран широкий, но низкий — иначе строй скукоживается в точку
+  const cell = () => Math.min(W / (CFG.cols + 1.2), H / 10.5);
+  const shipY = () => H * CFG.shipY;
+
+  /* ── состояние ── */
+  const S = {
+    run: false, over: false, t: 0,
+    wave: 1, score: 0, best: 0, lives: CFG.lives, fresh: false,
+    ship: { x: 0, dead: 0, inv: 0 },
+    shot: null, bombs: [], aliens: [], booms: [], stars: [],
+    out: 0, nextDive: 0, pointer: null, firing: false,
+    swayT: 0, cleared: 0
+  };
+
+  function stars() {
+    S.stars = [];
+    const tint = ['#FFFFFF', '#9FD8FF', '#FFD9E8', '#C8FFC8', '#FFF2B8'];
+    for (let i = 0; i < 70; i++)
+      S.stars.push({ x: Math.random(), y: Math.random(),
+                     v: 0.012 + Math.random() * 0.05,
+                     r: 0.4 + Math.random() * 1.4,
+                     c: tint[Math.floor(Math.random() * tint.length)] });
+  }
+
+  function build() {
+    S.aliens = [];
+    ROWS.forEach((row, ri) => {
+      const off = (CFG.cols - row.n) / 2;
+      for (let i = 0; i < row.n; i++) {
+        S.aliens.push({
+          row: ri, col: off + i, kind: row.kind, pts: row.pts,
+          alive: true, mode: 'form', t: 0,
+          x: 0, y: 0, ang: 0, vx: 0, vy: 0,
+          wig: Math.random() * 6.28, bombT: 0, aimX: undefined, lead: row.kind === 'lead',
+          escort: null, boss: null
+        });
+      }
+    });
+    S.aliens.forEach(a => { const p = slot(a); a.x = p.x; a.y = p.y; });
+  }
+
+  function slot(a) {
+    const c = cell();
+    const left = (W - CFG.cols * c) / 2 + c / 2;
+    const sway = Math.sin(S.swayT / CFG.swaySec * 6.283) * W * CFG.sway;
+    return { x: left + a.col * c + sway, y: H * CFG.top + a.row * c * 0.92 };
+  }
+
+  /* ── ход игры ───────────────────────────────────────────────── */
+  function step(dt) {
+    if (!S.run || S.over) return;
+    S.t += dt;
+    S.swayT += dt;
+
+    S.stars.forEach(s => { s.y += s.v * dt; if (s.y > 1) { s.y -= 1; s.x = Math.random(); } });
+
+    // корабль
+    if (S.ship.dead > 0) {
+      S.ship.dead -= dt;
+      if (S.ship.dead <= 0) {
+        if (S.lives <= 0) { finish(); return; }
+        S.ship.inv = CFG.inv;
+        S.ship.x = W / 2;
+      }
+    } else {
+      if (S.ship.inv > 0) S.ship.inv = Math.max(0, S.ship.inv - dt);
+      if (S.pointer !== null) {
+        const lim = cell() * 0.55;
+        S.ship.x = Math.max(lim, Math.min(W - lim, S.pointer));
+      }
+      if (S.firing && !S.shot) fire();
+    }
+
+    // патрон
+    if (S.shot) {
+      S.shot.y -= CFG.shotV * H * dt;
+      if (S.shot.y < -10) S.shot = null;
+    }
+
+    // строй и пике
+    let alive = 0;
+    S.aliens.forEach(a => {
+      if (!a.alive) return;
+      alive++;
+      a.t += dt;
+      if (a.mode === 'form') {
+        const p = slot(a);
+        a.x = p.x; a.y = p.y; a.ang = 0;
+      } else if (a.mode === 'peel') {
+        a.y -= cell() * 0.5 * dt;
+        a.ang = (a.t / CFG.peel) * Math.PI * (a.col < CFG.cols / 2 ? -1 : 1);
+        if (a.t >= CFG.peel) {
+          a.mode = 'dive'; a.t = 0; a.vy = CFG.diveV * H * 0.45;
+          a.aimX = S.ship.dead > 0 ? W / 2 : S.ship.x;   // цель берётся один раз
+        }
+      } else if (a.mode === 'dive') {
+        a.vy = Math.min(CFG.diveV * H, a.vy + CFG.diveV * H * 1.4 * dt);
+        const want = (a.aimX === undefined ? W / 2 : a.aimX) - a.x;
+        const swing = Math.sin(a.t * CFG.swing + a.wig) * W * 0.5;
+        a.vx = swing + want * CFG.homing;
+        a.x += a.vx * dt;
+        a.y += a.vy * dt;
+        a.ang = Math.atan2(a.vx, a.vy);
+        a.bombT -= dt;
+        if (a.bombT <= 0 && a.y < H * CFG.bombHigh && S.bombs.length < CFG.bombMax) {
+          a.bombT = CFG.bombEvery * (0.7 + Math.random() * 0.8);
+          S.bombs.push({ x: a.x, y: a.y + cell() * 0.3 });
+        }
+        if (a.y > H + cell()) {
+          a.mode = 'back'; a.t = 0;
+          a.y = -cell() * 1.4;
+          const p = slot(a);
+          a.x = p.x;
+        }
+      } else if (a.mode === 'back') {
+        const p = slot(a);
+        const dx = p.x - a.x, dy = p.y - a.y;
+        const d = Math.hypot(dx, dy);
+        const v = CFG.backV * H * dt;
+        a.ang = 0;
+        if (d <= v) { a.mode = 'form'; a.x = p.x; a.y = p.y; leftAir(a); }
+        else { a.x += dx / d * v; a.y += dy / d * v; }
+      }
+    });
+
+    // кого отправить в пике
+    S.nextDive -= dt;
+    if (S.nextDive <= 0 && S.ship.dead <= 0) {
+      launch();
+      S.nextDive = divePause();
+    }
+
+    // бомбы
+    for (let i = S.bombs.length - 1; i >= 0; i--) {
+      const b = S.bombs[i];
+      if (!b) break;
+      b.y += CFG.bombV * H * dt;
+      if (b.y > H + 10) { S.bombs.splice(i, 1); continue; }
+      if (hitShip(b.x, b.y, cell() * 0.2)) { S.bombs.splice(i, 1); wound(); break; }
+    }
+
+    // попадания
+    if (S.shot) {
+      const r = cell() * 0.42;
+      for (let i = 0; i < S.aliens.length; i++) {
+        const a = S.aliens[i];
+        if (!a.alive || !S.shot) continue;
+        if (Math.abs(a.x - S.shot.x) < r && Math.abs(a.y - S.shot.y) < r) { kill(a); S.shot = null; }
+      }
+    }
+
+    // таран
+    for (let i = 0; i < S.aliens.length; i++) {
+      const a = S.aliens[i];
+      if (!a.alive || a.mode === 'form' || a.mode === 'back') continue;
+      if (hitShip(a.x, a.y, cell() * 0.42)) { kill(a, true); wound(); break; }
+    }
+
+    // взрывы
+    for (let i = S.booms.length - 1; i >= 0; i--) {
+      const b = S.booms[i];
+      b.t += dt;
+      if (b.t > b.max) S.booms.splice(i, 1);
+    }
+
+    if (alive === 0 && S.cleared <= 0) { S.cleared = 1.6; }
+    if (S.cleared > 0) {
+      S.cleared -= dt;
+      if (S.cleared <= 0) nextWave();
+    }
+    hud();
+  }
+
+  function hitShip(x, y, r) {
+    if (S.ship.dead > 0 || S.ship.inv > 0) return false;
+    const c = cell();
+    return Math.abs(x - S.ship.x) < r + c * 0.26 && Math.abs(y - shipY()) < r + c * 0.26;
+  }
+
+  function fire() {
+    S.shot = { x: S.ship.x, y: shipY() - cell() * 0.4 };
+    sPew();
+  }
+
+  function divePause() {
+    const k = Math.pow(CFG.waveStep, S.wave - 1);
+    return Math.max(CFG.waveMin, CFG.wave0 * k) * (0.7 + Math.random() * 0.6);
+  }
+
+  const maxOut = () => Math.min(CFG.maxOutTop, CFG.maxOut + Math.floor((S.wave - 1) / 1.5));
+
+  // отрыв: вожак забирает двух ведомых из ряда под собой
+  function launch() {
+    if (S.out >= maxOut()) return;
+    const ready = S.aliens.filter(a => a.alive && a.mode === 'form');
+    if (!ready.length) return;
+
+    const leaders = ready.filter(a => a.lead);
+    const wantLead = leaders.length && Math.random() < 0.3 + S.wave * 0.05;
+    let group = [];
+
+    if (wantLead) {
+      const L = leaders[Math.floor(Math.random() * leaders.length)];
+      group.push(L);
+      const near = ready
+        .filter(a => !a.lead && a.row === 1)
+        .sort((p, q) => Math.abs(p.col - L.col) - Math.abs(q.col - L.col))
+        .slice(0, 2);
+      near.forEach(e => { e.boss = L; group.push(e); });
+      L.escort = near;
+    } else {
+      const pool = ready.filter(a => !a.lead);
+      if (!pool.length) return;
+      group.push(pool[Math.floor(Math.random() * pool.length)]);
+    }
+
+    group.forEach((a, i) => {
+      a.mode = 'peel';
+      a.t = -i * 0.12;              // ведомые срываются чуть позже
+      a.bombT = CFG.bombEvery * (0.4 + Math.random());
+      S.out++;
+    });
+    sDive();
+  }
+
+  function leftAir(a) { S.out = Math.max(0, S.out - 1); }
+
+  function kill(a, silent) {
+    a.alive = false;
+    if (a.mode !== 'form') leftAir(a);
+    let pts = a.pts;
+    if (a.mode !== 'form' && a.mode !== 'back') pts *= 2;
+    if (a.lead && a.mode !== 'form') {
+      const left = (a.escort || []).filter(e => e.alive && e.mode !== 'form').length;
+      pts = left >= 2 ? 800 : left === 1 ? 400 : 150;
+      if (left >= 1) { sCatch(); flash(pts === 800 ? 'ВОЖАК! 800' : '400'); }
+    }
+    S.score += pts;
+    S.booms.push({ x: a.x, y: a.y, t: 0, max: 0.42, r: cell() * 0.6,
+                   c: TINT[a.kind].a, pts: pts, big: a.lead });
+    if (!silent) sBoom();
+    buzz(14);
+    if (S.score > S.best) { S.best = S.score;
+      try { localStorage.setItem(K_BEST, String(S.best)); } catch (e) {} }
+  }
+
+  function wound() {
+    S.lives--;
+    S.ship.dead = CFG.pause;
+    S.booms.push({ x: S.ship.x, y: shipY(), t: 0, max: 0.7, r: cell() * 0.9,
+                   c: '#7FE3FF', pts: 0, big: true });
+    sHurt(); buzz([40, 60, 40]);
+    // всех, кто в воздухе, возвращаем — иначе после возрождения сразу таран
+    S.aliens.forEach(a => {
+      if (a.alive && (a.mode === 'peel' || a.mode === 'dive')) {
+        a.mode = 'back'; a.t = 0;
+        if (a.y > H * 0.6) { a.y = -cell() * 1.4; a.x = slot(a).x; }
+      }
+    });
+    S.bombs = [];
+    hud();
+  }
+
+  function nextWave() {
+    S.wave++;
+    S.out = 0;
+    build();
+    S.bombs = []; S.shot = null;
+    S.nextDive = Math.max(1.2, divePause());
+    flash('ВОЛНА ' + S.wave);
+    sWave();
+  }
+
+  function flash(text) {
+    const el = $('flash');
+    el.textContent = text;
+    el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+  }
+
+  function finish() {
+    S.over = true; S.run = false;
+    S.fresh = S.score >= S.best && S.score > 0;
+    $('sScore').textContent = S.score;
+    $('overHead').textContent = S.fresh ? 'Рекорд!' : 'Конец';
+    $('sWas').innerHTML = S.fresh ? 'Лучший результат' : 'Рекорд: <b>' + S.best + '</b>';
+    $('sWave').textContent = 'Волна ' + S.wave;
+    $('over').classList.remove('hidden');
+    hud();
+  }
+
+  function hud() {
+    $('score').textContent = S.score;
+    $('hi').textContent = S.best;
+    const box = $('lives');
+    const n = Math.max(0, S.lives);
+    if (box.childElementCount !== n) {
+      box.innerHTML = '';
+      for (let i = 0; i < n; i++) box.appendChild(document.createElement('i'));
+    }
+  }
+
+  /* ── рисование ──────────────────────────────────────────────── */
+  function draw() {
+    if (!W || !H) return;
+    ctx.fillStyle = '#05060F';
+    ctx.fillRect(0, 0, W, H);
+
+    S.stars.forEach(s => {
+      ctx.globalAlpha = 0.35 + (s.r / 1.8) * 0.65;
+      ctx.fillStyle = s.c;
+      ctx.fillRect(s.x * W, s.y * H, s.r, s.r);
+    });
+    ctx.globalAlpha = 1;
+
+    const c = cell();
+
+    S.aliens.forEach(a => { if (a.alive) alien(a, c); });
+
+    if (S.shot) {
+      ctx.fillStyle = '#FFF4C0';
+      ctx.shadowColor = '#FFD24A'; ctx.shadowBlur = 8;
+      ctx.fillRect(S.shot.x - c * 0.045, S.shot.y - c * 0.3, c * 0.09, c * 0.42);
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.fillStyle = '#FF8A5E';
+    S.bombs.forEach(b => {
+      ctx.beginPath();
+      ctx.ellipse(b.x, b.y, c * 0.08, c * 0.17, 0, 0, 6.3);
+      ctx.fill();
+    });
+
+    if (S.ship.dead <= 0 && (S.ship.inv <= 0 || Math.floor(S.ship.inv * 12) % 2 === 0))
+      ship(S.ship.x, shipY(), c);
+
+    S.booms.forEach(b => {
+      const k = b.t / b.max;
+      ctx.globalAlpha = 1 - k;
+      ctx.strokeStyle = b.c;
+      ctx.lineWidth = Math.max(1.6, c * 0.07);
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r * (0.3 + k * 1.1), 0, 6.3);
+      ctx.stroke();
+      const n = b.big ? 10 : 6;
+      for (let i = 0; i < n; i++) {
+        const an = i / n * 6.283 + b.t * 2;
+        const d = b.r * (0.3 + k * 1.3);
+        ctx.fillStyle = b.c;
+        ctx.fillRect(b.x + Math.cos(an) * d - c * 0.04,
+                     b.y + Math.sin(an) * d - c * 0.04, c * 0.08, c * 0.08);
+      }
+      if (b.pts && k > 0.25) {
+        ctx.globalAlpha = Math.max(0, 1 - (k - 0.25) / 0.75);
+        ctx.fillStyle = '#FFE48A';
+        ctx.font = '600 ' + (c * 0.34).toFixed(0) + 'px Fredoka, system-ui, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(b.pts), b.x, b.y - c * 0.1 - k * c * 0.5);
+      }
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  // Корабль игрока: свой рисунок — стреловидный, с двумя килями
+  function ship(x, y, c) {
+    ctx.save();
+    ctx.translate(x, y);
+    const s = c * 0.5;
+    ctx.fillStyle = '#FF9A4A';
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 1.15); ctx.lineTo(s * 0.22, -s * 0.3);
+    ctx.lineTo(-s * 0.22, -s * 0.3); ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#EAF4FF';
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.72);
+    ctx.lineTo(s * 0.3, s * 0.5);
+    ctx.lineTo(s * 0.12, s * 0.5);
+    ctx.lineTo(s * 0.12, s * 0.86);
+    ctx.lineTo(-s * 0.12, s * 0.86);
+    ctx.lineTo(-s * 0.12, s * 0.5);
+    ctx.lineTo(-s * 0.3, s * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#7FE3FF';
+    ctx.fillRect(-s * 0.86, s * 0.14, s * 0.56, s * 0.3);
+    ctx.fillRect(s * 0.3, s * 0.14, s * 0.56, s * 0.3);
+    ctx.fillStyle = '#3FA8E0';
+    ctx.fillRect(-s * 0.08, -s * 0.34, s * 0.16, s * 0.5);
+    // дюзы
+    ctx.globalAlpha = 0.5 + Math.random() * 0.5;
+    ctx.fillStyle = '#FFD24A';
+    ctx.fillRect(-s * 0.1, s * 0.86, s * 0.2, s * 0.3 * (0.6 + Math.random() * 0.8));
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  /* Пришельцы — свои. Крылатый «жнец», рогатый, глазастый и мелкий
+     звеньевой; вожак в короне. Смотрят на игрока, в пике кренятся. */
+  function alien(a, c) {
+    const t = TINT[a.kind];
+    const s = c * 0.46;
+    ctx.save();
+    ctx.translate(a.x, a.y);
+    if (a.ang) ctx.rotate(a.ang);
+
+    const flap = Math.sin(S.t * 7 + a.wig) * 0.18;
+
+    if (a.kind === 'lead') {
+      ctx.fillStyle = t.b;
+      ctx.beginPath();
+      ctx.moveTo(-s * 1.25, -s * 0.1 + flap * s);
+      ctx.lineTo(-s * 0.45, s * 0.15); ctx.lineTo(-s * 0.5, -s * 0.7);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(s * 1.25, -s * 0.1 - flap * s);
+      ctx.lineTo(s * 0.45, s * 0.15); ctx.lineTo(s * 0.5, -s * 0.7);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = t.a;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, s * 0.62, s * 0.8, 0, 0, 6.3);
+      ctx.fill();
+      ctx.fillStyle = t.c;                       // корона
+      for (let i = -2; i <= 2; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * s * 0.28, -s * 0.62);
+        ctx.lineTo(i * s * 0.28 + s * 0.12, -s * 1.08);
+        ctx.lineTo(i * s * 0.28 - s * 0.12, -s * 1.08);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.fillStyle = '#2A1400';
+      ctx.fillRect(-s * 0.34, s * 0.06, s * 0.2, s * 0.26);
+      ctx.fillRect(s * 0.14, s * 0.06, s * 0.2, s * 0.26);
+
+    } else if (a.kind === 'red') {
+      ctx.fillStyle = t.b;
+      ctx.beginPath();
+      ctx.moveTo(-s * 1.1, s * 0.5 + flap * s);
+      ctx.lineTo(-s * 0.3, -s * 0.2); ctx.lineTo(-s * 0.3, s * 0.6);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(s * 1.1, s * 0.5 - flap * s);
+      ctx.lineTo(s * 0.3, -s * 0.2); ctx.lineTo(s * 0.3, s * 0.6);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = t.a;
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.95);
+      ctx.lineTo(s * 0.5, s * 0.5); ctx.lineTo(-s * 0.5, s * 0.5);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = t.c;                       // рожки
+      ctx.fillRect(-s * 0.42, -s * 1.0, s * 0.14, s * 0.4);
+      ctx.fillRect(s * 0.28, -s * 1.0, s * 0.14, s * 0.4);
+      ctx.fillStyle = '#2A0400';
+      ctx.fillRect(-s * 0.26, s * 0.0, s * 0.16, s * 0.22);
+      ctx.fillRect(s * 0.1, s * 0.0, s * 0.16, s * 0.22);
+
+    } else if (a.kind === 'violet') {
+      ctx.fillStyle = t.b;
+      ctx.beginPath();
+      ctx.ellipse(-s * 0.92, s * 0.26 + flap * s * 0.7, s * 0.36, s * 0.17, -0.3, 0, 6.3);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(s * 0.92, s * 0.26 - flap * s * 0.7, s * 0.36, s * 0.17, 0.3, 0, 6.3);
+      ctx.fill();
+      ctx.fillStyle = t.a;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, s * 0.68, s * 0.72, 0, 0, 6.3);
+      ctx.fill();
+      ctx.fillStyle = t.c;
+      ctx.beginPath();
+      ctx.ellipse(0, s * 0.12, s * 0.34, s * 0.3, 0, 0, 6.3);
+      ctx.fill();
+      ctx.fillStyle = '#2A0040';
+      ctx.beginPath();
+      ctx.ellipse(0, s * 0.16, s * 0.16, s * 0.18, 0, 0, 6.3);
+      ctx.fill();
+
+    } else {
+      ctx.fillStyle = t.b;
+      ctx.beginPath();
+      ctx.moveTo(-s * 1.0, s * 0.1 + flap * s);
+      ctx.lineTo(-s * 0.28, -s * 0.1); ctx.lineTo(-s * 0.28, s * 0.46);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(s * 1.0, s * 0.1 - flap * s);
+      ctx.lineTo(s * 0.28, -s * 0.1); ctx.lineTo(s * 0.28, s * 0.46);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = t.a;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, s * 0.5, s * 0.68, 0, 0, 6.3);
+      ctx.fill();
+      ctx.fillStyle = '#04280A';
+      ctx.fillRect(-s * 0.26, s * 0.04, s * 0.14, s * 0.2);
+      ctx.fillRect(s * 0.12, s * 0.04, s * 0.14, s * 0.2);
+      ctx.fillStyle = t.c;
+      ctx.fillRect(-s * 0.06, -s * 0.9, s * 0.12, s * 0.3);
+    }
+    ctx.restore();
+  }
+
+  /* ── цикл ── */
+  let raf = 0, last = 0, acc = 0, auto = true;
+  const DT = 1 / 120;
+
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    if (!auto) return;
+    if (!last) last = now;
+    let dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.25) dt = 0.25;
+    acc += dt;
+    let guard = 0;
+    while (acc >= DT && guard++ < 400) { step(DT); acc -= DT; }
+    draw();
+  }
+
+  /* ── запуск ── */
+  function begin() {
+    initAudio();
+    S.run = false; S.over = false; S.t = 0; S.swayT = 0;
+    S.wave = 1; S.score = 0; S.lives = CFG.lives; S.fresh = false;
+    S.ship.x = W / 2; S.ship.dead = 0; S.ship.inv = CFG.inv * 0.6;
+    S.shot = null; S.bombs = []; S.booms = []; S.out = 0; S.cleared = 0;
+    S.pointer = null; S.firing = false;
+    build();
+    S.nextDive = CFG.wave0;
+    $('veil').classList.add('hidden');
+    $('over').classList.add('hidden');
+    S.run = true;
+    last = 0; acc = 0;
+    flash('ВОЛНА 1');
+    sWave();
+    hud();
+  }
+
+  $('go').addEventListener('click', begin);
+  $('again').addEventListener('click', begin);
+
+  const field = $('field');
+  const localX = e => {
+    const r = field.getBoundingClientRect();
+    return e.clientX - r.left;
+  };
+  field.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    initAudio();
+    S.pointer = localX(e); S.firing = true;
+  });
+  field.addEventListener('pointermove', e => {
+    if (S.pointer !== null) { e.preventDefault(); S.pointer = localX(e); }
+  });
+  const letGo = () => { S.pointer = null; S.firing = false; };
+  field.addEventListener('pointerup', letGo);
+  field.addEventListener('pointercancel', letGo);
+  field.addEventListener('pointerleave', letGo);
+
+  const keys = {};
+  window.addEventListener('keydown', e => {
+    if (['ArrowLeft', 'ArrowRight', 'Space'].indexOf(e.code) < 0) return;
+    e.preventDefault();
+    keys[e.code] = true;
+    if (e.code === 'Space') S.firing = true;
+  });
+  window.addEventListener('keyup', e => {
+    keys[e.code] = false;
+    if (e.code === 'Space') S.firing = false;
+  });
+  setInterval(() => {
+    if (!S.run || S.over) return;
+    const v = cell() * 0.22;
+    if (keys.ArrowLeft) S.pointer = (S.pointer === null ? S.ship.x : S.pointer) - v;
+    if (keys.ArrowRight) S.pointer = (S.pointer === null ? S.ship.x : S.pointer) + v;
+  }, 16);
+
+  let rz = 0;
+  window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(fit, 150); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { last = 0; acc = 0; letGo(); }
+  });
+
+  try { S.best = parseInt(localStorage.getItem(K_BEST) || '0', 10) || 0; } catch (e) {}
+
+  stars();
+  build();
+  fit();
+  hud();
+  raf = requestAnimationFrame(frame);
+
+  window.YEVA_STERN = {
+    state: () => ({
+      run: S.run, over: S.over, wave: S.wave, score: S.score, best: S.best,
+      lives: S.lives, fresh: S.fresh,
+      alive: S.aliens.filter(a => a.alive).length,
+      inAir: S.aliens.filter(a => a.alive && a.mode !== 'form').length,
+      out: S.out, shot: !!S.shot, bombs: S.bombs.length,
+      shipX: Math.round(S.ship.x), dead: +S.ship.dead.toFixed(2),
+      inv: +S.ship.inv.toFixed(2), W: Math.round(W), H: Math.round(H),
+      modes: S.aliens.filter(a => a.alive).map(a => a.mode),
+      head: ($('overHead').textContent || '').trim()
+    }),
+    begin: begin,
+    auto: on => { auto = on; last = 0; acc = 0; },
+    step: step,
+    aim: x => { S.pointer = x; },
+    hold: on => { S.firing = on; },
+    // куда целиться: ближайшая угроза и ближайшая цель
+    threat: () => {
+      const c = cell();
+      let near = null;
+      S.aliens.forEach(a => {
+        if (!a.alive || a.mode === 'form' || a.mode === 'back') return;
+        const dy = shipY() - a.y;
+        if (dy < 0) return;
+        if (!near || dy < near.dy) near = { x: a.x, dy: dy, vx: a.vx, vy: a.vy };
+      });
+      S.bombs.forEach(b => {
+        const dy = shipY() - b.y;
+        if (dy < 0) return;
+        if (!near || dy < near.dy) near = { x: b.x, dy: dy, vx: 0, vy: CFG.bombV * H };
+      });
+      return near;
+    },
+    raw: () => ({ aliens: S.aliens, bombs: S.bombs, ship: S.ship, W: W, H: H }),
+    column: () => {
+      // самый низкий живой в строю — по нему удобно стрелять
+      let best = null;
+      S.aliens.forEach(a => {
+        if (!a.alive || a.mode !== 'form') return;
+        if (!best || a.y > best.y) best = { x: a.x, y: a.y };
+      });
+      return best;
+    },
+    cfg: CFG
+  };
+})();
+</script>
+<script src="install.js"></script>
+<script src="home.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
