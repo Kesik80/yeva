@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Flitzer</title>
+<meta name="theme-color" content="#7ECBE8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#7ECBE8}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#13394E;
+    background:linear-gradient(180deg,#7ECBE8 0%,#A9E0F2 46%,#D8F2FA 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 9px) 10px calc(env(safe-area-inset-bottom,0px) + 9px);
+  }
+
+  /* ── верх: щёки, метры, рекорд, выход ── */
+  .top{display:flex;align-items:center;gap:7px;flex:none}
+  .pill{
+    display:flex;align-items:center;gap:6px;
+    background:rgba(255,255,255,.82);border-radius:999px;
+    padding:6px 13px;min-height:40px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(19,57,78,.16);
+    font-size:17px;font-weight:600;line-height:1;white-space:nowrap;
+  }
+  .pill b{font-weight:600;font-variant-numeric:tabular-nums}
+  .pill .ic{font-size:19px}
+  .cheeks{transition:transform .18s cubic-bezier(.3,1.6,.5,1)}
+  .cheeks.pop{transform:scale(1.22)}
+  .cheeks.low b{color:#D8443F}
+  .far{flex:1;justify-content:center;min-width:0}
+  .far small{font-size:12px;font-weight:500;opacity:.55;margin-left:3px}
+  .best{font-size:12px;font-weight:500;opacity:.6;margin-left:7px}
+
+  .btn{
+    width:40px;height:40px;flex:none;border:0;border-radius:50%;
+    background:rgba(255,255,255,.82);color:#13394E;text-decoration:none;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 5px 16px rgba(19,57,78,.18);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.9)}
+  .btn svg{width:20px;height:20px;fill:none;stroke:currentColor;
+    stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ── поле ── */
+  .field{flex:1;min-height:0;position:relative;margin-top:9px;
+    border-radius:24px;overflow:hidden;box-shadow:inset 0 2px 14px rgba(19,57,78,.1)}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  .hint{
+    position:absolute;left:50%;top:16%;transform:translateX(-50%);
+    background:rgba(255,255,255,.92);border-radius:999px;padding:9px 20px;
+    font-size:15px;font-weight:600;color:#13394E;white-space:nowrap;
+    box-shadow:0 8px 20px rgba(19,57,78,.2);pointer-events:none;
+    opacity:0;transition:opacity .4s;
+  }
+  .hint.on{opacity:1}
+
+  .word{
+    position:absolute;left:50%;top:9%;transform:translateX(-50%) scale(.7);
+    background:rgba(255,255,255,.95);border-radius:999px;padding:8px 20px;
+    font-size:clamp(17px,5vw,23px);font-weight:600;color:#13394E;white-space:nowrap;
+    box-shadow:0 8px 22px rgba(19,57,78,.24);pointer-events:none;opacity:0;
+  }
+  .word.go{animation:pop 1.7s ease-out forwards}
+  @keyframes pop{
+    0%{opacity:0;transform:translateX(-50%) scale(.7)}
+    14%{opacity:1;transform:translateX(-50%) scale(1.07)}
+    76%{opacity:1;transform:translateX(-50%) scale(1)}
+    100%{opacity:0;transform:translateX(-50%) scale(1)}
+  }
+
+  /* ── панели ── */
+  .veil{
+    position:absolute;inset:0;z-index:10;display:flex;
+    background:rgba(126,203,232,.5);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    transition:opacity .28s;padding:16px;
+    overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .panel{
+    width:100%;max-width:390px;text-align:center;margin:auto;flex:none;
+    background:rgba(255,255,255,.93);border-radius:30px;padding:22px 20px 26px;
+    box-shadow:0 18px 44px rgba(19,57,78,.26);
+  }
+  .panel h1{font-size:clamp(23px,6.6vw,30px);font-weight:600}
+  .panel .ru{font-size:14px;color:rgba(19,57,78,.6);margin-top:2px}
+  .tip{margin-top:13px;font-size:13.5px;line-height:1.55;color:rgba(19,57,78,.66);
+    background:rgba(126,203,232,.16);border-radius:16px;padding:11px 13px}
+  .tip b{color:#13394E;font-weight:600}
+  .big{
+    margin:17px auto 0;width:min(40vw,146px);aspect-ratio:1;border:0;border-radius:50%;
+    cursor:pointer;display:grid;place-items:center;font-size:min(16vw,58px);line-height:1;
+    background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.98),rgba(255,255,255,.3) 30%,rgba(169,224,242,.7) 58%,rgba(126,203,232,.5) 80%,rgba(255,255,255,.92) 100%);
+    box-shadow:0 18px 44px rgba(19,57,78,.3),inset 0 0 34px rgba(255,255,255,.6);
+    animation:float 3.6s ease-in-out infinite;
+  }
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+
+  /* итог забега */
+  .score{display:flex;justify-content:center;align-items:flex-end;gap:7px;margin-top:14px}
+  .score .n{font-size:clamp(40px,13vw,58px);font-weight:600;line-height:.95;
+    font-variant-numeric:tabular-nums}
+  .score .u{font-size:17px;font-weight:500;opacity:.55;padding-bottom:5px}
+  .was{margin-top:6px;font-size:14px;color:rgba(19,57,78,.6)}
+  .was b{color:#13394E}
+  .nice{
+    margin-top:11px;display:inline-block;
+    background:linear-gradient(160deg,#FFD86E,#F2913A);color:#5A3505;
+    border-radius:999px;padding:7px 18px;font-size:15px;font-weight:600;
+    animation:cheer .7s cubic-bezier(.3,1.6,.5,1);
+  }
+  @keyframes cheer{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+  .ate{margin-top:10px;font-size:14px;color:rgba(19,57,78,.6)}
+
+  @media (max-height:560px){
+    .panel{padding:14px 18px 16px}
+    .panel h1{font-size:21px}
+    .tip{margin-top:9px;font-size:12px;padding:9px 11px}
+    .big{margin-top:11px;width:min(24vh,104px);font-size:min(11vh,42px)}
+    .score{margin-top:9px}
+    .score .n{font-size:min(9vh,42px)}
+  }
+  @media (max-height:430px){
+    .veil{padding:9px}
+    .panel{padding:11px 15px 13px;border-radius:22px}
+    .panel h1{font-size:19px}
+    .panel .ru{font-size:12.5px}
+    .tip{margin-top:7px;font-size:11.5px;line-height:1.45;padding:8px 10px}
+    .big{margin-top:8px;width:min(21vh,84px);font-size:min(10vh,34px)}
+  }
+  @media (prefers-reduced-motion:reduce){ .big{animation:none} }
+</style>
+</head>
+<body>
+
+<script src="words.js"></script>
+
+<div class="top">
+  <div class="pill cheeks" id="cheeks"><span class="ic">🥕</span><b id="food">0</b></div>
+  <div class="pill far"><b id="far">0</b><small>м</small><span class="best" id="best"></span></div>
+  <a class="btn" href="index.html" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/></svg>
+  </a>
+</div>
+
+<div class="field" id="field">
+  <canvas id="cv"></canvas>
+  <div class="hint" id="hint">Нажми, чтобы прыгнуть</div>
+  <div class="word" id="word"></div>
+
+  <div class="veil" id="veil">
+    <div class="panel">
+      <h1>Flitzer</h1>
+      <div class="ru">Бегалка</div>
+      <div class="tip">Фипс бежит сам — ты только <b>нажимай, чтобы прыгнуть</b>.
+        Держи дольше — прыгнет выше. Собирай еду за щёки: налетел на камень —
+        еда высыпется, но он побежит дальше. А вот с пустыми щеками спотыкаться нельзя</div>
+      <button class="big" id="go" aria-label="Бежать">🐹</button>
+    </div>
+  </div>
+
+  <div class="veil over hidden" id="over">
+    <div class="panel">
+      <h1 id="overHead">Ой!</h1>
+      <div class="score"><span class="n" id="sFar">0</span><span class="u">метров</span></div>
+      <div class="was" id="sWas"></div>
+      <div class="ate" id="sAte"></div>
+      <button class="big" id="again" aria-label="Ещё раз">🔁</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const YW = window.YEVA_WORDS || null;
+  const VOICE = 'voice/de/';
+  const K_BEST = 'yeva.flitzer.best';
+
+  /* ── настройки ────────────────────────────────────────────────
+     Горизонталь считаем во времени, а не в пикселях: сколько секунд
+     препятствие видно до встречи. Тогда на любом экране — от узкого
+     телефона до планшета — игра одинаково сложная. */
+  const CFG = {
+    x: 0.22,          // где бежит Фипс, доля ширины
+    ground: 0.88,     // линия земли, доля высоты
+    size: 0.085,      // размер Фипса, доля высоты
+    hitr: 0.62,       // по чему бьётся: заметно меньше рисунка, в пользу игрока
+    warn0: 1.15,      // в начале препятствие видно столько секунд
+    warnMin: 0.6,     // к чему стремимся, но никогда не дойдём
+    warnAt: 420,      // на этом метре пройдена половина пути
+    air: 0.95,        // прыжок длится, с
+    high: 0.34,       // высота прыжка, доля высоты
+    slack: 0.26,      // запас на неточный прыжок, с — это и есть ширина окна
+    cut: 0.78,        // отпустил рано — прыжок ниже, но дуга всё равно широкая
+    tap: 0.22,        // на такое короткое нажатие и рассчитываем честность
+    coyote: 0.1,      // можно прыгнуть чуть позже края, с
+    buffer: 0.14,     // нажал чуть раньше приземления — зачтётся
+    gap0: 2.1,        // промежуток между препятствиями, с
+    gapMin: 1.2,      // меньше нельзя: прыжок длится почти секунду
+    jitter: 0.45,     // разброс промежутка
+    bump: 3,          // еды теряется при ударе вначале
+    bumpAt: 150,      // каждые столько метров удар дороже на единицу
+    bumpMax: 12,
+    cheeks: 12,       // больше за щёки не влезет — копить бесконечно нельзя
+    safe: 1.2,        // после удара не бьётся, с
+    start: 5,         // еды на старте
+    calm: 2.4,        // первые секунды без камней
+    feed0: 0.72,      // как часто рядом с камнем лежит еда
+    feedMin: 0.2,     // ...и к чему это идёт
+    mPerW: 0.1,       // метр = доля ширины экрана
+    sayEvery: 7       // каждая n-я еда называет себя по-немецки
+  };
+
+  const G = 8 * CFG.high / (CFG.air * CFG.air);   // притяжение
+  const V0 = 4 * CFG.high / CFG.air;              // толчок
+
+  /* ── еда ── */
+  const FOOD = (YW && YW.pictured ? YW.pictured : [])
+    .filter(w => (w.s === 'nom' || w.set === 'nom') && w.de !== 'der Mund');
+  const EMOJI = FOOD.length ? FOOD.map(w => w.e) : ['🍎', '🥕', '🍪'];
+
+  /* ── звук ── */
+  let actx = null, master = null;
+  const vBuf = {}, vBad = {}, vHot = {};
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.3;
+    master.connect(actx.destination);
+  }
+
+  const vUrl = w => VOICE + (YW && YW.slug ? YW.slug(w) : w.de) + '.mp3';
+
+  function loadVoice(w) {
+    if (!actx || !w) return;
+    const u = vUrl(w);
+    if (vBuf[u] || vBad[u] || vHot[u]) return;
+    vHot[u] = 1;
+    fetch(u)
+      .then(r => r.ok ? r : fetch(u + '?v=' + Date.now(), { cache: 'no-store' }))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(ab => actx.decodeAudioData(ab))
+      .then(b => { vBuf[u] = b; })
+      .catch(e => { vBad[u] = true; console.warn('[voice] нет ' + u + ' — ' + e.message); });
+  }
+
+  function say(w) {
+    if (!actx || !w) return;
+    const u = vUrl(w);
+    if (!vBuf[u]) { loadVoice(w); return; }
+    const src = actx.createBufferSource(), g = actx.createGain();
+    g.gain.value = 1.3;
+    src.buffer = vBuf[u];
+    src.connect(g); g.connect(master);
+    src.start();
+  }
+
+  function tone(type, freq, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur * 0.9);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+
+  function thud() {
+    if (!actx) return;
+    tone('sine', 190, 0, 0.22, 0.3, 70);
+    const t = actx.currentTime;
+    const n = actx.createBufferSource(), b = actx.createBuffer(1, 2400, actx.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    n.buffer = b;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.22, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    n.connect(g); g.connect(master);
+    n.start(t);
+  }
+
+  const LAD = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21];
+  const ping = n => tone('triangle', 520 * Math.pow(2, LAD[Math.min(n, LAD.length - 1)] / 12),
+    0, 0.16, 0.2);
+  const boing = () => tone('sine', 300, 0, 0.17, 0.2, 760);
+  const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+
+  /* ── холст ── */
+  const cv = $('cv');
+  const ctx = cv.getContext('2d');
+  let W = 0, H = 0, dpr = 1;
+
+  function fit() {
+    const r = $('field').getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    W = r.width; H = r.height;
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  /* ── состояние забега ── */
+  const S = {
+    run: false, over: false,
+    t: 0,              // время забега, с
+    dist: 0,           // пройдено пикселей
+    y: 0, vy: 0,       // высота над землёй (пиксели) и скорость
+    air: false, since: 0, press: 0, held: false, coy: 0, buf: 0,
+    food: 0, ate: 0, combo: 0, hurt: 0, spin: 0, bumps: 0,
+    rocks: [], eats: [], bits: [], next: 0, said: 0,
+    best: 0, fresh: false, hills: [], clouds: [], far: [], birds: []
+  };
+
+  const metres = () => Math.floor(S.dist / (W * CFG.mPerW));
+  /* Сложность растёт без потолка, но всё медленнее: иначе игра
+     упирается в «полку», и дальше бежать уже не интереснее. */
+  const ramp = () => metres() / (metres() + CFG.warnAt);
+  const warn = () => CFG.warn0 + (CFG.warnMin - CFG.warn0) * ramp();
+  const speed = () => (W * (1 - CFG.x)) / warn();
+  /* Главное правило честности: камень не шире, чем Фипс успевает
+     перелететь на нынешней скорости. Иначе получается препятствие,
+     которое не берётся никаким умением. */
+  /* Считаем не по идеальному прыжку, а по короткому нажатию: ребёнок
+     жмёт мельком, и камень должен браться даже так. Вершина такого
+     прыжка — APEX. */
+  const APEX = (() => {
+    const th = Math.min(CFG.tap, V0 / G);
+    const v1 = V0 - G * th;
+    const y1 = V0 * th - G * th * th / 2;
+    const v2 = v1 * CFG.cut;
+    return y1 + v2 * v2 / (2 * G);
+  })();
+
+  function airAbove(h) {                    // сколько секунд он выше высоты h
+    return h >= APEX ? 0 : 2 * Math.sqrt(2 * (APEX - h) / G);
+  }
+  function maxWidth(h) {
+    return (airAbove(h / U()) - CFG.slack) * speed() - 2 * hitR();
+  }
+  const gapSec = () => {
+    const base = CFG.gap0 + (CFG.gapMin - CFG.gap0) * ramp();
+    return base * (1 + Math.random() * CFG.jitter);
+  };
+  // чем дальше убежал, тем дороже обходится камень и тем реже попадается еда
+  const bumpCost = () => Math.min(CFG.bumpMax,
+    CFG.bump + Math.floor(metres() / CFG.bumpAt));
+  const feedRate = () => CFG.feed0 + (CFG.feedMin - CFG.feed0) * ramp();
+
+  const groundY = () => H * CFG.ground;
+  const U = () => Math.min(H, W * 1.35);     // единица мира
+  const rad = () => U() * CFG.size;
+  const hitR = () => rad() * CFG.hitr;
+  const heroX = () => W * CFG.x;
+
+  function reset() {
+    S.run = false; S.over = false; S.t = 0; S.dist = 0;
+    S.y = 0; S.vy = 0; S.air = false; S.since = 0; S.press = 0; S.held = false;
+    S.coy = 0; S.buf = 0;
+    S.food = CFG.start; S.ate = 0; S.combo = 0; S.hurt = 0; S.spin = 0; S.bumps = 0;
+    S.rocks = []; S.eats = []; S.bits = []; S.next = CFG.calm; S.said = 0;
+    S.fresh = false;
+    hud();
+  }
+
+  function scenery() {
+    S.hills = []; S.clouds = []; S.far = []; S.birds = [];
+    for (let i = 0; i < 9; i++)
+      S.far.push({ x: Math.random() * 1.8, w: 0.5 + Math.random() * 0.55,
+                   h: 0.2 + Math.random() * 0.16 });
+    for (let i = 0; i < 3; i++)
+      S.birds.push({ x: Math.random(), y: 0.17 + Math.random() * 0.16,
+                     s: 0.7 + Math.random() * 0.6, ph: Math.random() * 6.3 });
+    for (let i = 0; i < 7; i++)
+      S.hills.push({ x: Math.random(), w: 0.3 + Math.random() * 0.36,
+                     h: 0.07 + Math.random() * 0.1 });
+    for (let i = 0; i < 5; i++)
+      S.clouds.push({ x: Math.random(), y: 0.05 + Math.random() * 0.34,
+                      s: 0.7 + Math.random() * 0.7 });
+  }
+
+  /* ── ввод ── */
+  function down(e) {
+    if (e) e.preventDefault();
+    initAudio();
+    if (!S.run || S.over) return;
+    S.held = true;
+    S.buf = CFG.buffer;
+    tryJump();
+  }
+
+  function up() {
+    S.held = false;
+    if (S.air && S.vy > 0) S.vy *= CFG.cut;   // отпустил рано — прыжок ниже
+  }
+
+  function tryJump() {
+    if (!S.run || S.over) return false;
+    if (S.air && S.coy <= 0) return false;
+    S.vy = V0 * U();
+    S.air = true; S.coy = 0; S.buf = 0;
+    boing();
+    return true;
+  }
+
+  /* ── ход игры: один шаг на dt секунд ─────────────────────────
+     Отдельно от рисования, с постоянным шагом — иначе на разных
+     телефонах физика получилась бы разной. */
+  function step(dt) {
+    if (!S.run || S.over) return;
+    S.t += dt;
+    const v = speed();
+    S.dist += v * dt;
+
+    // прыжок
+    if (S.air) {
+      S.vy -= G * U() * dt;
+      S.y += S.vy * dt;
+      if (S.y <= 0) { S.y = 0; S.vy = 0; S.air = false; S.coy = CFG.coyote; S.since = 0; }
+    } else {
+      S.since += dt;
+      S.coy = Math.max(0, S.coy - dt);
+    }
+    if (S.buf > 0) {
+      S.buf -= dt;
+      if (!S.air && S.buf > 0) tryJump();
+    }
+    if (S.hurt > 0) S.hurt = Math.max(0, S.hurt - dt);
+    if (S.spin > 0) S.spin = Math.max(0, S.spin - dt);
+
+    // что появляется впереди
+    S.next -= dt;
+    if (S.next <= 0) {
+      spawn();
+      S.next = gapSec();
+    }
+
+    // движение и столкновения
+    const r = rad(), rc = hitR(), hx = heroX(), gy = groundY();
+    const hy = gy - r - S.y;
+
+    for (let i = S.rocks.length - 1; i >= 0; i--) {
+      const o = S.rocks[i];
+      o.x -= v * dt;
+      if (o.x + o.w < -20) { S.rocks.splice(i, 1); continue; }
+      if (S.hurt > 0) continue;
+      // круг против прямоугольника
+      const cx = Math.max(o.x, Math.min(hx, o.x + o.w));
+      const cy = Math.max(gy - o.h, Math.min(hy, gy));
+      const dx = hx - cx, dy = hy - cy;
+      if (dx * dx + dy * dy < rc * rc) hit();
+    }
+
+    for (let i = S.eats.length - 1; i >= 0; i--) {
+      const f = S.eats[i];
+      f.x -= v * dt;
+      if (f.x < -40) { S.eats.splice(i, 1); continue; }
+      const dx = hx - f.x, dy = hy - f.y;
+      const reach = r + f.r;
+      if (dx * dx + dy * dy < reach * reach) { S.eats.splice(i, 1); grab(f); }
+    }
+
+    for (let i = S.bits.length - 1; i >= 0; i--) {
+      const b = S.bits[i];
+      b.vy -= G * U() * 0.6 * dt;
+      b.x += b.vx * dt - v * dt;
+      b.y += b.vy * dt;
+      b.life -= dt;
+      if (b.life <= 0 || b.y < -H) S.bits.splice(i, 1);
+    }
+
+    hud();
+  }
+
+  function spawn() {
+    const r = rad(), gy = groundY();
+    const roll = Math.random();
+    if (roll < 0.62) {
+      // камень или кустик: перепрыгнуть
+      let tall = Math.random() < 0.4;
+      let h = r * (tall ? 1.15 : 0.8);
+      let room = maxWidth(h);
+      if (room < r * 0.45) {                // высокий сейчас не взять — ставим низкий
+        tall = false; h = r * 0.8; room = maxWidth(h);
+      }
+      if (room < r * 0.4) { arc(W + 40, true); return; }   // и низкий не взять — только еда
+      const w = Math.min(room, r * (0.45 + Math.random() * 0.85));
+      S.rocks.push({ x: W + 30, w: w, h: h, bush: Math.random() < 0.45,
+                     seed: Math.random() });
+      if (Math.random() < feedRate()) arc(W + 30 + w / 2, true);
+    } else if (Math.random() < feedRate() + 0.2) {
+      arc(W + 40, Math.random() < 0.5);
+    }
+  }
+
+  // дужка еды: по ней и прыгать удобно, и собирать приятно
+  function arc(x0, high) {
+    const r = rad(), gy = groundY();
+    const n = 3 + Math.floor(Math.random() * 3);
+    const step = r * 1.45;
+    // даже низкая дужка висит выше вытянутой лапы: даром еда не достаётся,
+    // иначе можно было бы не прыгать вовсе и всё равно не проиграть
+    const top = high ? CFG.high * U() * 0.82 : r * 1.65;
+    for (let i = 0; i < n; i++) {
+      const k = n === 1 ? 0.5 : i / (n - 1);
+      const lift = high ? Math.sin(Math.PI * k) * top : top;
+      S.eats.push({
+        x: x0 + (i - (n - 1) / 2) * step,
+        y: gy - r - lift - r * 0.3,
+        r: r * 0.46,
+        e: EMOJI[Math.floor(Math.random() * EMOJI.length)],
+        w: FOOD.length ? FOOD[Math.floor(Math.random() * FOOD.length)] : null,
+        ph: Math.random() * 6.28
+      });
+    }
+  }
+
+  function grab(f) {
+    S.ate++; S.combo++;
+    if (S.food < CFG.cheeks) S.food++;
+    ping(S.combo - 1);
+    puff(f.x, f.y, f.e, 2);
+    const c = $('cheeks');
+    c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+    // изредка еда называет себя — чтобы немецкий звучал, а не экзаменовал
+    S.said++;
+    if (S.said >= CFG.sayEvery && f.w) {
+      S.said = 0;
+      say(f.w);
+      const el = $('word');
+      el.textContent = f.w.de;
+      el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+    }
+  }
+
+  function hit() {
+    S.combo = 0;
+    if (S.food <= 0) { done(); return; }
+    S.bumps++;
+    const lost = Math.min(S.food, bumpCost());
+    S.food -= lost;
+    S.hurt = CFG.safe;
+    S.spin = 0.5;
+    S.vy = V0 * U() * 0.42;    // подбрасывает
+    S.air = true;
+    thud(); buzz([18, 40, 18]);
+    const r = rad();
+    for (let i = 0; i < lost; i++)
+      puff(heroX(), groundY() - r - S.y, EMOJI[Math.floor(Math.random() * EMOJI.length)], 1, true);
+    hud();
+  }
+
+  function puff(x, y, e, n, fly) {
+    const u = U();
+    for (let i = 0; i < n; i++) {
+      S.bits.push({
+        x: x, y: y, e: e,
+        vx: (fly ? -0.25 : -0.1) * W + (Math.random() - 0.5) * W * 0.55,
+        vy: u * (fly ? 1.1 : 0.9) * (0.7 + Math.random() * 0.7),
+        r: rad() * (fly ? 0.5 : 0.34),
+        life: fly ? 1.4 : 0.42, max: fly ? 1.4 : 0.42
+      });
+    }
+  }
+
+  function done() {
+    S.over = true; S.run = false;
+    thud(); buzz(90);
+    const m = metres();
+    S.fresh = m > S.best;
+    if (S.fresh) { S.best = m; try { localStorage.setItem(K_BEST, String(m)); } catch (e) {} }
+    $('sFar').textContent = m;
+    $('overHead').textContent = S.fresh ? 'Рекорд!' : 'Ой!';
+    $('sWas').innerHTML = S.fresh
+      ? (S.best > 0 ? 'Это твой лучший забег' : '')
+      : 'Твой рекорд: <b>' + S.best + '</b> м';
+    $('sAte').textContent = S.ate > 0 ? 'Съедено: ' + S.ate : '';
+    $('over').classList.remove('hidden');
+    hud();
+    if (S.fresh) [0, .12, .24, .42].forEach((t, i) =>
+      tone('triangle', 520 * Math.pow(2, [0, 4, 7, 12][i] / 12), t, 0.3, 0.24));
+  }
+
+  function hud() {
+    $('food').textContent = S.food;
+    $('cheeks').classList.toggle('low', S.food === 0);
+    $('far').textContent = metres();
+    $('best').textContent = S.best > 0 ? '· рекорд ' + S.best : '';
+  }
+
+  /* ── рисование ───────────────────────────────────────────── */
+  function draw() {
+    if (!W || !H) return;
+    const gy = groundY(), r = rad(), hx = heroX();
+    ctx.clearRect(0, 0, W, H);
+
+    // небо
+    const sky = ctx.createLinearGradient(0, 0, 0, gy);
+    sky.addColorStop(0, '#8FD6EF');
+    sky.addColorStop(1, '#D4F0FA');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, gy);
+
+    // облака — едут медленнее всех
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    S.clouds.forEach(c => {
+      const x = ((c.x - S.dist / (W * 9)) % 1.3 + 1.3) % 1.3 * W - W * 0.15;
+      cloud(x, c.y * gy * 0.8 + H * 0.04, W * 0.085 * c.s);
+    });
+
+    // солнце
+    const su = U() * 0.082, sx = W * 0.81, sy = gy * 0.12;
+    const glow = ctx.createRadialGradient(sx, sy, su * 0.4, sx, sy, su * 2.6);
+    glow.addColorStop(0, 'rgba(255,232,150,.5)');
+    glow.addColorStop(1, 'rgba(255,232,150,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(sx, sy, su * 2.6, 0, 6.3); ctx.fill();
+    ctx.fillStyle = '#FFE48A';
+    ctx.beginPath(); ctx.arc(sx, sy, su, 0, 6.3); ctx.fill();
+
+    // дальние горы — почти стоят на месте
+    ctx.fillStyle = 'rgba(146,190,206,.55)';
+    S.far.forEach(f => {
+      const x = ((f.x - S.dist / (W * 16)) % 1.8 + 1.8) % 1.8 * W - W * 0.4;
+      const h = f.h * U();
+      ctx.beginPath();
+      ctx.moveTo(x - f.w * W * 0.5, gy);
+      ctx.lineTo(x, gy - h);
+      ctx.lineTo(x + f.w * W * 0.5, gy);
+      ctx.closePath();
+      ctx.fill();
+    });
+    ctx.fillStyle = 'rgba(255,255,255,.45)';
+    S.far.forEach(f => {
+      const x = ((f.x - S.dist / (W * 16)) % 1.8 + 1.8) % 1.8 * W - W * 0.4;
+      const h = f.h * U();
+      ctx.beginPath();
+      ctx.moveTo(x - f.w * W * 0.14, gy - h * 0.72);
+      ctx.lineTo(x, gy - h);
+      ctx.lineTo(x + f.w * W * 0.14, gy - h * 0.72);
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // птицы
+    ctx.strokeStyle = 'rgba(80,120,145,.5)';
+    ctx.lineWidth = Math.max(1.4, U() * 0.008);
+    ctx.lineCap = 'round';
+    S.birds.forEach(b => {
+      const x = ((b.x - S.dist / (W * 26)) % 1.3 + 1.3) % 1.3 * W - W * 0.15;
+      const y = b.y * gy + Math.sin(S.t * 0.7 + b.ph) * U() * 0.02;
+      const w = U() * 0.05 * b.s, f = Math.sin(S.t * 5 + b.ph) * 0.35;
+      ctx.beginPath();
+      ctx.moveTo(x - w, y + w * f);
+      ctx.quadraticCurveTo(x - w * 0.4, y - w * 0.45, x, y);
+      ctx.quadraticCurveTo(x + w * 0.4, y - w * 0.45, x + w, y + w * f);
+      ctx.stroke();
+    });
+
+    // холмы — чуть быстрее
+    S.hills.forEach((h, i) => {
+      const x = ((h.x - S.dist / (W * 3.4)) % 1.5 + 1.5) % 1.5 * W - W * 0.25;
+      ctx.fillStyle = i % 2 ? 'rgba(126,198,142,.62)' : 'rgba(100,176,120,.55)';
+      ctx.beginPath();
+      ctx.ellipse(x, gy + h.h * U() * 0.1, h.w * W * 0.6, h.h * U(), 0, Math.PI, 0);
+      ctx.fill();
+    });
+
+    // земля
+    const ground = ctx.createLinearGradient(0, gy, 0, H);
+    ground.addColorStop(0, '#9BD77F');
+    ground.addColorStop(0.18, '#7FC463');
+    ground.addColorStop(1, '#C49A5E');
+    ctx.fillStyle = ground;
+    ctx.fillRect(0, gy, W, H - gy);
+    ctx.strokeStyle = 'rgba(70,120,54,.45)';
+    ctx.lineWidth = Math.max(2, r * 0.07);
+    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
+
+    // травинки бегут вместе с миром — по ним видно скорость
+    ctx.strokeStyle = 'rgba(86,146,66,.55)';
+    ctx.lineWidth = Math.max(1.5, r * 0.05);
+    const gs = r * 1.1;
+    for (let i = -1; i < W / gs + 1; i++) {
+      const x = i * gs - (S.dist % gs);
+      ctx.beginPath();
+      ctx.moveTo(x, gy + r * 0.3);
+      ctx.lineTo(x + r * 0.14, gy + r * 0.05);
+      ctx.stroke();
+    }
+
+    S.rocks.forEach(o => rock(o, gy, r));
+    S.eats.forEach(f => {
+      const bob = Math.sin(S.t * 4 + f.ph) * f.r * 0.18;
+      ctx.font = (f.r * 2.1).toFixed(0) + 'px serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(f.e, f.x, f.y + bob);
+    });
+
+    hamster(hx, gy - r - S.y, r);
+
+    S.bits.forEach(b => {
+      ctx.globalAlpha = Math.max(0, b.life / b.max);
+      ctx.font = (b.r * 2).toFixed(0) + 'px serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(b.e, b.x, b.y);
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  function cloud(x, y, s) {
+    ctx.beginPath();
+    ctx.arc(x, y, s * 0.6, 0, 6.3);
+    ctx.arc(x + s * 0.6, y - s * 0.22, s * 0.78, 0, 6.3);
+    ctx.arc(x + s * 1.3, y, s * 0.55, 0, 6.3);
+    ctx.rect(x, y - s * 0.1, s * 1.3, s * 0.72);
+    ctx.fill();
+  }
+
+  function rock(o, gy, r) {
+    const x = o.x, w = o.w, h = o.h;
+    if (o.bush) {
+      ctx.fillStyle = '#4E9C52';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.3, gy - h * 0.55, h * 0.52, 0, 6.3);
+      ctx.arc(x + w * 0.72, gy - h * 0.68, h * 0.45, 0, 6.3);
+      ctx.arc(x + w * 0.5, gy - h * 0.2, h * 0.5, 0, 6.3);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.22)';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.38, gy - h * 0.72, h * 0.2, 0, 6.3);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = '#8C8F99';
+      ctx.beginPath();
+      ctx.moveTo(x, gy);
+      ctx.lineTo(x + w * 0.16, gy - h * 0.72);
+      ctx.lineTo(x + w * 0.5, gy - h);
+      ctx.lineTo(x + w * 0.86, gy - h * 0.66);
+      ctx.lineTo(x + w, gy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.26)';
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.16, gy - h * 0.72);
+      ctx.lineTo(x + w * 0.5, gy - h);
+      ctx.lineTo(x + w * 0.52, gy - h * 0.5);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(70,110,56,.2)';
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, gy + r * 0.08, w * 0.6, r * 0.12, 0, 0, 6.3);
+    ctx.fill();
+  }
+
+  // Фипс сбоку. Лапы перебирают по фазе бега, в прыжке поджимаются.
+  function hamster(x, y, r) {
+    const blink = S.hurt > 0 && Math.floor(S.hurt * 14) % 2 === 1;
+    if (blink) { ctx.globalAlpha = 0.45; }
+
+    ctx.save();
+    ctx.translate(x, y);
+    if (S.spin > 0) ctx.rotate(-S.spin * 3.2);
+
+    // тень
+    ctx.globalAlpha *= Math.max(0.12, 0.3 - S.y / (H * 0.4) * 0.22);
+    ctx.fillStyle = '#2E5A2A';
+    ctx.beginPath();
+    ctx.ellipse(0, r + S.y, r * (0.85 - S.y / (H * 0.6) * 0.3), r * 0.2, 0, 0, 6.3);
+    ctx.fill();
+    ctx.globalAlpha = blink ? 0.45 : 1;
+
+    const ph = S.dist / (r * 1.5);
+    const sw = S.air ? 0 : Math.sin(ph) * r * 0.34;
+
+    // лапы
+    ctx.fillStyle = '#C98A3E';
+    const lift = S.air ? r * 0.26 : 0;
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.35 + sw, r * 0.72 - lift, r * 0.3, r * 0.18, 0, 0, 6.3);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(r * 0.42 - sw, r * 0.72 - lift, r * 0.3, r * 0.18, 0, 0, 6.3);
+    ctx.fill();
+
+    // хвостик
+    ctx.fillStyle = '#C98A3E';
+    ctx.beginPath();
+    ctx.arc(-r * 0.98, r * 0.1, r * 0.26, 0, 6.3);
+    ctx.fill();
+
+    // тело
+    ctx.fillStyle = '#E8A95C';
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.08, r * 0.1, r * 0.92, r * 0.76, 0, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#F6D3A2';
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.3, r * 0.62, r * 0.5, 0, 0, 6.3);
+    ctx.fill();
+
+    // ухо
+    ctx.fillStyle = '#C98A3E';
+    ctx.beginPath();
+    ctx.arc(r * 0.42, -r * 0.78, r * 0.27, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(240,140,180,.55)';
+    ctx.beginPath();
+    ctx.arc(r * 0.44, -r * 0.76, r * 0.15, 0, 6.3);
+    ctx.fill();
+
+    // голова
+    ctx.fillStyle = '#E8A95C';
+    ctx.beginPath();
+    ctx.arc(r * 0.58, -r * 0.3, r * 0.6, 0, 6.3);
+    ctx.fill();
+
+    // щека — тем толще, чем больше еды за ней
+    const fat = Math.min(1, S.food / CFG.cheeks);
+    ctx.fillStyle = '#F0BE78';
+    ctx.beginPath();
+    ctx.ellipse(r * 0.78, -r * 0.12, r * (0.3 + fat * 0.22), r * (0.26 + fat * 0.2), 0, 0, 6.3);
+    ctx.fill();
+
+    // мордочка
+    ctx.fillStyle = '#F6D3A2';
+    ctx.beginPath();
+    ctx.ellipse(r * 1.0, -r * 0.24, r * 0.32, r * 0.26, 0, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#4A3020';
+    ctx.beginPath();
+    ctx.arc(r * 1.26, -r * 0.3, r * 0.1, 0, 6.3);
+    ctx.fill();
+
+    // глаз
+    ctx.fillStyle = '#2A2320';
+    ctx.beginPath();
+    ctx.arc(r * 0.82, -r * 0.5, r * 0.13, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(r * 0.86, -r * 0.54, r * 0.05, 0, 6.3);
+    ctx.fill();
+
+    // усы
+    ctx.strokeStyle = 'rgba(120,80,40,.7)';
+    ctx.lineWidth = Math.max(1, r * 0.035);
+    ctx.lineCap = 'round';
+    [-0.12, 0.04].forEach(d => {
+      ctx.beginPath();
+      ctx.moveTo(r * 1.08, -r * (0.3 + d));
+      ctx.lineTo(r * 1.5, -r * (0.34 + d * 2.2));
+      ctx.stroke();
+    });
+
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  /* ── цикл ── */
+  let raf = 0, last = 0, acc = 0, auto = true;
+  const DT = 1 / 120;
+
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    if (!auto) return;
+    if (!last) last = now;
+    let dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.25) dt = 0.25;        // вернулись из свёрнутого — не телепортируемся
+    acc += dt;
+    let guard = 0;
+    while (acc >= DT && guard++ < 400) { step(DT); acc -= DT; }
+    draw();
+  }
+
+  /* ── запуск и перезапуск ── */
+  function begin() {
+    initAudio();
+    FOOD.forEach(loadVoice);
+    reset();
+    scenery();
+    $('veil').classList.add('hidden');
+    $('over').classList.add('hidden');
+    S.run = true;
+    last = 0; acc = 0;
+    const h = $('hint');
+    h.classList.add('on');
+    setTimeout(() => h.classList.remove('on'), 2600);
+  }
+
+  $('go').addEventListener('click', begin);
+  $('again').addEventListener('click', begin);
+
+  const field = $('field');
+  field.addEventListener('pointerdown', down);
+  field.addEventListener('pointerup', up);
+  field.addEventListener('pointercancel', up);
+  field.addEventListener('pointerleave', up);
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); down(); }
+  });
+  window.addEventListener('keyup', e => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') up();
+  });
+
+  let rz = 0;
+  window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(fit, 150); });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { last = 0; acc = 0; }
+  });
+
+  try { S.best = parseInt(localStorage.getItem(K_BEST) || '0', 10) || 0; } catch (e) {}
+
+  reset();
+  scenery();
+  fit();
+  raf = requestAnimationFrame(frame);
+
+  window.YEVA_FLITZER = {
+    state: () => ({
+      run: S.run, over: S.over, food: S.food, ate: S.ate, m: metres(), bumps: S.bumps,
+      best: S.best, fresh: S.fresh, air: S.air, y: +(S.y / U()).toFixed(3),
+      hurt: +S.hurt.toFixed(2), rocks: S.rocks.length, eats: S.eats.length,
+      speed: +speed().toFixed(1), warn: +warn().toFixed(2),
+      W: Math.round(W), H: Math.round(H),
+      head: ($('overHead').textContent || '').trim()
+    }),
+    begin: begin,
+    auto: on => { auto = on; last = 0; acc = 0; },
+    step: step,
+    jump: () => { S.held = true; S.buf = CFG.buffer; return tryJump(); },
+    release: up,
+    // ближайшее препятствие: через сколько секунд встретим
+    ahead: () => {
+      const v = speed(), hx = heroX();
+      let best = null;
+      S.rocks.forEach(o => {
+        const d = (o.x + o.w) - (hx - rad() * 0.6);
+        if (d > -rad()) { const t = ((o.x - rad() * 0.6) - hx) / v;
+          if (!best || t < best.t) best = { t: t, h: o.h / H, w: o.w / W }; }
+      });
+      return best;
+    },
+    cfg: CFG
+  };
+})();
+</script>
+<script src="install.js"></script>
+<script src="home.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
