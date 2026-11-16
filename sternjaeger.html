@@ -38,12 +38,14 @@
     font-variant-numeric:tabular-nums;
   }
   .pill small{font-size:10.5px;font-weight:500;opacity:.6;letter-spacing:.06em}
-  .pill.score{flex:1;justify-content:center;min-width:0}
+  .pill.score{flex:1;justify-content:center;min-width:0;overflow:hidden}
+  .pill.score b{overflow:hidden;text-overflow:clip}
   .pill.score b{color:#FFE48A}
   .pill.hi b{color:#7FE3FF}
   .lives{display:flex;gap:4px;align-items:center}
-  .lives i{width:13px;height:15px;display:block;
+  .lives i{width:13px;height:15px;display:block;flex:none;
     background:#7FE3FF;clip-path:polygon(50% 0,100% 72%,72% 72%,72% 100%,28% 100%,28% 72%,0 72%)}
+  .lives b{font-size:14px;font-weight:600;color:#7FE3FF;margin-left:1px}
 
   .pill em{
     font-style:normal;font-size:13.5px;font-weight:600;color:#FF9A4A;
@@ -53,7 +55,7 @@
   .pill em.pop{animation:mpop .4s cubic-bezier(.3,1.7,.5,1)}
   @keyframes mpop{0%{transform:scale(.6)}100%{transform:scale(1)}}
   .pill .ic{font-size:13px;opacity:.75}
-  @media (max-width:379px){ #hiPill{display:none} }
+  @media (max-width:429px){ #hiPill{display:none} }
 
   .btn{
     width:38px;height:38px;flex:none;border:0;border-radius:11px;
@@ -68,11 +70,26 @@
   .btn.mute .on{display:none}
   .btn.mute .off{display:block}
   .btn.mute{opacity:.5}
+  .btn.on .on{display:none}
+  .btn.on .off{display:block}
+  #pause[disabled]{opacity:.35;pointer-events:none}
 
   /* ── поле ── */
   .field{flex:1;min-height:0;position:relative;margin-top:8px;
     border-radius:14px;overflow:hidden;border:1px solid rgba(120,170,255,.16)}
   canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  /* отсчёт после паузы: не бросаем игрока сразу под пикировщика */
+  .count{
+    position:absolute;inset:0;z-index:9;display:none;
+    align-items:center;justify-content:center;pointer-events:none;
+    background:rgba(5,6,15,.45);
+    font-size:clamp(64px,22vw,120px);font-weight:600;color:#7FE3FF;
+    text-shadow:0 0 30px rgba(127,227,255,.6);
+  }
+  .count.on{display:flex}
+  .count span{animation:tick .6s ease-out}
+  @keyframes tick{0%{transform:scale(1.5);opacity:0}30%{opacity:1}100%{transform:scale(1);opacity:1}}
 
   .flash{
     position:absolute;left:50%;top:38%;transform:translateX(-50%) scale(.8);
@@ -223,6 +240,10 @@
   <div class="pill hi" id="hiPill"><span class="ic">♛</span><b id="hi">0</b></div>
   <div class="pill score"><b id="score">0</b><em id="mult"></em></div>
   <div class="pill"><span class="lives" id="lives"></span></div>
+  <button class="btn" id="pause" aria-label="Пауза" disabled>
+    <svg class="on" viewBox="0 0 24 24"><path d="M9 5v14"/><path d="M15 5v14"/></svg>
+    <svg class="off" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4l13 8-13 8z"/></svg>
+  </button>
   <button class="btn" id="snd" aria-label="Звук">
     <svg class="on" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>
     <svg class="off" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6"/><path d="M21 9l-5 6"/></svg>
@@ -252,6 +273,19 @@
       </button>
     </div>
   </div>
+
+  <div class="veil hidden" id="held">
+    <div class="panel">
+      <h1>Пауза</h1>
+      <div class="ru" id="heldWhy">Корабль ждёт</div>
+      <div class="was" id="heldScore"></div>
+      <button class="big" id="resume" aria-label="Продолжить">
+        <svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="count" id="count"></div>
 
   <div class="veil hidden" id="over">
     <div class="panel">
@@ -419,7 +453,8 @@
     out: 0, nextDive: 0, pointer: null, firing: false,
     swayT: 0, cleared: 0,
     shots: 0, hits: 0, streak: 0, mult: 1, nextLife: 0, clean: true,
-    runner: null, runAt: 0, top: []
+    runner: null, runAt: 0, top: [],
+    paused: false, count: 0
   };
 
   const K_TOP = 'yeva.sternjaeger.top';
@@ -492,7 +527,7 @@
 
   /* ── ход игры ───────────────────────────────────────────────── */
   function step(dt) {
-    if (!S.run || S.over) return;
+    if (!S.run || S.over || S.paused || S.count > 0) return;
     S.t += dt;
     S.swayT += dt;
 
@@ -808,6 +843,11 @@
   function finish() {
     S.over = true; S.run = false;
     S.runner = null;
+    S.paused = false; S.count = 0;
+    showCount(0);
+    $('held').classList.add('hidden');
+    $('pause').classList.remove('on');
+    $('pause').setAttribute('disabled', '');
     S.fresh = S.score >= S.best && S.score > 0;
     const acc = S.shots ? Math.round(S.hits / S.shots * 100) : 0;
     const rank = (RANKS.find(r => acc >= r[0]) || RANKS[RANKS.length - 1])[1];
@@ -853,9 +893,17 @@
     if (!S.run) { $('mult').textContent = ''; $('mult').classList.remove('on'); }
     const box = $('lives');
     const n = Math.max(0, S.lives);
-    if (box.childElementCount !== n) {
+    const key = n <= 4 ? 'i' + n : 'x' + n;
+    if (box.dataset.k !== key) {
+      box.dataset.k = key;
       box.innerHTML = '';
-      for (let i = 0; i < n; i++) box.appendChild(document.createElement('i'));
+      const many = n > 4;
+      for (let i = 0; i < (many ? 1 : n); i++) box.appendChild(document.createElement('i'));
+      if (many) {
+        const b = document.createElement('b');
+        b.textContent = '\u00D7' + n;
+        box.appendChild(b);
+      }
     }
   }
 
@@ -1097,11 +1145,67 @@
     if (!last) last = now;
     let dt = (now - last) / 1000;
     last = now;
-    if (dt > 0.25) dt = 0.25;
+    if (dt > 0.25) dt = 0.25;        // вернулись из свёрнутого — не прыгаем вперёд
+
+    if (S.paused) { acc = 0; draw(); return; }
+
+    // отсчёт: мир стоит, но виден — игрок успевает оглядеться
+    if (S.count > 0) {
+      const was = Math.ceil(S.count);
+      S.count -= dt;
+      const now2 = Math.ceil(S.count);
+      if (now2 !== was) {
+        if (now2 > 0) { showCount(now2); tone('square', 520, 0, 0.1, 0.14); }
+        else { showCount(0); tone('square', 880, 0, 0.18, 0.16); }
+      }
+      acc = 0;
+      draw();
+      return;
+    }
+
     acc += dt;
     let guard = 0;
     while (acc >= DT && guard++ < 400) { step(DT); acc -= DT; }
     draw();
+  }
+
+  /* ── пауза ──────────────────────────────────────────────────── */
+  function showCount(n) {
+    const el = $('count');
+    if (n <= 0) { el.classList.remove('on'); el.innerHTML = ''; return; }
+    el.classList.add('on');
+    el.innerHTML = '<span>' + n + '</span>';
+  }
+
+  const canPause = () => S.run && !S.over;
+
+  function hold(why) {
+    if (!canPause() || S.paused) return false;
+    S.paused = true;
+    S.count = 0;
+    showCount(0);
+    S.pointer = null; S.firing = false;
+    $('heldWhy').textContent = why || 'Корабль ждёт';
+    $('heldScore').innerHTML = 'Очки: <b>' + S.score + '</b> · волна ' + S.wave;
+    $('held').classList.remove('hidden');
+    $('pause').classList.add('on');
+    return true;
+  }
+
+  function unhold() {
+    if (!S.paused) return false;
+    S.paused = false;
+    $('held').classList.add('hidden');
+    $('pause').classList.remove('on');
+    last = 0; acc = 0;
+    S.count = 3;                    // три, два, один — и только потом бой
+    showCount(3);
+    tone('square', 520, 0, 0.1, 0.14);
+    return true;
+  }
+
+  function togglePause() {
+    if (S.paused) unhold(); else hold();
   }
 
   /* ── запуск ── */
@@ -1116,6 +1220,11 @@
     S.nextLife = CFG.lifeAt; S.runner = null;
     S.runAt = CFG.runAt[0] + Math.random() * (CFG.runAt[1] - CFG.runAt[0]);
     $('newtop').hidden = true;
+    S.paused = false; S.count = 0;
+    showCount(0);
+    $('held').classList.add('hidden');
+    $('pause').classList.remove('on');
+    $('pause').removeAttribute('disabled');
     setMult();
     build();
     S.nextDive = CFG.wave0;
@@ -1131,6 +1240,8 @@
   $('go').addEventListener('click', begin);
   $('again').addEventListener('click', begin);
   $('saveTop').addEventListener('click', saveTop);
+  $('pause').addEventListener('click', () => { initAudio(); togglePause(); });
+  $('resume').addEventListener('click', unhold);
   $('initials').addEventListener('keydown', e => {
     if (e.code === 'Enter') { e.preventDefault(); saveTop(); }
     e.stopPropagation();
@@ -1163,7 +1274,9 @@
 
   const keys = {};
   window.addEventListener('keydown', e => {
+    if (e.code === 'Escape' || e.code === 'KeyP') { e.preventDefault(); togglePause(); return; }
     if (['ArrowLeft', 'ArrowRight', 'Space'].indexOf(e.code) < 0) return;
+    if (S.paused) { e.preventDefault(); unhold(); return; }
     e.preventDefault();
     keys[e.code] = true;
     if (e.code === 'Space') S.firing = true;
@@ -1182,8 +1295,12 @@
   let rz = 0;
   window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(fit, 150); });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') { last = 0; acc = 0; letGo(); }
+    if (document.visibilityState === 'hidden') {
+      last = 0; acc = 0; letGo();
+      hold('Игра свернулась — бой остановлен');
+    }
   });
+  window.addEventListener('blur', () => { letGo(); hold('Окно ушло в сторону'); });
 
   try { S.best = parseInt(localStorage.getItem(K_BEST) || '0', 10) || 0; } catch (e) {}
   try { muted = localStorage.getItem(K_MUTE) === '1'; } catch (e) {}
@@ -1210,6 +1327,7 @@
       out: S.out, shot: !!S.shot, bombs: S.bombs.length,
       shots: S.shots, hits: S.hits, streak: S.streak, mult: S.mult,
       clean: S.clean, runner: !!S.runner, nextLife: S.nextLife,
+      paused: S.paused, count: +S.count.toFixed(2),
       top: S.top.slice(), muted: muted,
       shipX: Math.round(S.ship.x), dead: +S.ship.dead.toFixed(2),
       inv: +S.ship.inv.toFixed(2), W: Math.round(W), H: Math.round(H),
@@ -1243,6 +1361,8 @@
     gain: () => master ? master.gain.value : -1,
     set: (k, v) => { S[k] = v; },
     forceEnd: () => finish(),
+    pause: togglePause,
+    setPause: on => { if (on) hold(); else unhold(); },
     column: () => {
       // самый низкий живой в строю — по нему удобно стрелять
       let best = null;
