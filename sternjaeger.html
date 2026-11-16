@@ -145,6 +145,22 @@
     color:#FFE48A;font-variant-numeric:tabular-nums;text-shadow:0 0 20px rgba(255,228,138,.45)}
   .was{margin-top:7px;font-size:14px;color:rgba(207,228,255,.6)}
   .was b{color:#7FE3FF}
+  /* выбор сложности */
+  .modes{
+    display:flex;gap:6px;margin-top:11px;
+    background:rgba(120,170,255,.08);border-radius:14px;padding:4px;
+  }
+  .modes button{
+    flex:1;border:0;border-radius:10px;cursor:pointer;padding:8px 6px;
+    font-family:inherit;font-size:14.5px;font-weight:600;
+    background:none;color:rgba(207,228,255,.6);transition:background .2s,color .2s;
+  }
+  .modes button.on{
+    background:linear-gradient(160deg,#5B8DE8,#3C5FC4);color:#fff;
+    box-shadow:0 4px 14px rgba(60,95,196,.4);
+  }
+  .modes button:active{transform:scale(.96)}
+
   /* таблица рекордов */
   .board{margin-top:14px;text-align:left;font-variant-numeric:tabular-nums}
   .board .h{font-size:11px;letter-spacing:.14em;color:rgba(207,228,255,.42);
@@ -192,6 +208,9 @@
   .board .one{display:none;text-align:center;font-size:13px;
     color:rgba(207,228,255,.6);padding:5px 0}
   .board .one b{color:#FFE48A;font-weight:600;letter-spacing:.06em}
+  @media (max-height:900px){
+    .board li:nth-child(n+5){display:none}
+  }
   @media (max-height:760px){
     .board{margin-top:10px}
     .board li{padding:4px 8px;font-size:13.5px}
@@ -204,12 +223,15 @@
     .board .one{display:block}
   }
   @media (max-height:600px){
-    .panel{padding:13px 16px 14px}
-    .panel h1{font-size:20px}
-    .tip{margin-top:9px;font-size:11.5px;line-height:1.45;padding:8px 10px}
-    .tip .row{margin-top:6px}
-    .board{margin-top:7px}
-    .big{margin-top:9px;width:min(19vh,80px)}
+    .modes{margin-top:7px;padding:3px}
+    .modes button{padding:6px 5px;font-size:12.5px}
+    .panel{padding:12px 15px 13px}
+    .panel h1{font-size:19px}
+    .panel .ru{font-size:12px}
+    .tip{margin-top:8px;font-size:11.5px;line-height:1.4;padding:7px 9px}
+    .tip .row{margin-top:5px;gap:7px}
+    .board{margin-top:6px}
+    .big{margin-top:8px;width:min(16vh,68px)}
     .score2{margin-top:10px}
     .score2 .n{font-size:min(9vh,40px)}
   }
@@ -217,11 +239,14 @@
   @media (max-height:430px){
     .veil{padding:8px}
     .board{display:none}
+    .modes{margin-top:6px}
+    .modes button{padding:6px 4px;font-size:12px}
     .panel{padding:10px 14px 12px;border-radius:18px}
     .panel h1{font-size:18px}
     .panel .ru{font-size:11.5px}
-    .tip{margin-top:6px;font-size:11px;line-height:1.4;padding:7px 9px}
-    .tip .row{margin-top:5px;gap:7px}
+    .tip{margin-top:5px;font-size:10.5px;line-height:1.3;padding:6px 8px}
+    .tip .row{margin-top:4px;gap:6px}
+    .tip .k{width:16px}
     .big{margin-top:7px;width:min(17vh,66px)}
   }
   /* кнопка «домой» от home.js светлая — перекрашиваем под тёмный космос */
@@ -261,9 +286,13 @@
     <div class="panel">
       <h1>Sternjäger</h1>
       <div class="ru">Звёздный охотник</div>
+      <div class="modes" id="modes">
+        <button data-m="kind">Малышам</button>
+        <button data-m="retro">Как в детстве</button>
+      </div>
       <div class="tip">
         <div class="row"><span class="k">☝</span><span>Веди пальцем — корабль идёт за ним и стреляет сам</span></div>
-        <div class="row"><span class="k">✦</span><span><b>В полёте только один выстрел.</b> Промазал — ждёшь, пока долетит</span></div>
+        <div class="row"><span class="k">✦</span><span id="tipShot"></span></div>
         <div class="row"><span class="k">↯</span><span>Звенья срываются со строя и пикируют. Сбитый в пике стоит вдвое</span></div>
         <div class="row"><span class="k">♛</span><span>Вожак с двумя ведомыми — <b>800</b>. Собьёшь ведомых первыми — потеряешь куш</span></div>
       </div>
@@ -315,7 +344,6 @@
   'use strict';
 
   const $ = id => document.getElementById(id);
-  const K_BEST = 'yeva.sternjaeger.best';
 
   /* ── настройки ──────────────────────────────────────────────── */
   const CFG = {
@@ -352,8 +380,63 @@
     cleanBonus: 1000,       // за волну без единой потери
     runAt: [22, 40],        // через сколько секунд пролетает курьер
     runV: 0.42,             // его скорость, ширин в секунду
-    runPts: [500, 800, 1500]
+    runPts: [500, 800, 1500],
+    maxBolts: 1,            // сколько выстрелов в полёте разом
+    fireGap: 0              // пауза между выстрелами, с
   };
+
+  /* Два режима. «Как в детстве» — ровно то, что было: один патрон,
+     злые пике, три жизни. «Малышам» — та же игра, но её можно играть
+     в четыре года: стреляет очередью, пикируют редко и полого, бомб
+     мало и летят они медленно, жизней пять. */
+  const BASE = JSON.parse(JSON.stringify(CFG));
+
+  const MODES = {
+    kind: {
+      lives: 5, inv: 2.6,
+      maxBolts: 3, fireGap: 0.15, shotV: 2.2,
+      diveV: 0.6, swing: 1.15, homing: 0.22, peel: 0.45,
+      wave0: 2.9, waveMin: 0.78, waveStep: 0.86,
+      maxOut: 2, maxOutTop: 6,
+      bombV: 0.4, bombHigh: 0.44, bombEvery: 1.15, bombMax: 3,
+      lifeAt: 4000, cleanBonus: 500,
+      runAt: [16, 28]
+    },
+    retro: {}
+  };
+
+  const ROWSET = {
+    kind: [
+      { n: 2, kind: 'lead',  pts: 150 },
+      { n: 4, kind: 'red',   pts: 50 },
+      { n: 6, kind: 'violet', pts: 40 },
+      { n: 8, kind: 'green', pts: 30 }
+    ],
+    retro: null              // берётся из ROWS
+  };
+
+  let mode = 'retro';
+  const K_MODE = 'yeva.sternjaeger.mode';
+
+  function applyMode(m) {
+    mode = MODES[m] ? m : 'retro';
+    Object.keys(BASE).forEach(k => { CFG[k] = BASE[k]; });
+    const over = MODES[mode];
+    Object.keys(over).forEach(k => { CFG[k] = over[k]; });
+    try { localStorage.setItem(K_MODE, mode); } catch (e) {}
+    Array.prototype.forEach.call($('modes').children,
+      b => b.classList.toggle('on', b.dataset.m === mode));
+    $('tipShot').innerHTML = mode === 'kind'
+      ? 'Стреляет сам, сразу тремя выстрелами'
+      : '<b>В полёте только один выстрел.</b> Промазал — ждёшь, пока долетит';
+    loadScores();
+    build();
+    if (!S.run) S.lives = CFG.lives;   // сразу видно, сколько жизней даёт режим
+    hud();
+    drawBoard(-1);
+  }
+
+  const rows = () => ROWSET[mode] || ROWS;
 
   /* Строй: сверху двое вожаков, под ними ряды пошире.
      Своя раскладка и свои корабли — не чужие. */
@@ -449,7 +532,7 @@
     run: false, over: false, t: 0,
     wave: 1, score: 0, best: 0, lives: CFG.lives, fresh: false,
     ship: { x: 0, dead: 0, inv: 0 },
-    shot: null, bombs: [], aliens: [], booms: [], stars: [],
+    bolts: [], fireCool: 0, bombs: [], aliens: [], booms: [], stars: [],
     out: 0, nextDive: 0, pointer: null, firing: false,
     swayT: 0, cleared: 0,
     shots: 0, hits: 0, streak: 0, mult: 1, nextLife: 0, clean: true,
@@ -457,9 +540,11 @@
     paused: false, count: 0
   };
 
-  const K_TOP = 'yeva.sternjaeger.top';
   const K_NAME = 'yeva.sternjaeger.name';
   const K_MUTE = 'yeva.sternjaeger.mute';
+  // у режимов разная сложность, значит и таблицы разные
+  const keyTop = () => 'yeva.sternjaeger.top.' + mode;
+  const keyBest = () => 'yeva.sternjaeger.best.' + mode;
   let muted = false;
 
   function applyMute() {
@@ -467,11 +552,16 @@
     $('snd').classList.toggle('mute', muted);
   }
 
-  function loadTop() {
+  function loadScores() {
     try {
-      const raw = JSON.parse(localStorage.getItem(K_TOP) || '[]');
+      const raw = JSON.parse(localStorage.getItem(keyTop()) || '[]');
       S.top = Array.isArray(raw) ? raw.filter(r => r && typeof r.s === 'number').slice(0, 5) : [];
     } catch (e) { S.top = []; }
+    try { S.best = parseInt(localStorage.getItem(keyBest()) || '0', 10) || 0; } catch (e) { S.best = 0; }
+    if (S.top.length && S.top[0].s > S.best) {
+      S.best = S.top[0].s;
+      try { localStorage.setItem(keyBest(), String(S.best)); } catch (e) {}
+    }
   }
 
   function drawBoard(hi) {
@@ -503,7 +593,7 @@
 
   function build() {
     S.aliens = [];
-    ROWS.forEach((row, ri) => {
+    rows().forEach((row, ri) => {
       const off = (CFG.cols - row.n) / 2;
       for (let i = 0; i < row.n; i++) {
         S.aliens.push({
@@ -547,13 +637,15 @@
         const lim = cell() * 0.55;
         S.ship.x = Math.max(lim, Math.min(W - lim, S.pointer));
       }
-      if (S.firing && !S.shot) fire();
+      if (S.firing && S.bolts.length < CFG.maxBolts && S.fireCool <= 0) fire();
+      if (S.fireCool > 0) S.fireCool -= dt;
     }
 
     // патрон
-    if (S.shot) {
-      S.shot.y -= CFG.shotV * H * dt;
-      if (S.shot.y < -10) { S.shot = null; missed(); }
+    for (let i = S.bolts.length - 1; i >= 0; i--) {
+      const b = S.bolts[i];
+      b.y -= CFG.shotV * H * dt;
+      if (b.y < -10) { S.bolts.splice(i, 1); missed(); }
     }
 
     // строй и пике
@@ -641,26 +733,30 @@
     }
 
     // попадания
-    if (S.shot && S.runner) {
-      const r = cell() * 0.5;
-      if (Math.abs(S.runner.x - S.shot.x) < r && Math.abs(S.runner.y - S.shot.y) < r) {
-        S.hits++; S.streak++; setMult();
-        const pts = S.runner.pts * S.mult;
-        award(pts);
-        S.booms.push({ x: S.runner.x, y: S.runner.y, t: 0, max: 0.6,
-                       r: cell() * 0.8, c: '#7FE3FF', pts: pts, big: true });
-        flash('КУРЬЕР +' + pts);
-        sCatch(); buzz(24);
-        S.runner = null; S.shot = null;
+    for (let k = S.bolts.length - 1; k >= 0; k--) {
+      const b = S.bolts[k];
+      if (S.runner) {
+        const r = cell() * 0.5;
+        if (Math.abs(S.runner.x - b.x) < r && Math.abs(S.runner.y - b.y) < r) {
+          S.hits++; S.streak++; setMult();
+          const pts = S.runner.pts * S.mult;
+          award(pts);
+          S.booms.push({ x: S.runner.x, y: S.runner.y, t: 0, max: 0.6,
+                         r: cell() * 0.8, c: '#7FE3FF', pts: pts, big: true });
+          flash('КУРЬЕР +' + pts);
+          sCatch(); buzz(24);
+          S.runner = null; S.bolts.splice(k, 1);
+          continue;
+        }
       }
-    }
-    if (S.shot) {
       const r = cell() * 0.42;
-      for (let i = 0; i < S.aliens.length; i++) {
+      let got = false;
+      for (let i = 0; i < S.aliens.length && !got; i++) {
         const a = S.aliens[i];
-        if (!a.alive || !S.shot) continue;
-        if (Math.abs(a.x - S.shot.x) < r && Math.abs(a.y - S.shot.y) < r) { kill(a); S.shot = null; }
+        if (!a.alive) continue;
+        if (Math.abs(a.x - b.x) < r && Math.abs(a.y - b.y) < r) { kill(a); got = true; }
       }
+      if (got) S.bolts.splice(k, 1);
     }
 
     // таран
@@ -692,7 +788,8 @@
   }
 
   function fire() {
-    S.shot = { x: S.ship.x, y: shipY() - cell() * 0.4 };
+    S.bolts.push({ x: S.ship.x, y: shipY() - cell() * 0.4 });
+    S.fireCool = CFG.fireGap;
     S.shots++;
     sPew();
   }
@@ -724,7 +821,7 @@
       while (S.score >= S.nextLife) S.nextLife += CFG.lifeAt;
     }
     if (S.score > S.best) { S.best = S.score;
-      try { localStorage.setItem(K_BEST, String(S.best)); } catch (e) {} }
+      try { localStorage.setItem(keyBest(), String(S.best)); } catch (e) {} }
   }
 
   function divePause() {
@@ -820,7 +917,7 @@
     S.out = 0;
     S.clean = true;
     build();
-    S.bombs = []; S.shot = null; S.runner = null;
+    S.bombs = []; S.bolts = []; S.runner = null;
     S.runAt = CFG.runAt[0] + Math.random() * (CFG.runAt[1] - CFG.runAt[0]);
     S.nextDive = Math.max(1.2, divePause());
     // объявление волны не должно перебивать премию
@@ -881,7 +978,7 @@
     S.top.push({ n: raw, s: S.score, w: S.wave });
     S.top.sort((a, b) => b.s - a.s);
     S.top = S.top.slice(0, 5);
-    try { localStorage.setItem(K_TOP, JSON.stringify(S.top)); } catch (e) {}
+    try { localStorage.setItem(keyTop(), JSON.stringify(S.top)); } catch (e) {}
     $('newtop').hidden = true;
     drawBoard(S.top.findIndex(r => r.s === S.score && r.n === raw));
     sCatch();
@@ -926,10 +1023,11 @@
 
     if (S.runner) runner(S.runner, c);
 
-    if (S.shot) {
+    if (S.bolts.length) {
       ctx.fillStyle = '#FFF4C0';
       ctx.shadowColor = '#FFD24A'; ctx.shadowBlur = 8;
-      ctx.fillRect(S.shot.x - c * 0.045, S.shot.y - c * 0.3, c * 0.09, c * 0.42);
+      S.bolts.forEach(b =>
+        ctx.fillRect(b.x - c * 0.045, b.y - c * 0.3, c * 0.09, c * 0.42));
       ctx.shadowBlur = 0;
     }
 
@@ -1214,7 +1312,7 @@
     S.run = false; S.over = false; S.t = 0; S.swayT = 0;
     S.wave = 1; S.score = 0; S.lives = CFG.lives; S.fresh = false;
     S.ship.x = W / 2; S.ship.dead = 0; S.ship.inv = CFG.inv * 0.6;
-    S.shot = null; S.bombs = []; S.booms = []; S.out = 0; S.cleared = 0;
+    S.bolts = []; S.fireCool = 0; S.bombs = []; S.booms = []; S.out = 0; S.cleared = 0;
     S.pointer = null; S.firing = false;
     S.shots = 0; S.hits = 0; S.streak = 0; S.mult = 1; S.clean = true;
     S.nextLife = CFG.lifeAt; S.runner = null;
@@ -1240,6 +1338,9 @@
   $('go').addEventListener('click', begin);
   $('again').addEventListener('click', begin);
   $('saveTop').addEventListener('click', saveTop);
+  Array.prototype.forEach.call($('modes').children, b => {
+    b.addEventListener('click', () => { initAudio(); applyMode(b.dataset.m); });
+  });
   $('pause').addEventListener('click', () => { initAudio(); togglePause(); });
   $('resume').addEventListener('click', unhold);
   $('initials').addEventListener('keydown', e => {
@@ -1302,18 +1403,13 @@
   });
   window.addEventListener('blur', () => { letGo(); hold('Окно ушло в сторону'); });
 
-  try { S.best = parseInt(localStorage.getItem(K_BEST) || '0', 10) || 0; } catch (e) {}
   try { muted = localStorage.getItem(K_MUTE) === '1'; } catch (e) {}
-  loadTop();
-  if (S.top.length && S.top[0].s > S.best) {
-    S.best = S.top[0].s;
-    try { localStorage.setItem(K_BEST, String(S.best)); } catch (e) {}
-  }
-  drawBoard(-1);
+  let saved = 'retro';
+  try { saved = localStorage.getItem(K_MODE) || 'retro'; } catch (e) {}
   applyMute();
 
   stars();
-  build();
+  applyMode(saved);
   fit();
   hud();
   raf = requestAnimationFrame(frame);
@@ -1324,10 +1420,10 @@
       lives: S.lives, fresh: S.fresh,
       alive: S.aliens.filter(a => a.alive).length,
       inAir: S.aliens.filter(a => a.alive && a.mode !== 'form').length,
-      out: S.out, shot: !!S.shot, bombs: S.bombs.length,
+      out: S.out, shot: S.bolts.length > 0, bolts: S.bolts.length, bombs: S.bombs.length,
       shots: S.shots, hits: S.hits, streak: S.streak, mult: S.mult,
       clean: S.clean, runner: !!S.runner, nextLife: S.nextLife,
-      paused: S.paused, count: +S.count.toFixed(2),
+      paused: S.paused, count: +S.count.toFixed(2), mode: mode,
       top: S.top.slice(), muted: muted,
       shipX: Math.round(S.ship.x), dead: +S.ship.dead.toFixed(2),
       inv: +S.ship.inv.toFixed(2), W: Math.round(W), H: Math.round(H),
@@ -1362,6 +1458,7 @@
     set: (k, v) => { S[k] = v; },
     forceEnd: () => finish(),
     pause: togglePause,
+    mode: m => { if (m) applyMode(m); return mode; },
     setPause: on => { if (on) hold(); else unhold(); },
     column: () => {
       // самый низкий живой в строю — по нему удобно стрелять
