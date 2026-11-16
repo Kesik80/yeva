@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Eierfang</title>
+<meta name="theme-color" content="#8FC9E8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#8FC9E8}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#36302A;
+    background:linear-gradient(180deg,#8FC9E8 0%,#BFE3F2 50%,#E8F4DC 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 8px) 9px calc(env(safe-area-inset-bottom,0px) + 8px);
+  }
+
+  /* ── верх ── */
+  .top{display:flex;align-items:center;gap:6px;flex:none}
+  .pill{
+    display:flex;align-items:center;gap:6px;
+    background:rgba(255,255,255,.82);border-radius:999px;
+    padding:6px 12px;min-height:38px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 4px 14px rgba(54,48,42,.14);
+    font-size:17px;font-weight:600;line-height:1;white-space:nowrap;
+    font-variant-numeric:tabular-nums;
+  }
+  .pill.score{flex:1;justify-content:center;min-width:0;overflow:hidden}
+  .pill .ic{font-size:14px;opacity:.75}
+  .pill.hi b{color:#C9761F}
+  @media (max-width:429px){ #hiPill{display:none} }
+  .broke{display:flex;gap:3px;align-items:center}
+  .broke i{width:14px;height:16px;display:block;flex:none;opacity:.25;
+    background:#C9761F;
+    clip-path:polygon(50% 0,78% 18%,92% 48%,86% 78%,62% 98%,38% 98%,14% 78%,8% 48%,22% 18%)}
+  .broke i.out{opacity:1;background:#D8483C}
+  .broke b{font-size:14px;font-weight:600;color:#D8483C;margin-left:1px}
+
+  .btn{
+    width:38px;height:38px;flex:none;border:0;border-radius:50%;
+    background:rgba(255,255,255,.82);color:#36302A;text-decoration:none;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 4px 14px rgba(54,48,42,.16);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.9)}
+  .btn svg{width:19px;height:19px;fill:none;stroke:currentColor;
+    stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .btn .off{display:none}
+  .btn.mute .on,.btn.on .on{display:none}
+  .btn.mute .off,.btn.on .off{display:block}
+  .btn.mute{opacity:.5}
+  #pause[disabled]{opacity:.35;pointer-events:none}
+
+  /* ── двор ── */
+  .yard{flex:1;min-height:0;position:relative;margin-top:8px;
+    border-radius:20px;overflow:hidden;box-shadow:inset 0 2px 12px rgba(54,48,42,.1)}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  .flash{
+    position:absolute;left:50%;top:14%;transform:translateX(-50%) scale(.8);
+    background:rgba(255,255,255,.95);border-radius:999px;padding:8px 20px;
+    font-size:clamp(16px,4.8vw,22px);font-weight:600;color:#36302A;white-space:nowrap;
+    box-shadow:0 8px 20px rgba(54,48,42,.22);opacity:0;pointer-events:none;
+  }
+  .flash.go{animation:fl 1.6s ease-out forwards}
+  @keyframes fl{
+    0%{opacity:0;transform:translateX(-50%) scale(.8)}
+    14%{opacity:1;transform:translateX(-50%) scale(1.06)}
+    76%{opacity:1;transform:translateX(-50%) scale(1)}
+    100%{opacity:0;transform:translateX(-50%) scale(1)}
+  }
+
+  .count{
+    position:absolute;inset:0;z-index:9;display:none;
+    align-items:center;justify-content:center;pointer-events:none;
+    background:rgba(143,201,232,.4);
+    font-size:clamp(64px,22vw,120px);font-weight:600;color:#fff;
+    text-shadow:0 6px 22px rgba(54,48,42,.4);
+  }
+  .count.on{display:flex}
+  .count span{animation:tick .6s ease-out}
+  @keyframes tick{0%{transform:scale(1.5);opacity:0}30%{opacity:1}100%{transform:scale(1);opacity:1}}
+
+  /* ── панели ── */
+  .veil{
+    position:absolute;inset:0;z-index:10;display:flex;
+    background:rgba(143,201,232,.52);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    transition:opacity .28s;padding:15px;
+    overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .panel{
+    width:100%;max-width:400px;text-align:center;margin:auto;flex:none;
+    background:rgba(255,255,255,.95);border-radius:26px;padding:20px 18px 24px;
+    box-shadow:0 18px 44px rgba(54,48,42,.26);
+  }
+  .panel h1{font-size:clamp(23px,6.6vw,30px);font-weight:600}
+  .panel .ru{font-size:13.5px;color:rgba(54,48,42,.55);margin-top:2px}
+
+  .modes{
+    display:flex;gap:6px;margin-top:11px;
+    background:rgba(54,48,42,.07);border-radius:14px;padding:4px;
+  }
+  .modes button{
+    flex:1;border:0;border-radius:10px;cursor:pointer;padding:8px 6px;
+    font-family:inherit;font-size:14.5px;font-weight:600;
+    background:none;color:rgba(54,48,42,.55);transition:background .2s,color .2s;
+  }
+  .modes button.on{background:linear-gradient(160deg,#F2B544,#E08A2A);color:#4A2E00;
+    box-shadow:0 4px 12px rgba(224,138,42,.35)}
+  .modes button:active{transform:scale(.96)}
+
+  .tip{margin-top:11px;font-size:13.5px;line-height:1.55;color:rgba(54,48,42,.7);
+    background:rgba(242,181,68,.14);border-radius:14px;padding:11px 12px;text-align:left}
+  .tip b{color:#36302A;font-weight:600}
+  .tip .row{display:flex;gap:9px;margin-top:7px}
+  .tip .row:first-child{margin-top:0}
+  .tip .k{flex:none;width:20px;text-align:center}
+
+  .board{margin-top:12px;text-align:left;font-variant-numeric:tabular-nums}
+  .board .h{font-size:11px;letter-spacing:.14em;color:rgba(54,48,42,.4);
+    text-transform:uppercase;margin-bottom:6px;text-align:center}
+  .board .one{display:none;text-align:center;font-size:13px;
+    color:rgba(54,48,42,.6);padding:5px 0}
+  .board .one b{color:#C9761F;font-weight:600}
+  .board ol{list-style:none;counter-reset:r}
+  .board li{counter-increment:r;display:flex;align-items:baseline;gap:8px;
+    padding:5px 9px;border-radius:9px;font-size:14.5px}
+  .board li:nth-child(odd){background:rgba(54,48,42,.05)}
+  .board li.me{background:rgba(242,181,68,.3)}
+  .board li::before{content:counter(r);width:14px;flex:none;
+    color:rgba(54,48,42,.38);font-size:12px}
+  .board li .nm{flex:1;min-width:0;font-weight:600;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .board li .sc{flex:none;font-weight:600}
+
+  .big{
+    margin:16px auto 0;width:min(38vw,132px);aspect-ratio:1;border:0;border-radius:50%;
+    cursor:pointer;display:grid;place-items:center;font-size:min(16vw,54px);line-height:1;
+    background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.98),rgba(255,255,255,.3) 32%,rgba(242,181,68,.6) 60%,rgba(224,138,42,.45) 82%,rgba(255,255,255,.9) 100%);
+    box-shadow:0 16px 40px rgba(54,48,42,.28),inset 0 0 30px rgba(255,255,255,.6);
+    animation:float 3.6s ease-in-out infinite;
+  }
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+
+  .score2{display:flex;justify-content:center;align-items:flex-end;gap:7px;margin-top:14px}
+  .score2 .n{font-size:clamp(38px,12vw,54px);font-weight:600;line-height:.95;
+    font-variant-numeric:tabular-nums}
+  .score2 .u{font-size:16px;font-weight:500;opacity:.5;padding-bottom:5px}
+  .was{margin-top:6px;font-size:14px;color:rgba(54,48,42,.6)}
+  .was b{color:#C9761F}
+
+  .newtop{margin-top:13px;background:rgba(242,181,68,.16);
+    border:1px solid rgba(224,138,42,.35);border-radius:14px;padding:11px}
+  .newtop .say{font-size:13px;color:#8A5410;margin-bottom:8px}
+  .newtop .line{display:flex;gap:8px;justify-content:center}
+  .newtop input{
+    flex:1;min-width:0;max-width:220px;text-align:center;font-family:inherit;
+    font-size:19px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:#8A5410;background:rgba(255,255,255,.8);
+    border:1px solid rgba(224,138,42,.45);border-radius:10px;padding:8px 6px;outline:none;
+  }
+  .newtop button{
+    border:0;border-radius:10px;padding:8px 16px;cursor:pointer;
+    font-family:inherit;font-size:15px;font-weight:600;
+    background:linear-gradient(160deg,#F2B544,#E08A2A);color:#4A2E00;
+  }
+  .newtop button:active{transform:scale(.95)}
+
+  @media (max-height:900px){ .board li:nth-child(n+5){display:none} }
+  @media (max-height:760px){
+    .board{margin-top:9px}
+    .board li{padding:4px 8px;font-size:13.5px}
+    .board li:nth-child(n+4){display:none}
+  }
+  @media (max-height:640px){
+    .board .h{display:none}
+    .board ol{display:none}
+    .board .one{display:block}
+  }
+  @media (max-height:600px){
+    .modes{margin-top:7px;padding:3px}
+    .modes button{padding:6px 5px;font-size:12.5px}
+    .panel{padding:12px 15px 13px}
+    .panel h1{font-size:19px}
+    .panel .ru{font-size:12px}
+    .tip{margin-top:8px;font-size:11.5px;line-height:1.4;padding:7px 9px}
+    .tip .row{margin-top:5px;gap:7px}
+    .board{margin-top:6px}
+    .big{margin-top:8px;width:min(16vh,68px);font-size:min(8vh,30px)}
+    .score2{margin-top:9px}
+    .score2 .n{font-size:min(9vh,40px)}
+  }
+  @media (max-height:430px){
+    .veil{padding:8px}
+    .panel{padding:10px 14px 12px;border-radius:18px}
+    .panel h1{font-size:18px}
+    .board{display:none}
+    .modes{margin-top:6px}
+    .modes button{padding:6px 4px;font-size:12px}
+    .tip{margin-top:5px;font-size:10.5px;line-height:1.3;padding:6px 8px}
+    .tip .row{margin-top:4px;gap:6px}
+    .big{margin-top:7px;width:min(15vh,62px);font-size:min(7vh,26px)}
+  }
+  @media (prefers-reduced-motion:reduce){ .big{animation:none} }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="pill hi" id="hiPill"><span class="ic">🏆</span><b id="hi">0</b></div>
+  <div class="pill score"><span class="ic">🥚</span><b id="score">0</b></div>
+  <div class="pill"><span class="broke" id="broke"></span></div>
+  <button class="btn" id="pause" aria-label="Пауза" disabled>
+    <svg class="on" viewBox="0 0 24 24"><path d="M9 5v14"/><path d="M15 5v14"/></svg>
+    <svg class="off" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4l13 8-13 8z"/></svg>
+  </button>
+  <button class="btn" id="snd" aria-label="Звук">
+    <svg class="on" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>
+    <svg class="off" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6"/><path d="M21 9l-5 6"/></svg>
+  </button>
+  <a class="btn" href="index.html" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/></svg>
+  </a>
+</div>
+
+<div class="yard" id="yard">
+  <canvas id="cv"></canvas>
+  <div class="flash" id="flash"></div>
+  <div class="count" id="count"></div>
+
+  <div class="veil" id="veil">
+    <div class="panel">
+      <h1>Eierfang</h1>
+      <div class="ru">Ловец яиц</div>
+      <div class="modes" id="modes">
+        <button data-m="kind">Малышам</button>
+        <button data-m="retro">Как в детстве</button>
+      </div>
+      <div class="tip">
+        <div class="row"><span class="k">☝</span><span>Жми на тот <b>угол экрана</b>, куда катится яйцо — енот встанет туда с корзиной</span></div>
+        <div class="row"><span class="k">🥚</span><span>Четыре жёлоба, яйца катятся всё быстрее</span></div>
+        <div class="row"><span class="k">🐣</span><span id="tipMiss">Разбил три — игра кончена</span></div>
+        <div class="row"><span class="k">🧺</span><span>За каждые <b>40</b> пойманных разбитое яйцо прощается</span></div>
+      </div>
+      <div class="board" id="board"></div>
+      <button class="big" id="go" aria-label="Играть">🧺</button>
+    </div>
+  </div>
+
+  <div class="veil hidden" id="held">
+    <div class="panel">
+      <h1>Пауза</h1>
+      <div class="ru">Куры подождут</div>
+      <div class="was" id="heldScore"></div>
+      <button class="big" id="resume" aria-label="Продолжить">▶</button>
+    </div>
+  </div>
+
+  <div class="veil hidden" id="over">
+    <div class="panel">
+      <h1 id="overHead">Всё разбито</h1>
+      <div class="score2"><span class="n" id="sScore">0</span><span class="u">яиц</span></div>
+      <div class="was" id="sWas"></div>
+      <div class="was" id="sBest"></div>
+      <div class="newtop" id="newtop" hidden>
+        <div class="say">Попал в таблицу! Впиши имя</div>
+        <div class="line">
+          <input id="initials" maxlength="10" autocomplete="off" autocapitalize="characters"
+                 spellcheck="false" aria-label="Имя">
+          <button id="saveTop">Готово</button>
+        </div>
+      </div>
+      <button class="big" id="again" aria-label="Ещё раз">🔁</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+
+  /* ── настройки ──────────────────────────────────────────────── */
+  const CFG = {
+    misses: 3,          // сколько яиц можно разбить
+    roll0: 2.6,         // сколько секунд яйцо катится по жёлобу вначале
+    rollMin: 0.78,      // и к чему это идёт
+    rollAt: 90,         // на этом счёте пройдена половина пути
+    gap0: 1.5,          // пауза между яйцами вначале, с
+    gapMin: 0.4,
+    gapAt: 110,
+    land0: 0.52,        // ДВА яйца не могут прилететь ближе чем за это:
+    landMin: 0.24,      // иначе промах неизбежен, сколько ни старайся.
+                        // Порог сужается со счётом, но никогда не падает
+                        // ниже переезда корзины — иначе было бы нечестно
+    landAt: 120,
+    forgive: 40,        // за столько пойманных прощается одно разбитое
+    hatch: 1.3,         // сколько живёт цыплёнок после промаха, с
+    jump: 0.11          // как быстро корзина переезжает, с
+  };
+
+  const BASE = JSON.parse(JSON.stringify(CFG));
+  const MODES = {
+    kind: {
+      misses: 5,
+      roll0: 4.0, rollMin: 1.5, rollAt: 150,
+      gap0: 2.4, gapMin: 0.9, gapAt: 170,
+      land0: 0.95, landMin: 0.5, landAt: 200, forgive: 25
+    },
+    retro: {}
+  };
+
+  let mode = 'retro';
+  const K_MODE = 'yeva.eierfang.mode';
+  const K_NAME = 'yeva.eierfang.name';
+  const K_MUTE = 'yeva.eierfang.mute';
+  const keyTop = () => 'yeva.eierfang.top.' + mode;
+  const keyBest = () => 'yeva.eierfang.best.' + mode;
+
+  /* ── звук ── */
+  let actx = null, master = null, muted = false;
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = muted ? 0 : 0.26;
+    master.connect(actx.destination);
+  }
+  function applyMute() {
+    if (master) master.gain.value = muted ? 0 : 0.26;
+    $('snd').classList.toggle('mute', muted);
+  }
+
+  function tone(type, f, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + dur * 0.92);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+  function noise(dur, vol, at) {
+    if (!actx) return;
+    const t = actx.currentTime + (at || 0);
+    const n = Math.floor(actx.sampleRate * dur);
+    const b = actx.createBuffer(1, n, actx.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = actx.createBufferSource();
+    src.buffer = b;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(g); g.connect(master);
+    src.start(t);
+  }
+
+  const sCatch = n => tone('triangle', 560 * Math.pow(2, Math.min(n, 7) / 12), 0, 0.13, 0.2, 760);
+  const sMove = () => tone('square', 320, 0, 0.05, 0.08, 420);
+  const sCrack = () => { noise(0.2, 0.3); tone('sawtooth', 240, 0, 0.22, 0.16, 70); };
+  const sPeep = () => [0, .09, .18].forEach((t, i) =>
+    tone('sine', 900 + i * 120, t, 0.09, 0.14, 1200));
+  const sNice = () => [0, 4, 7, 12].forEach((n, i) =>
+    tone('triangle', 520 * Math.pow(2, n / 12), i * 0.08, 0.2, 0.18));
+  const sOver = () => { noise(0.5, 0.3); [0, -3, -7, -12].forEach((n, i) =>
+    tone('sawtooth', 420 * Math.pow(2, n / 12), i * 0.13, 0.3, 0.16)); };
+  const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+
+  /* ── холст ── */
+  const cv = $('cv');
+  const ctx = cv.getContext('2d');
+  let W = 0, H = 0, dpr = 1;
+
+  function fit() {
+    const r = $('yard').getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    W = r.width; H = r.height;
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  const U = () => Math.min(H * 0.5, W * 0.5);   // единица мира
+
+  /* Четыре жёлоба: 0 — слева сверху, 1 — слева снизу,
+     2 — справа сверху, 3 — справа снизу. Яйцо катится от курятника
+     к ближнему концу, где его и надо поймать. */
+  const hub = () => ({ x: W / 2, y: H * 0.80 });
+
+  /* Четыре места корзины — тесным ромбом вокруг енота, иначе лапа
+     тянется через пол-экрана и непонятно, где он вообще стоит. */
+  function spot(i) {
+    const u = U(), h = hub();
+    const left = i < 2, up = i % 2 === 0;
+    return { x: h.x + (left ? -1 : 1) * u * (up ? 0.5 : 0.58),
+             y: h.y - (up ? u * 0.54 : u * 0.1) };
+  }
+
+  /* Жёлоб — дуга, а не прямая: на вытянутом экране прямая от курятника
+     к корзине встаёт почти отвесно и читается как палка. */
+  function chute(i) {
+    const u = U(), left = i < 2, up = i % 2 === 0;
+    const e = spot(i);
+    const sx = left ? W * 0.08 : W * 0.92;
+    const sy = H * (up ? 0.17 : 0.42);
+    const ex = e.x, ey = e.y - u * 0.11;
+    return {
+      sx: sx, sy: sy, ex: ex, ey: ey, left: left, up: up,
+      cx: ex + (left ? 1 : -1) * W * (up ? 0.2 : 0.13),
+      cy: sy + (ey - sy) * (up ? 0.52 : 0.45)
+    };
+  }
+
+  // точка на дуге жёлоба
+  function along(c, t) {
+    const k = 1 - t;
+    return { x: k * k * c.sx + 2 * k * t * c.cx + t * t * c.ex,
+             y: k * k * c.sy + 2 * k * t * c.cy + t * t * c.ey };
+  }
+
+  /* ── состояние ── */
+  const S = {
+    run: false, over: false, paused: false, count: 0, t: 0,
+    score: 0, best: 0, broke: 0, caught: 0, streak: 0, top: [],
+    pos: 1, posT: 1, moveT: 0,
+    eggs: [], chicks: [], shells: [], next: 0,
+    fresh: false, hens: [0, 0, 0, 0], bestStreak: 0
+  };
+
+  const ramp = (at) => S.score / (S.score + at);
+  const rollSec = () => CFG.roll0 + (CFG.rollMin - CFG.roll0) * ramp(CFG.rollAt);
+  const gapSec = () => (CFG.gap0 + (CFG.gapMin - CFG.gap0) * ramp(CFG.gapAt)) *
+    (0.78 + Math.random() * 0.5);
+  // запас между прилётами: сужается со счётом, но не ниже переезда корзины
+  const landGap = () => Math.max(CFG.jump * 2,
+    CFG.land0 + (CFG.landMin - CFG.land0) * ramp(CFG.landAt));
+
+  function loadScores() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(keyTop()) || '[]');
+      S.top = Array.isArray(raw) ? raw.filter(r => r && typeof r.s === 'number').slice(0, 5) : [];
+    } catch (e) { S.top = []; }
+    try { S.best = parseInt(localStorage.getItem(keyBest()) || '0', 10) || 0; } catch (e) { S.best = 0; }
+    if (S.top.length && S.top[0].s > S.best) {
+      S.best = S.top[0].s;
+      try { localStorage.setItem(keyBest(), String(S.best)); } catch (e) {}
+    }
+  }
+
+  const esc = t => String(t).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+
+  function drawBoard(hi) {
+    const box = $('board');
+    if (!S.top.length) { box.innerHTML = ''; return; }
+    const top = S.top[0];
+    box.innerHTML = '<div class="one">Больше всех поймал <b>' + esc(top.n || '???') +
+      '</b> — ' + top.s + '</div><div class="h">Лучшие ловцы</div><ol>' +
+      S.top.map((r, i) => '<li' + (i === hi ? ' class="me"' : '') + '>' +
+        '<span class="nm">' + esc(r.n || '???') + '</span>' +
+        '<span class="sc">' + r.s + '</span></li>').join('') + '</ol>';
+  }
+
+  function applyMode(m) {
+    mode = MODES[m] ? m : 'retro';
+    Object.keys(BASE).forEach(k => { CFG[k] = BASE[k]; });
+    Object.keys(MODES[mode]).forEach(k => { CFG[k] = MODES[mode][k]; });
+    try { localStorage.setItem(K_MODE, mode); } catch (e) {}
+    Array.prototype.forEach.call($('modes').children,
+      b => b.classList.toggle('on', b.dataset.m === mode));
+    $('tipMiss').textContent = 'Разбил ' + CFG.misses + ' — игра кончена';
+    loadScores();
+    if (!S.run) S.broke = 0;
+    hud();
+    drawBoard(-1);
+  }
+
+  /* ── ход игры ───────────────────────────────────────────────── */
+  function step(dt) {
+    if (!S.run || S.over || S.paused || S.count > 0) return;
+    S.t += dt;
+
+    // корзина переезжает не мгновенно
+    if (S.moveT > 0) {
+      S.moveT = Math.max(0, S.moveT - dt);
+      if (S.moveT === 0) S.pos = S.posT;
+    }
+
+    S.hens = S.hens.map(v => Math.max(0, v - dt));
+
+    // новое яйцо
+    S.next -= dt;
+    if (S.next <= 0) { lay(); S.next = gapSec(); }
+
+    // катятся
+    for (let i = S.eggs.length - 1; i >= 0; i--) {
+      const e = S.eggs[i];
+      e.t += dt / e.roll;
+      if (e.t >= 1) { S.eggs.splice(i, 1); arrive(e); }
+    }
+
+    for (let i = S.chicks.length - 1; i >= 0; i--) {
+      const c = S.chicks[i];
+      c.t += dt;
+      c.x += c.vx * dt;
+      c.y += c.vy * dt;
+      c.vy += U() * 1.6 * dt;
+      if (c.t > CFG.hatch) S.chicks.splice(i, 1);
+    }
+    for (let i = S.shells.length - 1; i >= 0; i--) {
+      const sh = S.shells[i];
+      sh.t += dt;
+      if (sh.t > 0.6) S.shells.splice(i, 1);
+    }
+    hud();
+  }
+
+  /* Главное правило честности: два яйца не могут прилететь почти
+     одновременно — корзина одна, и такой промах не зависит от умения.
+     Поэтому прежде чем выпустить яйцо, смотрим, когда прилетят те,
+     что уже катятся. */
+  function lay() {
+    const roll = rollSec();
+    const need = landGap();
+    const free = [0, 1, 2, 3].filter(i => {
+      const land = roll;                       // через столько прилетит новое
+      return !S.eggs.some(e => Math.abs((1 - e.t) * e.roll - land) < need);
+    });
+    if (!free.length) { S.next = 0.2; return; } // подождём и попробуем снова
+    const busy = {};
+    S.eggs.forEach(e => { busy[e.c] = 1; });
+    const fresh = free.filter(i => !busy[i]);
+    const pool = fresh.length ? fresh : free;
+    const c = pool[Math.floor(Math.random() * pool.length)];
+    S.eggs.push({ c: c, t: 0, roll: roll, ph: Math.random() * 6.28 });
+    S.hens[c] = 0.4;
+    tone('square', 760, 0, 0.05, 0.07, 520);
+  }
+
+  function arrive(e) {
+    const here = S.moveT > 0 ? S.posT : S.pos;
+    if (here === e.c) {
+      S.score++; S.caught++; S.streak++;
+      if (S.streak > S.bestStreak) S.bestStreak = S.streak;
+      sCatch(S.streak);
+      buzz(10);
+      if (S.score > S.best) {
+        S.best = S.score;
+        try { localStorage.setItem(keyBest(), String(S.best)); } catch (e2) {}
+      }
+      if (S.streak > 0 && S.streak % 10 === 0) flash('Подряд ' + S.streak + '!');
+      if (S.caught > 0 && S.caught % CFG.forgive === 0 && S.broke > 0) {
+        S.broke--;
+        flash('Яйцо прощено');
+        sNice();
+      }
+    } else {
+      S.streak = 0;
+      S.broke++;
+      const p = spot(e.c);
+      S.shells.push({ x: p.x, y: p.y + U() * 0.18, t: 0 });
+      S.chicks.push({ x: p.x, y: p.y + U() * 0.16, t: 0,
+                      vx: (e.c < 2 ? -1 : 1) * U() * 0.5, vy: -U() * 0.7 });
+      sCrack(); sPeep();
+      buzz([30, 50, 30]);
+      if (S.broke >= CFG.misses) { finish(); return; }
+      flash('Ой!');
+    }
+    hud();
+  }
+
+  function moveTo(i) {
+    if (!S.run || S.over || S.paused || S.count > 0) return false;
+    if (i < 0 || i > 3) return false;
+    const now = S.moveT > 0 ? S.posT : S.pos;
+    if (i === now) return false;
+    S.posT = i;
+    S.moveT = CFG.jump;
+    sMove();
+    return true;
+  }
+
+  function flash(text) {
+    const el = $('flash');
+    el.textContent = text;
+    el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+  }
+
+  function finish() {
+    S.over = true; S.run = false;
+    S.paused = false; S.count = 0;
+    showCount(0);
+    $('held').classList.add('hidden');
+    $('pause').classList.remove('on');
+    $('pause').setAttribute('disabled', '');
+    sOver();
+    S.fresh = S.score >= S.best && S.score > 0;
+    $('sScore').textContent = S.score;
+    $('overHead').textContent = S.fresh ? 'Рекорд!' : 'Всё разбито';
+    $('sWas').textContent = 'Подряд лучшая серия: ' + S.bestStreak;
+    $('sBest').innerHTML = S.fresh ? 'Лучше всех прежних' : 'Рекорд: <b>' + S.best + '</b>';
+    const spotFree = S.score > 0 && (S.top.length < 5 || S.score > S.top[S.top.length - 1].s);
+    $('newtop').hidden = !spotFree;
+    if (spotFree) {
+      let last = 'ИГРОК';
+      try { last = localStorage.getItem(K_NAME) || 'ИГРОК'; } catch (e) {}
+      $('initials').value = last;
+    }
+    drawBoard(-1);
+    $('over').classList.remove('hidden');
+    hud();
+  }
+
+  function saveTop() {
+    const raw = ($('initials').value || 'ИГРОК').toUpperCase()
+      .replace(/[^\p{L}\p{N} '-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 10) || 'ИГРОК';
+    try { localStorage.setItem(K_NAME, raw); } catch (e) {}
+    S.top.push({ n: raw, s: S.score });
+    S.top.sort((a, b) => b.s - a.s);
+    S.top = S.top.slice(0, 5);
+    try { localStorage.setItem(keyTop(), JSON.stringify(S.top)); } catch (e) {}
+    $('newtop').hidden = true;
+    drawBoard(S.top.findIndex(r => r.s === S.score && r.n === raw));
+    sNice();
+  }
+
+  function hud() {
+    $('score').textContent = S.score;
+    $('hi').textContent = S.best;
+    const box = $('broke');
+    const n = CFG.misses;
+    const key = n + ':' + S.broke;
+    if (box.dataset.k !== key) {
+      box.dataset.k = key;
+      box.innerHTML = '';
+      if (n <= 5) {
+        for (let i = 0; i < n; i++) {
+          const el = document.createElement('i');
+          if (i < S.broke) el.className = 'out';
+          box.appendChild(el);
+        }
+      } else {
+        box.appendChild(document.createElement('i'));
+        const b = document.createElement('b');
+        b.textContent = S.broke + '/' + n;
+        box.appendChild(b);
+      }
+    }
+  }
+
+  /* ── рисование ──────────────────────────────────────────────── */
+  function draw() {
+    if (!W || !H) return;
+    const u = U();
+
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#9CD2EC');
+    sky.addColorStop(0.55, '#CDE9F5');
+    sky.addColorStop(1, '#E6F3D8');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    // солнце и облака: иначе верх экрана — пустая синева
+    const su = u * 0.17, sx = W * 0.82, sy = H * 0.07;
+    const glow = ctx.createRadialGradient(sx, sy, su * 0.4, sx, sy, su * 2.4);
+    glow.addColorStop(0, 'rgba(255,236,160,.55)');
+    glow.addColorStop(1, 'rgba(255,236,160,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(sx, sy, su * 2.4, 0, 6.3); ctx.fill();
+    ctx.fillStyle = '#FFE48A';
+    ctx.beginPath(); ctx.arc(sx, sy, su, 0, 6.3); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.8)';
+    [[0.18, 0.07, 1], [0.52, 0.12, 0.72], [0.3, 0.26, 0.5]].forEach(c => {
+      const cx = W * c[0], cy = H * c[1], cs = u * 0.17 * c[2];
+      ctx.beginPath();
+      ctx.arc(cx, cy, cs * 0.62, 0, 6.3);
+      ctx.arc(cx + cs * 0.66, cy - cs * 0.2, cs * 0.8, 0, 6.3);
+      ctx.arc(cx + cs * 1.4, cy, cs * 0.56, 0, 6.3);
+      ctx.rect(cx, cy - cs * 0.1, cs * 1.4, cs * 0.7);
+      ctx.fill();
+    });
+
+    // холмик и трава
+    ctx.fillStyle = '#AFDC8E';
+    ctx.beginPath();
+    ctx.ellipse(W / 2, H * 1.06, W * 0.86, H * 0.3, 0, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = '#95CE72';
+    ctx.fillRect(0, H * 0.9, W, H * 0.1);
+
+    for (let i = 0; i < 4; i++) rail(i, u);
+    for (let i = 0; i < 4; i++) coop(i, u);
+
+    S.shells.forEach(sh => {
+      const k = sh.t / 0.6;
+      ctx.globalAlpha = Math.max(0, 1 - k);
+      ctx.fillStyle = '#FFF4DF';
+      for (let i = 0; i < 5; i++) {
+        const a = i / 5 * 6.283;
+        ctx.beginPath();
+        ctx.ellipse(sh.x + Math.cos(a) * u * 0.1 * (0.4 + k),
+                    sh.y + Math.sin(a) * u * 0.07 * (0.4 + k) + k * u * 0.1,
+                    u * 0.035, u * 0.025, a, 0, 6.3);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    });
+
+    S.eggs.forEach(e => {
+      const pt = along(chute(e.c), e.t);
+      egg(pt.x, pt.y, u, e.t * 9 + e.ph);
+    });
+
+    S.chicks.forEach(c => {
+      ctx.globalAlpha = Math.max(0, 1 - c.t / CFG.hatch);
+      chick(c.x, c.y, u, c.t);
+      ctx.globalAlpha = 1;
+    });
+
+    coon(u);
+  }
+
+  function rail(i, u) {
+    const c = chute(i);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#C79A5E';
+    ctx.lineWidth = u * 0.115;
+    ctx.beginPath();
+    ctx.moveTo(c.sx, c.sy + u * 0.07);
+    ctx.quadraticCurveTo(c.cx, c.cy + u * 0.07, c.ex, c.ey + u * 0.07);
+    ctx.stroke();
+    ctx.strokeStyle = '#E3BE8A';
+    ctx.lineWidth = u * 0.062;
+    ctx.beginPath();
+    ctx.moveTo(c.sx, c.sy + u * 0.05);
+    ctx.quadraticCurveTo(c.cx, c.cy + u * 0.05, c.ex, c.ey + u * 0.05);
+    ctx.stroke();
+    // бортик на конце, чтобы было видно, где ловить
+    ctx.strokeStyle = '#A87B45';
+    ctx.lineWidth = u * 0.035;
+    ctx.beginPath();
+    ctx.moveTo(c.ex, c.ey + u * 0.1);
+    ctx.lineTo(c.ex + (c.left ? -u * 0.06 : u * 0.06), c.ey + u * 0.2);
+    ctx.stroke();
+  }
+
+  function coop(i, u) {
+    const c = chute(i);
+    const x = c.sx + (c.left ? -u * 0.06 : u * 0.06), y = c.sy - u * 0.02;
+    const w = u * 0.34, h = u * 0.27;
+    ctx.fillStyle = '#B9643C';
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.6, y - h * 0.25);
+    ctx.lineTo(x, y - h * 0.8);
+    ctx.lineTo(x + w * 0.6, y - h * 0.25);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#F2E2C8';
+    ctx.fillRect(x - w * 0.42, y - h * 0.25, w * 0.84, h * 0.72);
+    // курица выглядывает, когда снесла
+    const peek = S.hens[i] > 0;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.ellipse(x, y + h * (peek ? 0.05 : 0.14), u * 0.1, u * 0.085, 0, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#E2503C';
+    ctx.beginPath();
+    ctx.arc(x, y + h * (peek ? -0.12 : -0.03), u * 0.03, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#2E2A26';
+    ctx.beginPath();
+    ctx.arc(x + (c.left ? u * 0.04 : -u * 0.04), y + h * (peek ? 0 : 0.09), u * 0.013, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#F2A33A';
+    ctx.beginPath();
+    ctx.moveTo(x + (c.left ? u * 0.09 : -u * 0.09), y + h * (peek ? 0.03 : 0.12));
+    ctx.lineTo(x + (c.left ? u * 0.14 : -u * 0.14), y + h * (peek ? 0.06 : 0.15));
+    ctx.lineTo(x + (c.left ? u * 0.09 : -u * 0.09), y + h * (peek ? 0.09 : 0.18));
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function egg(x, y, u, spin) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.sin(spin) * 0.3);
+    ctx.fillStyle = '#FFF6E6';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, u * 0.062, u * 0.078, 0, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(214,180,130,.45)';
+    ctx.beginPath();
+    ctx.ellipse(u * 0.018, u * 0.02, u * 0.03, u * 0.042, 0.4, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.beginPath();
+    ctx.ellipse(-u * 0.02, -u * 0.03, u * 0.016, u * 0.022, -0.3, 0, 6.3);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function chick(x, y, u, t) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.sin(t * 14) * 0.25);
+    ctx.fillStyle = '#FFD75E';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, u * 0.06, u * 0.055, 0, 0, 6.3);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, -u * 0.055, u * 0.042, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#2E2A26';
+    ctx.beginPath();
+    ctx.arc(u * 0.016, -u * 0.062, u * 0.009, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#F2A33A';
+    ctx.beginPath();
+    ctx.moveTo(u * 0.04, -u * 0.05);
+    ctx.lineTo(u * 0.075, -u * 0.04);
+    ctx.lineTo(u * 0.04, -u * 0.03);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /* Енот с корзиной. Свой рисунок: полосатый хвост, маска на морде.
+     Стоит по центру, корзину держит в том углу, который выбран. */
+  function coon(u) {
+    const here = S.moveT > 0 ? S.posT : S.pos;
+    const p = spot(here);
+    const left = here < 2;
+    const bx = W / 2, by = H * 0.8;
+
+    // хвост
+    ctx.save();
+    ctx.translate(bx + (left ? u * 0.3 : -u * 0.3), by + u * 0.06);
+    ctx.rotate(left ? 0.5 : -0.5);
+    for (let i = 4; i >= 0; i--) {
+      ctx.fillStyle = i % 2 ? '#3F3A42' : '#9A8F97';
+      ctx.beginPath();
+      ctx.ellipse(0, -i * u * 0.058, u * 0.065, u * 0.045, 0, 0, 6.3);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // лапа к корзине — с изгибом в локте, а не палкой
+    ctx.strokeStyle = '#6E6670';
+    ctx.lineWidth = u * 0.055;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const ax = bx + (left ? -u * 0.14 : u * 0.14), ay = by - u * 0.14;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.quadraticCurveTo((ax + p.x) / 2 + (left ? -u * 0.08 : u * 0.08),
+                         (ay + p.y) / 2 + u * 0.1, p.x, p.y + u * 0.03);
+    ctx.stroke();
+
+    // тело
+    ctx.fillStyle = '#8A8290';
+    ctx.beginPath();
+    ctx.ellipse(bx, by, u * 0.2, u * 0.23, 0, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#C9C2CC';
+    ctx.beginPath();
+    ctx.ellipse(bx, by + u * 0.05, u * 0.12, u * 0.15, 0, 0, 6.3);
+    ctx.fill();
+
+    // голова
+    const hx = bx + (left ? -u * 0.05 : u * 0.05), hy = by - u * 0.24;
+    ctx.fillStyle = '#6E6670';
+    ctx.beginPath();
+    ctx.arc(hx - u * 0.11, hy - u * 0.1, u * 0.055, 0, 6.3);
+    ctx.arc(hx + u * 0.11, hy - u * 0.1, u * 0.055, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#9A929E';
+    ctx.beginPath();
+    ctx.arc(hx, hy, u * 0.15, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#F0EAF2';
+    ctx.beginPath();
+    ctx.ellipse(hx, hy + u * 0.05, u * 0.1, u * 0.08, 0, 0, 6.3);
+    ctx.fill();
+    // маска
+    ctx.fillStyle = '#3F3A42';
+    ctx.beginPath();
+    ctx.ellipse(hx - u * 0.062, hy - u * 0.02, u * 0.055, u * 0.042, -0.25, 0, 6.3);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(hx + u * 0.062, hy - u * 0.02, u * 0.055, u * 0.042, 0.25, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(hx - u * 0.055, hy - u * 0.022, u * 0.021, 0, 6.3);
+    ctx.arc(hx + u * 0.055, hy - u * 0.022, u * 0.021, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#1F1C22';
+    const look = left ? -u * 0.007 : u * 0.007;
+    ctx.beginPath();
+    ctx.arc(hx - u * 0.055 + look, hy - u * 0.02, u * 0.012, 0, 6.3);
+    ctx.arc(hx + u * 0.055 + look, hy - u * 0.02, u * 0.012, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#2E2A26';
+    ctx.beginPath();
+    ctx.ellipse(hx, hy + u * 0.045, u * 0.022, u * 0.017, 0, 0, 6.3);
+    ctx.fill();
+
+    basket(p.x, p.y, u);
+  }
+
+  function basket(x, y, u) {
+    const w = u * 0.15, h = u * 0.11;
+    ctx.strokeStyle = '#B07B3E';
+    ctx.lineWidth = u * 0.022;
+    ctx.beginPath();
+    ctx.arc(x, y - h * 0.1, w * 0.8, Math.PI, 0);
+    ctx.stroke();
+    ctx.fillStyle = '#D9A057';
+    ctx.beginPath();
+    ctx.moveTo(x - w, y - h);
+    ctx.lineTo(x + w, y - h);
+    ctx.lineTo(x + w * 0.74, y + h);
+    ctx.lineTo(x - w * 0.74, y + h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(140,95,40,.5)';
+    ctx.lineWidth = u * 0.012;
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(x + i * w * 0.45, y - h);
+      ctx.lineTo(x + i * w * 0.36, y + h);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.9, y);
+    ctx.lineTo(x + w * 0.9, y);
+    ctx.stroke();
+  }
+
+  /* ── цикл ── */
+  let raf = 0, last = 0, acc = 0, auto = true;
+  const DT = 1 / 120;
+
+  function showCount(n) {
+    const el = $('count');
+    if (n <= 0) { el.classList.remove('on'); el.innerHTML = ''; return; }
+    el.classList.add('on');
+    el.innerHTML = '<span>' + n + '</span>';
+  }
+
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    if (!auto) return;
+    if (!last) last = now;
+    let dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.25) dt = 0.25;
+
+    if (S.paused) { acc = 0; draw(); return; }
+    if (S.count > 0) {
+      const was = Math.ceil(S.count);
+      S.count -= dt;
+      const n2 = Math.ceil(S.count);
+      if (n2 !== was) {
+        showCount(Math.max(0, n2));
+        tone('square', n2 > 0 ? 520 : 880, 0, n2 > 0 ? 0.1 : 0.18, 0.14);
+      }
+      acc = 0; draw(); return;
+    }
+
+    acc += dt;
+    let guard = 0;
+    while (acc >= DT && guard++ < 400) { step(DT); acc -= DT; }
+    draw();
+  }
+
+  /* ── пауза ── */
+  const canPause = () => S.run && !S.over;
+  function hold(why) {
+    if (!canPause() || S.paused) return false;
+    S.paused = true; S.count = 0; showCount(0);
+    $('heldScore').innerHTML = 'Поймано: <b>' + S.score + '</b>';
+    $('held').classList.remove('hidden');
+    $('pause').classList.add('on');
+    return true;
+  }
+  function unhold() {
+    if (!S.paused) return false;
+    S.paused = false;
+    $('held').classList.add('hidden');
+    $('pause').classList.remove('on');
+    last = 0; acc = 0;
+    S.count = 3; showCount(3);
+    tone('square', 520, 0, 0.1, 0.14);
+    return true;
+  }
+  const togglePause = () => { if (S.paused) unhold(); else hold(); };
+
+  /* ── запуск ── */
+  function begin() {
+    initAudio();
+    S.run = false; S.over = false; S.t = 0;
+    S.score = 0; S.broke = 0; S.caught = 0; S.streak = 0; S.bestStreak = 0;
+    S.pos = 1; S.posT = 1; S.moveT = 0;
+    S.eggs = []; S.chicks = []; S.shells = []; S.hens = [0, 0, 0, 0];
+    S.next = CFG.gap0;
+    S.fresh = false; S.paused = false; S.count = 0;
+    showCount(0);
+    $('newtop').hidden = true;
+    $('veil').classList.add('hidden');
+    $('over').classList.add('hidden');
+    $('held').classList.add('hidden');
+    $('pause').classList.remove('on');
+    $('pause').removeAttribute('disabled');
+    S.run = true;
+    last = 0; acc = 0;
+    hud();
+  }
+
+  /* ── ввод: жмём в тот угол, куда катится яйцо ── */
+  function pick(cx, cy) {
+    const r = $('yard').getBoundingClientRect();
+    const x = cx - r.left, y = cy - r.top;
+    const left = x < r.width / 2;
+    const up = y < r.height * 0.56;
+    return (left ? 0 : 2) + (up ? 0 : 1);
+  }
+
+  const yard = $('yard');
+  yard.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    initAudio();
+    moveTo(pick(e.clientX, e.clientY));
+  });
+  yard.addEventListener('pointermove', e => {
+    if (e.buttons) moveTo(pick(e.clientX, e.clientY));
+  });
+
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Escape' || e.code === 'KeyP') { e.preventDefault(); togglePause(); return; }
+    const here = S.moveT > 0 ? S.posT : S.pos;
+    let to = -1;
+    if (e.code === 'ArrowLeft') to = here % 2;
+    else if (e.code === 'ArrowRight') to = 2 + here % 2;
+    else if (e.code === 'ArrowUp') to = here < 2 ? 0 : 2;
+    else if (e.code === 'ArrowDown') to = here < 2 ? 1 : 3;
+    else return;
+    e.preventDefault();
+    if (S.paused) { unhold(); return; }
+    moveTo(to);
+  });
+
+  $('go').addEventListener('click', begin);
+  $('again').addEventListener('click', begin);
+  $('resume').addEventListener('click', unhold);
+  $('saveTop').addEventListener('click', saveTop);
+  $('initials').addEventListener('keydown', e => {
+    if (e.code === 'Enter') { e.preventDefault(); saveTop(); }
+    e.stopPropagation();
+  });
+  $('initials').addEventListener('keyup', e => e.stopPropagation());
+  $('pause').addEventListener('click', () => { initAudio(); togglePause(); });
+  $('snd').addEventListener('click', () => {
+    initAudio();
+    muted = !muted;
+    try { localStorage.setItem(K_MUTE, muted ? '1' : '0'); } catch (e) {}
+    applyMute();
+  });
+  Array.prototype.forEach.call($('modes').children, b => {
+    b.addEventListener('click', () => { initAudio(); applyMode(b.dataset.m); });
+  });
+
+  let rz = 0;
+  window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(fit, 150); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { last = 0; acc = 0; hold(); }
+  });
+  window.addEventListener('blur', () => hold());
+
+  try { muted = localStorage.getItem(K_MUTE) === '1'; } catch (e) {}
+  applyMute();
+  let savedMode = 'retro';
+  try { savedMode = localStorage.getItem(K_MODE) || 'retro'; } catch (e) {}
+  S.bestStreak = 0;
+  applyMode(savedMode);
+  fit();
+  raf = requestAnimationFrame(frame);
+
+  window.YEVA_EIER = {
+    state: () => ({
+      run: S.run, over: S.over, paused: S.paused, count: +S.count.toFixed(2),
+      score: S.score, best: S.best, broke: S.broke, misses: CFG.misses,
+      caught: S.caught, streak: S.streak, pos: S.moveT > 0 ? S.posT : S.pos,
+      eggs: S.eggs.length, chicks: S.chicks.length, top: S.top.slice(),
+      bestStreak: S.bestStreak,
+      mode: mode, muted: muted, W: Math.round(W), H: Math.round(H),
+      roll: +rollSec().toFixed(2), land: +landGap().toFixed(2), fresh: S.fresh
+    }),
+    begin: begin, auto: on => { auto = on; last = 0; acc = 0; }, step: step,
+    move: moveTo, pause: togglePause,
+    setPause: on => { if (on) hold(); else unhold(); },
+    mode: m => { if (m) applyMode(m); return mode; },
+    gain: () => master ? master.gain.value : -1,
+    set: (k, v) => { S[k] = v; },
+    forceEnd: () => finish(),
+    raw: () => ({ eggs: S.eggs, S: S, W: W, H: H }),
+    // когда прилетит ближайшее яйцо и в какой жёлоб
+    soon: () => {
+      let b = null;
+      S.eggs.forEach(e => {
+        const t = (1 - e.t) * e.roll;
+        if (!b || t < b.t) b = { c: e.c, t: +t.toFixed(3) };
+      });
+      return b;
+    },
+    cfg: CFG
+  };
+})();
+</script>
+<script src="install.js"></script>
+<script src="home.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
