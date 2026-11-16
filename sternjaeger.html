@@ -45,6 +45,16 @@
   .lives i{width:13px;height:15px;display:block;
     background:#7FE3FF;clip-path:polygon(50% 0,100% 72%,72% 72%,72% 100%,28% 100%,28% 72%,0 72%)}
 
+  .pill em{
+    font-style:normal;font-size:13.5px;font-weight:600;color:#FF9A4A;
+    opacity:0;transition:opacity .2s;letter-spacing:.02em;
+  }
+  .pill em.on{opacity:1}
+  .pill em.pop{animation:mpop .4s cubic-bezier(.3,1.7,.5,1)}
+  @keyframes mpop{0%{transform:scale(.6)}100%{transform:scale(1)}}
+  .pill .ic{font-size:13px;opacity:.75}
+  @media (max-width:379px){ #hiPill{display:none} }
+
   .btn{
     width:38px;height:38px;flex:none;border:0;border-radius:11px;
     background:rgba(120,170,255,.1);border:1px solid rgba(120,170,255,.22);
@@ -54,6 +64,10 @@
   .btn:active{transform:scale(.9)}
   .btn svg{width:19px;height:19px;fill:none;stroke:currentColor;
     stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .btn .off{display:none}
+  .btn.mute .on{display:none}
+  .btn.mute .off{display:block}
+  .btn.mute{opacity:.5}
 
   /* ── поле ── */
   .field{flex:1;min-height:0;position:relative;margin-top:8px;
@@ -114,22 +128,78 @@
     color:#FFE48A;font-variant-numeric:tabular-nums;text-shadow:0 0 20px rgba(255,228,138,.45)}
   .was{margin-top:7px;font-size:14px;color:rgba(207,228,255,.6)}
   .was b{color:#7FE3FF}
+  /* таблица рекордов */
+  .board{margin-top:14px;text-align:left;font-variant-numeric:tabular-nums}
+  .board .h{font-size:11px;letter-spacing:.14em;color:rgba(207,228,255,.42);
+    text-transform:uppercase;margin-bottom:7px;text-align:center}
+  .board ol{list-style:none;counter-reset:r}
+  .board li{
+    counter-increment:r;display:flex;align-items:baseline;gap:9px;
+    padding:5px 9px;border-radius:9px;font-size:14.5px;
+  }
+  .board li:nth-child(odd){background:rgba(120,170,255,.06)}
+  .board li.me{background:rgba(255,228,138,.14);color:#FFE48A}
+  .board li::before{content:counter(r);width:16px;flex:none;
+    color:rgba(207,228,255,.4);font-size:12px}
+  .board li .nm{flex:none;width:44px;letter-spacing:.08em;font-weight:600}
+  .board li .sc{flex:1;text-align:right;font-weight:600}
+  .board li .wv{flex:none;width:40px;text-align:right;
+    font-size:11.5px;color:rgba(207,228,255,.42)}
+
+  .rank{margin-top:8px;font-size:15px;font-weight:600;color:#7FE3FF}
+  .acc{margin-top:5px;font-size:13px;color:rgba(207,228,255,.55)}
+
+  .newtop{margin-top:14px;background:rgba(255,228,138,.1);
+    border:1px solid rgba(255,228,138,.3);border-radius:14px;padding:12px}
+  .newtop .say{font-size:13px;color:#FFE48A;margin-bottom:9px}
+  .newtop .line{display:flex;gap:8px;justify-content:center}
+  .newtop input{
+    width:104px;text-align:center;font-family:inherit;font-size:21px;font-weight:600;
+    letter-spacing:.22em;text-transform:uppercase;color:#FFE48A;
+    background:rgba(5,6,15,.6);border:1px solid rgba(255,228,138,.4);
+    border-radius:10px;padding:8px 6px;outline:none;
+  }
+  .newtop button{
+    border:0;border-radius:10px;padding:8px 16px;cursor:pointer;
+    font-family:inherit;font-size:15px;font-weight:600;
+    background:linear-gradient(160deg,#FFE48A,#F2A33A);color:#2A1A00;
+  }
+  .newtop button:active{transform:scale(.95)}
+
   .nice{
     margin-top:12px;display:inline-block;
     background:linear-gradient(160deg,#FFE48A,#F2A33A);color:#2A1A00;
     border-radius:999px;padding:7px 18px;font-size:15px;font-weight:600;
   }
 
+  .board .one{display:none;text-align:center;font-size:13px;
+    color:rgba(207,228,255,.6);padding:5px 0}
+  .board .one b{color:#FFE48A;font-weight:600;letter-spacing:.06em}
+  @media (max-height:760px){
+    .board{margin-top:10px}
+    .board li{padding:4px 8px;font-size:13.5px}
+    .board li:nth-child(n+4){display:none}
+  }
+  /* совсем низкий экран: вместо таблицы одна строка про лучший забег */
+  @media (max-height:640px){
+    .board .h{display:none}
+    .board ol{display:none}
+    .board .one{display:block}
+  }
   @media (max-height:600px){
-    .panel{padding:14px 18px 16px}
-    .panel h1{font-size:21px}
-    .tip{margin-top:10px;font-size:12px;padding:9px 11px}
-    .big{margin-top:12px;width:min(24vh,100px)}
+    .panel{padding:13px 16px 14px}
+    .panel h1{font-size:20px}
+    .tip{margin-top:9px;font-size:11.5px;line-height:1.45;padding:8px 10px}
+    .tip .row{margin-top:6px}
+    .board{margin-top:7px}
+    .big{margin-top:9px;width:min(19vh,80px)}
     .score2{margin-top:10px}
     .score2 .n{font-size:min(9vh,40px)}
   }
+
   @media (max-height:430px){
     .veil{padding:8px}
+    .board{display:none}
     .panel{padding:10px 14px 12px;border-radius:18px}
     .panel h1{font-size:18px}
     .panel .ru{font-size:11.5px}
@@ -150,9 +220,13 @@
 <body>
 
 <div class="top">
-  <div class="pill hi"><small>РЕКОРД</small><b id="hi">0</b></div>
-  <div class="pill score"><b id="score">0</b></div>
+  <div class="pill hi" id="hiPill"><span class="ic">♛</span><b id="hi">0</b></div>
+  <div class="pill score"><b id="score">0</b><em id="mult"></em></div>
   <div class="pill"><span class="lives" id="lives"></span></div>
+  <button class="btn" id="snd" aria-label="Звук">
+    <svg class="on" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>
+    <svg class="off" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6"/><path d="M21 9l-5 6"/></svg>
+  </button>
   <a class="btn" href="index.html" aria-label="Домой">
     <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/></svg>
   </a>
@@ -172,6 +246,7 @@
         <div class="row"><span class="k">↯</span><span>Звенья срываются со строя и пикируют. Сбитый в пике стоит вдвое</span></div>
         <div class="row"><span class="k">♛</span><span>Вожак с двумя ведомыми — <b>800</b>. Собьёшь ведомых первыми — потеряешь куш</span></div>
       </div>
+      <div class="board" id="board"></div>
       <button class="big" id="go" aria-label="Играть">
         <svg viewBox="0 0 24 24"><path d="M12 1.5 L20 20 L12 16 L4 20 Z"/></svg>
       </button>
@@ -182,8 +257,18 @@
     <div class="panel">
       <h1 id="overHead">Конец</h1>
       <div class="score2"><span class="n" id="sScore">0</span></div>
+      <div class="rank" id="sRank"></div>
+      <div class="acc" id="sAcc"></div>
       <div class="was" id="sWas"></div>
       <div class="was" id="sWave"></div>
+      <div class="newtop" id="newtop" hidden>
+        <div class="say">Попал в таблицу! Впиши имя</div>
+        <div class="line">
+          <input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters"
+                 spellcheck="false" aria-label="Три буквы">
+          <button id="saveTop">Готово</button>
+        </div>
+      </div>
       <button class="big" id="again" aria-label="Ещё раз">
         <svg viewBox="0 0 24 24"><path d="M12 4V1L7 5l5 4V6a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>
       </button>
@@ -225,7 +310,15 @@
     bombHigh: 0.52,    // ниже этой черты бомбы уже не роняют:
                        // с ближней дистанции от них не увернуться
     bombEvery: 0.9,    // как часто пикирующий роняет бомбу
-    bombMax: 5
+    bombMax: 5,
+    // серия: каждый промах её обнуляет — патрон-то один
+    streak: [4, 9, 16],     // на скольких попаданиях подряд множитель растёт
+    lifeAt: 10000,          // каждые столько очков — лишняя жизнь
+    lifeMax: 6,
+    cleanBonus: 1000,       // за волну без единой потери
+    runAt: [22, 40],        // через сколько секунд пролетает курьер
+    runV: 0.42,             // его скорость, ширин в секунду
+    runPts: [500, 800, 1500]
   };
 
   /* Строй: сверху двое вожаков, под ними ряды пошире.
@@ -253,7 +346,7 @@
     if (!AC) return;
     actx = new AC();
     master = actx.createGain();
-    master.gain.value = 0.22;
+    master.gain.value = muted ? 0 : 0.22;
     master.connect(actx.destination);
   }
 
@@ -324,8 +417,44 @@
     ship: { x: 0, dead: 0, inv: 0 },
     shot: null, bombs: [], aliens: [], booms: [], stars: [],
     out: 0, nextDive: 0, pointer: null, firing: false,
-    swayT: 0, cleared: 0
+    swayT: 0, cleared: 0,
+    shots: 0, hits: 0, streak: 0, mult: 1, nextLife: 0, clean: true,
+    runner: null, runAt: 0, top: []
   };
+
+  const K_TOP = 'yeva.sternjaeger.top';
+  const K_NAME = 'yeva.sternjaeger.name';
+  const K_MUTE = 'yeva.sternjaeger.mute';
+  let muted = false;
+
+  function applyMute() {
+    if (master) master.gain.value = muted ? 0 : 0.22;
+    $('snd').classList.toggle('mute', muted);
+  }
+
+  function loadTop() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(K_TOP) || '[]');
+      S.top = Array.isArray(raw) ? raw.filter(r => r && typeof r.s === 'number').slice(0, 5) : [];
+    } catch (e) { S.top = []; }
+  }
+
+  function drawBoard(hi) {
+    const box = $('board');
+    if (!S.top.length) { box.innerHTML = ''; return; }
+    const top = S.top[0];
+    box.innerHTML = '<div class="one">Лучший забег: <b>' + esc(top.n || '???') +
+      '</b> \u2014 ' + top.s + ', волна ' + (top.w || 1) + '</div>' +
+      '<div class="h">Лучшие забеги</div><ol>' +
+      S.top.map((r, i) =>
+        '<li' + (i === hi ? ' class="me"' : '') + '>' +
+        '<span class="nm">' + esc(r.n || '???') + '</span>' +
+        '<span class="sc">' + r.s + '</span>' +
+        '<span class="wv">в.' + (r.w || 1) + '</span></li>').join('') +
+      '</ol>';
+  }
+
+  const esc = t => String(t).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
 
   function stars() {
     S.stars = [];
@@ -389,7 +518,7 @@
     // патрон
     if (S.shot) {
       S.shot.y -= CFG.shotV * H * dt;
-      if (S.shot.y < -10) S.shot = null;
+      if (S.shot.y < -10) { S.shot = null; missed(); }
     }
 
     // строй и пике
@@ -438,6 +567,28 @@
       }
     });
 
+    // курьер: проскакивает поверху. Стрелять в него — значит
+    // отправить свой единственный патрон вверх и остаться без него
+    if (S.runner) {
+      S.runner.x += S.runner.v * dt;
+      S.runner.ph += dt * 7;
+      if (S.runner.v > 0 ? S.runner.x > W + cell() : S.runner.x < -cell()) S.runner = null;
+    } else {
+      S.runAt -= dt;
+      if (S.runAt <= 0) {
+        const fromLeft = Math.random() < 0.5;
+        S.runner = {
+          x: fromLeft ? -cell() : W + cell(),
+          y: H * 0.045 + cell() * 0.2,
+          v: (fromLeft ? 1 : -1) * CFG.runV * W,
+          pts: CFG.runPts[Math.floor(Math.random() * CFG.runPts.length)],
+          ph: 0
+        };
+        S.runAt = CFG.runAt[0] + Math.random() * (CFG.runAt[1] - CFG.runAt[0]);
+        sDive();
+      }
+    }
+
     // кого отправить в пике
     S.nextDive -= dt;
     if (S.nextDive <= 0 && S.ship.dead <= 0) {
@@ -455,6 +606,19 @@
     }
 
     // попадания
+    if (S.shot && S.runner) {
+      const r = cell() * 0.5;
+      if (Math.abs(S.runner.x - S.shot.x) < r && Math.abs(S.runner.y - S.shot.y) < r) {
+        S.hits++; S.streak++; setMult();
+        const pts = S.runner.pts * S.mult;
+        award(pts);
+        S.booms.push({ x: S.runner.x, y: S.runner.y, t: 0, max: 0.6,
+                       r: cell() * 0.8, c: '#7FE3FF', pts: pts, big: true });
+        flash('КУРЬЕР +' + pts);
+        sCatch(); buzz(24);
+        S.runner = null; S.shot = null;
+      }
+    }
     if (S.shot) {
       const r = cell() * 0.42;
       for (let i = 0; i < S.aliens.length; i++) {
@@ -494,7 +658,38 @@
 
   function fire() {
     S.shot = { x: S.ship.x, y: shipY() - cell() * 0.4 };
+    S.shots++;
     sPew();
+  }
+
+  // серия попаданий: один патрон в полёте — значит каждый промах виден
+  function setMult() {
+    const st = CFG.streak;
+    S.mult = S.streak >= st[2] ? 4 : S.streak >= st[1] ? 3 : S.streak >= st[0] ? 2 : 1;
+    const el = $('mult');
+    const was = el.textContent;
+    el.textContent = S.mult > 1 ? '\u00D7' + S.mult : '';
+    el.classList.toggle('on', S.mult > 1);
+    if (el.textContent && el.textContent !== was) {
+      el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+      if (S.mult > 1) tone('triangle', 520 * S.mult, 0, 0.12, 0.15, 780 * S.mult);
+    }
+  }
+
+  function missed() { S.streak = 0; setMult(); }
+
+  function award(pts, x, y) {
+    S.score += pts;
+    if (S.score >= S.nextLife && S.lives < CFG.lifeMax) {
+      S.nextLife += CFG.lifeAt;
+      S.lives++;
+      flash('\u2795 ЖИЗНЬ');
+      sCatch();
+    } else {
+      while (S.score >= S.nextLife) S.nextLife += CFG.lifeAt;
+    }
+    if (S.score > S.best) { S.best = S.score;
+      try { localStorage.setItem(K_BEST, String(S.best)); } catch (e) {} }
   }
 
   function divePause() {
@@ -550,17 +745,19 @@
       pts = left >= 2 ? 800 : left === 1 ? 400 : 150;
       if (left >= 1) { sCatch(); flash(pts === 800 ? 'ВОЖАК! 800' : '400'); }
     }
-    S.score += pts;
+    if (!silent) { S.hits++; S.streak++; setMult(); }
+    pts *= S.mult;
+    award(pts, a.x, a.y);
     S.booms.push({ x: a.x, y: a.y, t: 0, max: 0.42, r: cell() * 0.6,
                    c: TINT[a.kind].a, pts: pts, big: a.lead });
     if (!silent) sBoom();
     buzz(14);
-    if (S.score > S.best) { S.best = S.score;
-      try { localStorage.setItem(K_BEST, String(S.best)); } catch (e) {} }
   }
 
   function wound() {
     S.lives--;
+    S.clean = false;
+    S.streak = 0; setMult();
     S.ship.dead = CFG.pause;
     S.booms.push({ x: S.ship.x, y: shipY(), t: 0, max: 0.7, r: cell() * 0.9,
                    c: '#7FE3FF', pts: 0, big: true });
@@ -577,12 +774,23 @@
   }
 
   function nextWave() {
+    const wasClean = S.clean;
+    if (wasClean) {
+      const b = CFG.cleanBonus * S.wave;
+      award(b);
+      flash('БЕЗ ПОТЕРЬ +' + b);
+      sCatch();
+    }
     S.wave++;
     S.out = 0;
+    S.clean = true;
     build();
-    S.bombs = []; S.shot = null;
+    S.bombs = []; S.shot = null; S.runner = null;
+    S.runAt = CFG.runAt[0] + Math.random() * (CFG.runAt[1] - CFG.runAt[0]);
     S.nextDive = Math.max(1.2, divePause());
-    flash('ВОЛНА ' + S.wave);
+    // объявление волны не должно перебивать премию
+    if (wasClean) setTimeout(() => { if (S.run && !S.over) flash('ВОЛНА ' + S.wave); }, 1500);
+    else flash('ВОЛНА ' + S.wave);
     sWave();
   }
 
@@ -592,20 +800,57 @@
     el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
   }
 
+  const RANKS = [
+    [72, 'Снайпер'], [58, 'Меткий глаз'], [44, 'Боец'],
+    [30, 'Новобранец'], [0, 'Салага']
+  ];
+
   function finish() {
     S.over = true; S.run = false;
+    S.runner = null;
     S.fresh = S.score >= S.best && S.score > 0;
+    const acc = S.shots ? Math.round(S.hits / S.shots * 100) : 0;
+    const rank = (RANKS.find(r => acc >= r[0]) || RANKS[RANKS.length - 1])[1];
+
     $('sScore').textContent = S.score;
     $('overHead').textContent = S.fresh ? 'Рекорд!' : 'Конец';
+    $('sRank').textContent = S.shots ? rank : '';
+    $('sAcc').textContent = S.shots
+      ? 'Точность ' + acc + '% — попал ' + S.hits + ' из ' + S.shots : '';
     $('sWas').innerHTML = S.fresh ? 'Лучший результат' : 'Рекорд: <b>' + S.best + '</b>';
     $('sWave').textContent = 'Волна ' + S.wave;
+
+    // попал ли в таблицу лучших
+    const spot = S.score > 0 &&
+      (S.top.length < 5 || S.score > S.top[S.top.length - 1].s);
+    $('newtop').hidden = !spot;
+    if (spot) {
+      let last = 'AAA';
+      try { last = localStorage.getItem(K_NAME) || 'AAA'; } catch (e) {}
+      $('initials').value = last;
+    }
+    drawBoard(-1);
     $('over').classList.remove('hidden');
     hud();
+  }
+
+  function saveTop() {
+    const raw = ($('initials').value || 'AAA').toUpperCase()
+      .replace(/[^A-ZА-ЯЁ0-9]/g, '').slice(0, 3) || 'AAA';
+    try { localStorage.setItem(K_NAME, raw); } catch (e) {}
+    S.top.push({ n: raw, s: S.score, w: S.wave });
+    S.top.sort((a, b) => b.s - a.s);
+    S.top = S.top.slice(0, 5);
+    try { localStorage.setItem(K_TOP, JSON.stringify(S.top)); } catch (e) {}
+    $('newtop').hidden = true;
+    drawBoard(S.top.findIndex(r => r.s === S.score && r.n === raw));
+    sCatch();
   }
 
   function hud() {
     $('score').textContent = S.score;
     $('hi').textContent = S.best;
+    if (!S.run) { $('mult').textContent = ''; $('mult').classList.remove('on'); }
     const box = $('lives');
     const n = Math.max(0, S.lives);
     if (box.childElementCount !== n) {
@@ -630,6 +875,8 @@
     const c = cell();
 
     S.aliens.forEach(a => { if (a.alive) alien(a, c); });
+
+    if (S.runner) runner(S.runner, c);
 
     if (S.shot) {
       ctx.fillStyle = '#FFF4C0';
@@ -673,6 +920,34 @@
       }
       ctx.globalAlpha = 1;
     });
+  }
+
+  // Курьер: блюдце с огоньками по ободу
+  function runner(r, c) {
+    const s = c * 0.5;
+    ctx.save();
+    ctx.translate(r.x, r.y);
+    ctx.fillStyle = '#2E4C7A';
+    ctx.beginPath();
+    ctx.ellipse(0, s * 0.1, s * 1.05, s * 0.34, 0, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = '#7FE3FF';
+    ctx.beginPath();
+    ctx.ellipse(0, -s * 0.16, s * 0.52, s * 0.4, 0, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = '#CFF4FF';
+    ctx.beginPath();
+    ctx.ellipse(-s * 0.14, -s * 0.26, s * 0.16, s * 0.14, 0, 0, 6.3);
+    ctx.fill();
+    for (let i = -3; i <= 3; i++) {
+      ctx.globalAlpha = 0.45 + 0.55 * Math.abs(Math.sin(r.ph + i));
+      ctx.fillStyle = i % 2 ? '#FFE48A' : '#FF9AD5';
+      ctx.beginPath();
+      ctx.arc(i * s * 0.28, s * 0.18, s * 0.085, 0, 6.3);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   // Корабль игрока: свой рисунок — стреловидный, с двумя килями
@@ -837,6 +1112,11 @@
     S.ship.x = W / 2; S.ship.dead = 0; S.ship.inv = CFG.inv * 0.6;
     S.shot = null; S.bombs = []; S.booms = []; S.out = 0; S.cleared = 0;
     S.pointer = null; S.firing = false;
+    S.shots = 0; S.hits = 0; S.streak = 0; S.mult = 1; S.clean = true;
+    S.nextLife = CFG.lifeAt; S.runner = null;
+    S.runAt = CFG.runAt[0] + Math.random() * (CFG.runAt[1] - CFG.runAt[0]);
+    $('newtop').hidden = true;
+    setMult();
     build();
     S.nextDive = CFG.wave0;
     $('veil').classList.add('hidden');
@@ -850,6 +1130,18 @@
 
   $('go').addEventListener('click', begin);
   $('again').addEventListener('click', begin);
+  $('saveTop').addEventListener('click', saveTop);
+  $('initials').addEventListener('keydown', e => {
+    if (e.code === 'Enter') { e.preventDefault(); saveTop(); }
+    e.stopPropagation();
+  });
+  $('initials').addEventListener('keyup', e => e.stopPropagation());
+  $('snd').addEventListener('click', () => {
+    initAudio();
+    muted = !muted;
+    try { localStorage.setItem(K_MUTE, muted ? '1' : '0'); } catch (e) {}
+    applyMute();
+  });
 
   const field = $('field');
   const localX = e => {
@@ -894,6 +1186,14 @@
   });
 
   try { S.best = parseInt(localStorage.getItem(K_BEST) || '0', 10) || 0; } catch (e) {}
+  try { muted = localStorage.getItem(K_MUTE) === '1'; } catch (e) {}
+  loadTop();
+  if (S.top.length && S.top[0].s > S.best) {
+    S.best = S.top[0].s;
+    try { localStorage.setItem(K_BEST, String(S.best)); } catch (e) {}
+  }
+  drawBoard(-1);
+  applyMute();
 
   stars();
   build();
@@ -908,6 +1208,9 @@
       alive: S.aliens.filter(a => a.alive).length,
       inAir: S.aliens.filter(a => a.alive && a.mode !== 'form').length,
       out: S.out, shot: !!S.shot, bombs: S.bombs.length,
+      shots: S.shots, hits: S.hits, streak: S.streak, mult: S.mult,
+      clean: S.clean, runner: !!S.runner, nextLife: S.nextLife,
+      top: S.top.slice(), muted: muted,
       shipX: Math.round(S.ship.x), dead: +S.ship.dead.toFixed(2),
       inv: +S.ship.inv.toFixed(2), W: Math.round(W), H: Math.round(H),
       modes: S.aliens.filter(a => a.alive).map(a => a.mode),
@@ -936,6 +1239,10 @@
       return near;
     },
     raw: () => ({ aliens: S.aliens, bombs: S.bombs, ship: S.ship, W: W, H: H }),
+    runner: () => S.runner,
+    gain: () => master ? master.gain.value : -1,
+    set: (k, v) => { S[k] = v; },
+    forceEnd: () => finish(),
     column: () => {
       // самый низкий живой в строю — по нему удобно стрелять
       let best = null;
