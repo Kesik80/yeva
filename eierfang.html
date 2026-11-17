@@ -469,29 +469,37 @@
      к ближнему концу, где его и надо поймать. */
   const hub = () => ({ x: W / 2, y: H * 0.80 });
 
-  /* Четыре места корзины — тесным ромбом вокруг енота, иначе лапа
-     тянется через пол-экрана и непонятно, где он вообще стоит. */
-  /* Два места на каждой стороне стоят РОВНО ДРУГ НАД ДРУГОМ. Раньше
-     верхнее было ещё и ближе к центру, из-за чего жёлоба перехлёстывались
-     и проследить, куда прикатится яйцо, было нельзя. */
+  /* Раскладка как у «Электроники»: четыре места крестом вокруг зверя —
+     верхние дальше от него и выше, нижние ближе и ниже. Разброс ограничен
+     ещё и шириной экрана: на телефоне иначе корзины упираются в края и
+     жёлобу просто неоткуда идти. */
+  const spread = (up) => up ? Math.min(U() * 0.75, W * 0.26)
+                            : Math.min(U() * 0.52, W * 0.18);
+
   function spot(i) {
     const u = U(), h = hub();
     const left = i < 2, up = i % 2 === 0;
-    return { x: h.x + (left ? -1 : 1) * u * 0.6,
-             y: h.y - (up ? u * 0.68 : u * 0.08) };
+    return { x: h.x + (left ? -1 : 1) * spread(up),
+             y: h.y - (up ? u * 0.70 : u * 0.05) };
   }
 
-  /* Жёлоб — скат с лёгким провисанием. Оба ската на стороне провисают
-     ОДИНАКОВО, поэтому идут как рельсы и никогда не пересекаются. */
+  /* Жёлоб — ПРЯМАЯ доска: контрольная точка ровно посередине, и квадратичная
+     кривая вырождается в отрезок. Верхняя доска на стороне выше нижней и в
+     начале, и в конце, а обе прямые — значит, одна идёт выше другой на всём
+     протяжении, и пересечься они не могут. Наклон задан длиной доски: на
+     широком экране скат пологий, как у «Электроники», на узком круче, но
+     доска остаётся длинной и читается как горка, а не как палка. */
   function chute(i) {
     const u = U(), left = i < 2, up = i % 2 === 0;
     const e = spot(i);
-    const sx = left ? W * 0.07 : W * 0.93;
-    const sy = H * (up ? 0.16 : 0.45);
+    const sx = left ? W * 0.035 : W * 0.965;
     const ex = e.x, ey = e.y - u * 0.12;
+    const run = Math.abs(ex - sx);
+    const drop = Math.max(H * 0.28, Math.min(H * 0.42, run * 1.15));
+    const sy = Math.max(H * 0.07, ey - drop);
     return {
       sx: sx, sy: sy, ex: ex, ey: ey, left: left, up: up,
-      cx: (sx + ex) / 2, cy: (sy + ey) / 2 + u * 0.13
+      cx: (sx + ex) / 2, cy: (sy + ey) / 2
     };
   }
 
@@ -830,8 +838,8 @@
 
   // сарай в глубине: держит середину двора, чтобы взгляд не висел в пустоте
   function barn(u) {
-    const bw = u * 0.62, bh = u * 0.5;
-    const x = W / 2, y = H * 0.74;
+    const bw = u * 0.5, bh = u * 0.42;
+    const x = W / 2, y = H * 0.62;
     ctx.fillStyle = '#C97A4E';
     ctx.beginPath();
     ctx.moveTo(x - bw * 0.62, y - bh * 0.52);
@@ -855,27 +863,23 @@
     ctx.beginPath();
     ctx.arc(x, y - bh * 0.66, u * 0.06, 0, 6.3);
     ctx.fill();
-    // заборчик по сторонам сарая
-    ctx.strokeStyle = '#D9C09A';
-    ctx.lineWidth = u * 0.03;
-    ctx.lineCap = 'round';
-    for (let i = -4; i <= 4; i++) {
-      if (Math.abs(i) < 2) continue;
-      const fx = x + i * u * 0.16;
-      ctx.beginPath();
-      ctx.moveTo(fx, y - u * 0.02);
-      ctx.lineTo(fx, y - u * 0.17);
-      ctx.stroke();
-    }
-    ctx.beginPath();
-    ctx.moveTo(x - u * 0.68, y - u * 0.12);
-    ctx.lineTo(x + u * 0.68, y - u * 0.12);
-    ctx.stroke();
   }
 
   function rail(i, u) {
     const c = chute(i);
     ctx.lineCap = 'round';
+
+    // подпорки под доской — как у настольной «Электроники»
+    ctx.strokeStyle = '#A87B45';
+    ctx.lineWidth = u * 0.035;
+    [0.34, 0.72].forEach(t => {
+      const p = along(c, t);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y + u * 0.09);
+      ctx.lineTo(p.x + (c.left ? -u * 0.05 : u * 0.05), p.y + u * 0.26);
+      ctx.stroke();
+    });
+
     ctx.strokeStyle = '#C79A5E';
     ctx.lineWidth = u * 0.115;
     ctx.beginPath();
