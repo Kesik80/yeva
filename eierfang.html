@@ -30,7 +30,8 @@
   }
 
   /* ── верх ── */
-  .top{display:flex;align-items:center;gap:6px;flex:none}
+  /* полоса остаётся над панелями: звук и выход доступны и со старта */
+  .top{display:flex;align-items:center;gap:6px;flex:none;position:relative;z-index:12}
   .pill{
     display:flex;align-items:center;gap:6px;
     background:rgba(255,255,255,.82);border-radius:999px;
@@ -97,9 +98,47 @@
   .count span{animation:tick .6s ease-out}
   @keyframes tick{0%{transform:scale(1.5);opacity:0}30%{opacity:1}100%{transform:scale(1);opacity:1}}
 
+  /* ── пульт: четыре кнопки под большими пальцами ──
+     Тыкать в верхний угол вытянутого экрана неудобно, да и рука
+     закрывает тот самый жёлоб, за которым следишь. */
+  .pad{
+    flex:none;display:flex;align-items:stretch;gap:8px;margin-top:8px;
+    height:clamp(96px,16vh,124px);
+  }
+  .pad .side{display:flex;flex-direction:column;gap:6px;width:clamp(74px,22vw,104px)}
+  .pad .mid{flex:1;min-width:0;display:grid;place-items:center;
+    font-size:13px;font-weight:600;color:rgba(54,48,42,.45);text-align:center;line-height:1.3}
+  .pad .mid b{display:block;font-size:22px;color:#C9761F}
+  .pad button{
+    flex:1;border:0;border-radius:16px;cursor:pointer;
+    background:rgba(255,255,255,.82);color:#8A7A66;
+    box-shadow:0 4px 14px rgba(54,48,42,.14);
+    display:grid;place-items:center;transition:background .12s,transform .1s,color .12s;
+  }
+  .pad button svg{width:50%;max-width:34px;height:auto;fill:none;stroke:currentColor;
+    stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  .pad button:active{transform:scale(.95)}
+  .pad button.on{background:linear-gradient(160deg,#F2B544,#E08A2A);color:#4A2E00;
+    box-shadow:0 5px 16px rgba(224,138,42,.45)}
+  /* лёжа высоты мало, зато ширины вдоволь: пары кнопок встают в ряд,
+     иначе каждая выходит в 39 пикселей — пальцем не попасть */
+  @media (max-height:430px){
+    .pad{height:clamp(58px,17vh,74px);margin-top:6px}
+    .pad .side{flex-direction:row;width:clamp(148px,33vw,230px)}
+    .pad .mid{font-size:11px}
+    .pad .mid b{font-size:17px}
+  }
+
   /* ── панели ── */
+  /* панели накрывают весь экран, а не только двор: с пультом внизу
+     двора не хватает по высоте в альбомной ориентации */
+  /* home.js вешает свою кнопку выхода в каждую панель, но тут верхняя
+     полоса и так над панелями — лишняя кнопка только мешала бы, да и
+     легла бы ровно под счёт */
+  .yv-home{display:none!important}
+
   .veil{
-    position:absolute;inset:0;z-index:10;display:flex;
+    position:fixed;inset:0;z-index:10;display:flex;
     background:rgba(143,201,232,.52);
     -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
     transition:opacity .28s;padding:15px;
@@ -255,8 +294,8 @@
         <button data-m="retro">Как в детстве</button>
       </div>
       <div class="tip">
-        <div class="row"><span class="k">☝</span><span>Жми на тот <b>угол экрана</b>, куда катится яйцо — енот встанет туда с корзиной</span></div>
-        <div class="row"><span class="k">🥚</span><span>Четыре жёлоба, яйца катятся всё быстрее</span></div>
+        <div class="row"><span class="k">☝</span><span><b>Четыре кнопки внизу</b> — под большие пальцы. Жми ту, куда катится яйцо. Можно и прямо в угол двора</span></div>
+        <div class="row"><span class="k">🥚</span><span>Яиц в воздухе сразу несколько, и чем дальше, тем гуще</span></div>
         <div class="row"><span class="k">🐣</span><span id="tipMiss">Разбил три — игра кончена</span></div>
         <div class="row"><span class="k">🧺</span><span>За каждые <b>40</b> пойманных разбитое яйцо прощается</span></div>
       </div>
@@ -293,6 +332,18 @@
   </div>
 </div>
 
+<div class="pad" id="pad">
+  <div class="side">
+    <button data-p="0" aria-label="Слева сверху"><svg viewBox="0 0 24 24"><path d="M17 17L7 7"/><path d="M7 15V7h8"/></svg></button>
+    <button data-p="1" aria-label="Слева снизу"><svg viewBox="0 0 24 24"><path d="M17 7L7 17"/><path d="M7 9v8h8"/></svg></button>
+  </div>
+  <div class="mid" id="padMid"></div>
+  <div class="side">
+    <button data-p="2" aria-label="Справа сверху"><svg viewBox="0 0 24 24"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg></button>
+    <button data-p="3" aria-label="Справа снизу"><svg viewBox="0 0 24 24"><path d="M7 7l10 10"/><path d="M17 9v8H9"/></svg></button>
+  </div>
+</div>
+
 <script>
 (() => {
   'use strict';
@@ -302,17 +353,19 @@
   /* ── настройки ──────────────────────────────────────────────── */
   const CFG = {
     misses: 3,          // сколько яиц можно разбить
-    roll0: 2.6,         // сколько секунд яйцо катится по жёлобу вначале
-    rollMin: 0.78,      // и к чему это идёт
-    rollAt: 90,         // на этом счёте пройдена половина пути
-    gap0: 1.5,          // пауза между яйцами вначале, с
-    gapMin: 0.4,
-    gapAt: 110,
-    land0: 0.52,        // ДВА яйца не могут прилететь ближе чем за это:
-    landMin: 0.24,      // иначе промах неизбежен, сколько ни старайся.
-                        // Порог сужается со счётом, но никогда не падает
-                        // ниже переезда корзины — иначе было бы нечестно
-    landAt: 120,
+    roll0: 1.9,         // сколько секунд яйцо катится по жёлобу вначале
+    rollMin: 1.05,      // и к чему это идёт
+    rollAt: 110,        // на этом счёте пройдена половина пути
+    gap0: 0.82,         // пауза между яйцами вначале, с
+    gapMin: 0.26,       // чем дальше, тем гуще поток
+    gapAt: 130,
+    /* Два яйца не могут прилететь ближе этого порога. Он равен не
+       «удобному» запасу, а тому, за сколько корзина реально переезжает:
+       игрок видит оба яйца заранее и успевает спланировать переброс.
+       Больший запас делает игру честной, но пустой — проверено. */
+    land0: 0.42,
+    landMin: 0.2,
+    landAt: 130,
     forgive: 40,        // за столько пойманных прощается одно разбитое
     hatch: 1.3,         // сколько живёт цыплёнок после промаха, с
     jump: 0.11          // как быстро корзина переезжает, с
@@ -322,9 +375,9 @@
   const MODES = {
     kind: {
       misses: 5,
-      roll0: 4.0, rollMin: 1.5, rollAt: 150,
-      gap0: 2.4, gapMin: 0.9, gapAt: 170,
-      land0: 0.95, landMin: 0.5, landAt: 200, forgive: 25
+      roll0: 2.8, rollMin: 1.6, rollAt: 160,
+      gap0: 1.5, gapMin: 0.62, gapAt: 180,
+      land0: 0.7, landMin: 0.38, landAt: 200, forgive: 25
     },
     retro: {}
   };
@@ -451,7 +504,7 @@
   const S = {
     run: false, over: false, paused: false, count: 0, t: 0,
     score: 0, best: 0, broke: 0, caught: 0, streak: 0, top: [],
-    pos: 1, posT: 1, moveT: 0,
+    pos: 1, posT: 1, moveT: 0, pop: 0,
     eggs: [], chicks: [], shells: [], next: 0,
     fresh: false, hens: [0, 0, 0, 0], bestStreak: 0
   };
@@ -515,6 +568,7 @@
     }
 
     S.hens = S.hens.map(v => Math.max(0, v - dt));
+    if (S.pop > 0) S.pop = Math.max(0, S.pop - dt);
 
     // новое яйцо
     S.next -= dt;
@@ -568,7 +622,7 @@
   function arrive(e) {
     const here = S.moveT > 0 ? S.posT : S.pos;
     if (here === e.c) {
-      S.score++; S.caught++; S.streak++;
+      S.score++; S.caught++; S.streak++; S.pop = 0.26;
       if (S.streak > S.bestStreak) S.bestStreak = S.streak;
       sCatch(S.streak);
       buzz(10);
@@ -937,7 +991,16 @@
   }
 
   function basket(x, y, u) {
-    const w = u * 0.15, h = u * 0.11;
+    const k = S.pop > 0 ? S.pop / 0.26 : 0;
+    if (k > 0) {                              // вспышка в момент поимки
+      ctx.strokeStyle = 'rgba(242,181,68,' + (k * 0.9).toFixed(2) + ')';
+      ctx.lineWidth = u * 0.03;
+      ctx.beginPath();
+      ctx.arc(x, y, u * (0.18 + (1 - k) * 0.18), 0, 6.3);
+      ctx.stroke();
+    }
+    const s2 = 1 + k * 0.18;
+    const w = u * 0.15 * s2, h = u * 0.11 * s2;
     ctx.strokeStyle = '#B07B3E';
     ctx.lineWidth = u * 0.022;
     ctx.beginPath();
@@ -1000,6 +1063,7 @@
     let guard = 0;
     while (acc >= DT && guard++ < 400) { step(DT); acc -= DT; }
     draw();
+    litPad();
   }
 
   /* ── пауза ── */
@@ -1029,7 +1093,7 @@
     initAudio();
     S.run = false; S.over = false; S.t = 0;
     S.score = 0; S.broke = 0; S.caught = 0; S.streak = 0; S.bestStreak = 0;
-    S.pos = 1; S.posT = 1; S.moveT = 0;
+    S.pos = 1; S.posT = 1; S.moveT = 0; S.pop = 0;
     S.eggs = []; S.chicks = []; S.shells = []; S.hens = [0, 0, 0, 0];
     S.next = CFG.gap0;
     S.fresh = false; S.paused = false; S.count = 0;
@@ -1052,6 +1116,23 @@
     const left = x < r.width / 2;
     const up = y < r.height * 0.56;
     return (left ? 0 : 2) + (up ? 0 : 1);
+  }
+
+  // пульт: нажатие и протяжка пальцем по кнопкам
+  const padBtns = Array.prototype.slice.call($('pad').querySelectorAll('button'));
+  padBtns.forEach(btn => {
+    const go = e => { e.preventDefault(); initAudio(); moveTo(+btn.dataset.p); };
+    btn.addEventListener('pointerdown', go);
+    btn.addEventListener('pointerenter', e => { if (e.buttons) go(e); });
+  });
+
+  function litPad() {
+    const here = S.moveT > 0 ? S.posT : S.pos;
+    padBtns.forEach(b => b.classList.toggle('on', +b.dataset.p === here));
+    const mid = $('padMid');
+    const want = S.run && S.streak > 1 ? '<b>' + S.streak + '</b>подряд' :
+      (S.run ? '' : 'жми угол,<br>куда катится яйцо');
+    if (mid.dataset.v !== want) { mid.dataset.v = want; mid.innerHTML = want; }
   }
 
   const yard = $('yard');
