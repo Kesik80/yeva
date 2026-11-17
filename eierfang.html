@@ -471,25 +471,27 @@
 
   /* Четыре места корзины — тесным ромбом вокруг енота, иначе лапа
      тянется через пол-экрана и непонятно, где он вообще стоит. */
+  /* Два места на каждой стороне стоят РОВНО ДРУГ НАД ДРУГОМ. Раньше
+     верхнее было ещё и ближе к центру, из-за чего жёлоба перехлёстывались
+     и проследить, куда прикатится яйцо, было нельзя. */
   function spot(i) {
     const u = U(), h = hub();
     const left = i < 2, up = i % 2 === 0;
-    return { x: h.x + (left ? -1 : 1) * u * (up ? 0.5 : 0.58),
-             y: h.y - (up ? u * 0.54 : u * 0.1) };
+    return { x: h.x + (left ? -1 : 1) * u * 0.6,
+             y: h.y - (up ? u * 0.68 : u * 0.08) };
   }
 
-  /* Жёлоб — дуга, а не прямая: на вытянутом экране прямая от курятника
-     к корзине встаёт почти отвесно и читается как палка. */
+  /* Жёлоб — скат с лёгким провисанием. Оба ската на стороне провисают
+     ОДИНАКОВО, поэтому идут как рельсы и никогда не пересекаются. */
   function chute(i) {
     const u = U(), left = i < 2, up = i % 2 === 0;
     const e = spot(i);
-    const sx = left ? W * 0.08 : W * 0.92;
-    const sy = H * (up ? 0.17 : 0.42);
-    const ex = e.x, ey = e.y - u * 0.11;
+    const sx = left ? W * 0.07 : W * 0.93;
+    const sy = H * (up ? 0.16 : 0.45);
+    const ex = e.x, ey = e.y - u * 0.12;
     return {
       sx: sx, sy: sy, ex: ex, ey: ey, left: left, up: up,
-      cx: ex + (left ? 1 : -1) * W * (up ? 0.2 : 0.13),
-      cy: sy + (ey - sy) * (up ? 0.52 : 0.45)
+      cx: (sx + ex) / 2, cy: (sy + ey) / 2 + u * 0.13
     };
   }
 
@@ -770,6 +772,7 @@
     ctx.fillStyle = '#95CE72';
     ctx.fillRect(0, H * 0.9, W, H * 0.1);
 
+    barn(u);
     for (let i = 0; i < 4; i++) rail(i, u);
     for (let i = 0; i < 4; i++) coop(i, u);
 
@@ -788,6 +791,29 @@
       ctx.globalAlpha = 1;
     });
 
+    /* Метка на том месте, куда яйцо прикатится. Разглядывать, какой
+       скат куда ведёт, не нужно — цель подсвечена, и чем ближе яйцо,
+       тем ярче. Если корзина уже там, кольцо зелёное. */
+    const here = S.moveT > 0 ? S.posT : S.pos;
+    S.eggs.forEach(e => {
+      const p = spot(e.c);
+      const k = Math.min(1, e.t * 1.25);
+      const mine = e.c === here;
+      ctx.lineWidth = u * (0.022 + k * 0.016);
+      ctx.strokeStyle = mine
+        ? 'rgba(96,180,86,' + (0.3 + k * 0.6).toFixed(2) + ')'
+        : 'rgba(224,138,42,' + (0.22 + k * 0.6).toFixed(2) + ')';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, u * (0.26 - k * 0.07), 0, 6.3);
+      ctx.stroke();
+      if (!mine) {
+        ctx.fillStyle = 'rgba(224,138,42,' + (0.08 + k * 0.14).toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, u * (0.26 - k * 0.07), 0, 6.3);
+        ctx.fill();
+      }
+    });
+
     S.eggs.forEach(e => {
       const pt = along(chute(e.c), e.t);
       egg(pt.x, pt.y, u, e.t * 9 + e.ph);
@@ -800,6 +826,51 @@
     });
 
     coon(u);
+  }
+
+  // сарай в глубине: держит середину двора, чтобы взгляд не висел в пустоте
+  function barn(u) {
+    const bw = u * 0.62, bh = u * 0.5;
+    const x = W / 2, y = H * 0.74;
+    ctx.fillStyle = '#C97A4E';
+    ctx.beginPath();
+    ctx.moveTo(x - bw * 0.62, y - bh * 0.52);
+    ctx.lineTo(x, y - bh);
+    ctx.lineTo(x + bw * 0.62, y - bh * 0.52);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#E8A27A';
+    ctx.fillRect(x - bw * 0.5, y - bh * 0.52, bw, bh * 0.52);
+    ctx.fillStyle = '#B9643C';
+    ctx.fillRect(x - bw * 0.16, y - bh * 0.34, bw * 0.32, bh * 0.34);
+    ctx.strokeStyle = 'rgba(185,100,60,.55)';
+    ctx.lineWidth = Math.max(1.5, u * 0.012);
+    ctx.beginPath();
+    ctx.moveTo(x - bw * 0.16, y - bh * 0.3);
+    ctx.lineTo(x + bw * 0.16, y - bh * 0.12);
+    ctx.moveTo(x + bw * 0.16, y - bh * 0.3);
+    ctx.lineTo(x - bw * 0.16, y - bh * 0.12);
+    ctx.stroke();
+    ctx.fillStyle = '#F2E2C8';
+    ctx.beginPath();
+    ctx.arc(x, y - bh * 0.66, u * 0.06, 0, 6.3);
+    ctx.fill();
+    // заборчик по сторонам сарая
+    ctx.strokeStyle = '#D9C09A';
+    ctx.lineWidth = u * 0.03;
+    ctx.lineCap = 'round';
+    for (let i = -4; i <= 4; i++) {
+      if (Math.abs(i) < 2) continue;
+      const fx = x + i * u * 0.16;
+      ctx.beginPath();
+      ctx.moveTo(fx, y - u * 0.02);
+      ctx.lineTo(fx, y - u * 0.17);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(x - u * 0.68, y - u * 0.12);
+    ctx.lineTo(x + u * 0.68, y - u * 0.12);
+    ctx.stroke();
   }
 
   function rail(i, u) {
@@ -1213,6 +1284,8 @@
     set: (k, v) => { S[k] = v; },
     forceEnd: () => finish(),
     raw: () => ({ eggs: S.eggs, S: S, W: W, H: H }),
+    at: (i, t) => along(chute(i), t),
+    spotAt: spot,
     // когда прилетит ближайшее яйцо и в какой жёлоб
     soon: () => {
       let b = null;
