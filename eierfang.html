@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Eierfang</title>
-<meta name="theme-color" content="#8FC9E8">
+<meta name="theme-color" content="#DCD7CA">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -18,12 +18,14 @@
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;overscroll-behavior:none}
-  html{background:#8FC9E8}
+  /* корпус настольной игрушки: светлый пластик, экран утоплен в рамку */
+  :root{--lcd:#A3B393;--case1:#E6E2D8;--case2:#C9C4B6}
+  html{background:#DCD7CA}
   body{
     position:fixed;inset:0;
     font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
-    color:#36302A;
-    background:linear-gradient(180deg,#8FC9E8 0%,#BFE3F2 50%,#E8F4DC 100%);
+    color:#3B3A33;
+    background:linear-gradient(170deg,var(--case1) 0%,var(--case2) 62%,#BDB8A9 100%);
     touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
     display:flex;flex-direction:column;
     padding:calc(env(safe-area-inset-top,0px) + 8px) 9px calc(env(safe-area-inset-bottom,0px) + 8px);
@@ -32,31 +34,16 @@
   /* ── верх ── */
   /* полоса остаётся над панелями: звук и выход доступны и со старта */
   .top{display:flex;align-items:center;gap:6px;flex:none;position:relative;z-index:12}
-  .pill{
-    display:flex;align-items:center;gap:6px;
-    background:rgba(255,255,255,.82);border-radius:999px;
-    padding:6px 12px;min-height:38px;
-    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-    box-shadow:0 4px 14px rgba(54,48,42,.14);
-    font-size:17px;font-weight:600;line-height:1;white-space:nowrap;
-    font-variant-numeric:tabular-nums;
+  /* надпись как шелкография на корпусе; счёт и промахи живут на экране */
+  .plate{
+    flex:1;min-width:0;overflow:hidden;white-space:nowrap;
+    font-size:clamp(12px,3.4vw,16px);font-weight:600;letter-spacing:.22em;
+    color:rgba(59,58,51,.5);text-transform:uppercase;padding-left:6px;
   }
-  .pill.score{flex:1;justify-content:center;min-width:0;overflow:hidden}
-  .pill .ic{font-size:14px;opacity:.75}
-  .pill.hi b{color:#C9761F}
-  @media (max-width:429px){ #hiPill{display:none} }
-  .broke{display:flex;gap:3px;align-items:center}
-  .broke i{width:14px;height:16px;display:block;flex:none;opacity:.25;
-    background:#C9761F;
-    clip-path:polygon(50% 0,78% 18%,92% 48%,86% 78%,62% 98%,38% 98%,14% 78%,8% 48%,22% 18%)}
-  .broke i.out{opacity:1;background:#D8483C}
-  .broke b{font-size:14px;font-weight:600;color:#D8483C;margin-left:1px}
-
   .btn{
     width:38px;height:38px;flex:none;border:0;border-radius:50%;
-    background:rgba(255,255,255,.82);color:#36302A;text-decoration:none;
-    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-    box-shadow:0 4px 14px rgba(54,48,42,.16);
+    background:linear-gradient(170deg,#FBF9F3,#DAD5C8);color:#3B3A33;text-decoration:none;
+    box-shadow:0 2px 0 rgba(255,255,255,.75) inset,0 3px 7px rgba(60,56,44,.3);
     display:grid;place-items:center;cursor:pointer;transition:transform .12s;
   }
   .btn:active{transform:scale(.9)}
@@ -69,15 +56,21 @@
   #pause[disabled]{opacity:.35;pointer-events:none}
 
   /* ── двор ── */
-  .yard{flex:1;min-height:0;position:relative;margin-top:8px;
-    border-radius:20px;overflow:hidden;box-shadow:inset 0 2px 12px rgba(54,48,42,.1)}
+  /* экран: утоплен в тёмную рамку, как стекло в корпусе */
+  /* Экран широкий, как у настоящей игрушки: 4:3. На вытянутом в столбик
+     экране доски вставали почти вертикально — никакого веера. Свободный
+     пластик уходит вниз, под экран, а кнопки прижаты к нижнему краю. */
+  .yard{flex:0 1 auto;width:100%;aspect-ratio:4/3;min-height:0;position:relative;margin-top:8px;
+    border-radius:12px;overflow:hidden;background:var(--lcd);
+    box-shadow:0 0 0 3px #5E6353,0 0 0 5px rgba(255,255,255,.55),
+               inset 0 2px 14px rgba(40,48,34,.3)}
   canvas{display:block;width:100%;height:100%;touch-action:none}
 
   .flash{
     position:absolute;left:50%;top:14%;transform:translateX(-50%) scale(.8);
-    background:rgba(255,255,255,.95);border-radius:999px;padding:8px 20px;
-    font-size:clamp(16px,4.8vw,22px);font-weight:600;color:#36302A;white-space:nowrap;
-    box-shadow:0 8px 20px rgba(54,48,42,.22);opacity:0;pointer-events:none;
+    background:rgba(30,35,24,.86);border-radius:10px;padding:7px 18px;
+    font-size:clamp(16px,4.8vw,22px);font-weight:600;color:#D9E4CB;white-space:nowrap;
+    letter-spacing:.06em;opacity:0;pointer-events:none;
   }
   .flash.go{animation:fl 1.6s ease-out forwards}
   @keyframes fl{
@@ -90,40 +83,49 @@
   .count{
     position:absolute;inset:0;z-index:9;display:none;
     align-items:center;justify-content:center;pointer-events:none;
-    background:rgba(143,201,232,.4);
-    font-size:clamp(64px,22vw,120px);font-weight:600;color:#fff;
-    text-shadow:0 6px 22px rgba(54,48,42,.4);
+    background:rgba(94,99,83,.35);
+    font-size:clamp(64px,22vw,120px);font-weight:600;color:#F4F2E8;
+    text-shadow:0 6px 22px rgba(30,35,24,.5);
   }
   .count.on{display:flex}
   .count span{animation:tick .6s ease-out}
   @keyframes tick{0%{transform:scale(1.5);opacity:0}30%{opacity:1}100%{transform:scale(1);opacity:1}}
 
+  .stamp{
+    flex:none;text-align:center;margin-top:9px;
+    font-size:clamp(10px,2.9vw,13px);font-weight:600;letter-spacing:.3em;
+    text-transform:uppercase;color:rgba(59,58,51,.34);
+  }
+  @media (max-height:430px){ .stamp{display:none} }
+
   /* ── пульт: четыре кнопки под большими пальцами ──
      Тыкать в верхний угол вытянутого экрана неудобно, да и рука
      закрывает тот самый жёлоб, за которым следишь. */
   .pad{
-    flex:none;display:flex;align-items:stretch;gap:8px;margin-top:8px;
-    height:clamp(96px,16vh,124px);
+    flex:1 1 auto;display:flex;align-items:stretch;gap:8px;
+    margin-top:auto;padding-top:10px;
+    min-height:clamp(96px,16vh,124px);max-height:52vh;
   }
-  .pad .side{display:flex;flex-direction:column;gap:6px;width:clamp(74px,22vw,104px)}
+  .pad .side{display:flex;flex-direction:column;gap:8px;width:clamp(74px,27vw,132px)}
   .pad .mid{flex:1;min-width:0;display:grid;place-items:center;
-    font-size:13px;font-weight:600;color:rgba(54,48,42,.45);text-align:center;line-height:1.3}
-  .pad .mid b{display:block;font-size:22px;color:#C9761F}
+    font-size:13px;font-weight:600;color:rgba(59,58,51,.5);text-align:center;line-height:1.3}
+  .pad .mid b{display:block;font-size:22px;color:#B32E22}
+  /* красные кнопки, как на той железке */
   .pad button{
-    flex:1;border:0;border-radius:16px;cursor:pointer;
-    background:rgba(255,255,255,.82);color:#8A7A66;
-    box-shadow:0 4px 14px rgba(54,48,42,.14);
+    flex:1;border:0;border-radius:18px;cursor:pointer;
+    background:linear-gradient(170deg,#E0574A,#B32E22);color:#FFE9E4;
+    box-shadow:0 2px 0 rgba(255,255,255,.3) inset,0 4px 10px rgba(90,25,18,.4);
     display:grid;place-items:center;transition:background .12s,transform .1s,color .12s;
   }
   .pad button svg{width:50%;max-width:34px;height:auto;fill:none;stroke:currentColor;
     stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
   .pad button:active{transform:scale(.95)}
-  .pad button.on{background:linear-gradient(160deg,#F2B544,#E08A2A);color:#4A2E00;
-    box-shadow:0 5px 16px rgba(224,138,42,.45)}
+  .pad button.on{background:linear-gradient(170deg,#FF8E6E,#D8402F);color:#fff;
+    box-shadow:0 0 0 3px rgba(255,255,255,.55),0 5px 14px rgba(150,40,28,.5)}
   /* лёжа высоты мало, зато ширины вдоволь: пары кнопок встают в ряд,
      иначе каждая выходит в 39 пикселей — пальцем не попасть */
   @media (max-height:430px){
-    .pad{height:clamp(58px,17vh,74px);margin-top:6px}
+    .pad{flex:none;height:clamp(58px,17vh,74px);max-height:none;padding-top:6px}
     .pad .side{flex-direction:row;width:clamp(148px,33vw,230px)}
     .pad .mid{font-size:11px}
     .pad .mid b{font-size:17px}
@@ -139,7 +141,7 @@
 
   .veil{
     position:fixed;inset:0;z-index:10;display:flex;
-    background:rgba(143,201,232,.52);
+    background:rgba(120,126,106,.55);
     -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
     transition:opacity .28s;padding:15px;
     overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
@@ -147,45 +149,45 @@
   .veil.hidden{opacity:0;pointer-events:none}
   .panel{
     width:100%;max-width:400px;text-align:center;margin:auto;flex:none;
-    background:rgba(255,255,255,.95);border-radius:26px;padding:20px 18px 24px;
-    box-shadow:0 18px 44px rgba(54,48,42,.26);
+    background:#F6F4EC;border-radius:22px;padding:20px 18px 24px;
+    box-shadow:0 18px 44px rgba(59,58,51,.26);
   }
   .panel h1{font-size:clamp(23px,6.6vw,30px);font-weight:600}
-  .panel .ru{font-size:13.5px;color:rgba(54,48,42,.55);margin-top:2px}
+  .panel .ru{font-size:13.5px;color:rgba(59,58,51,.55);margin-top:2px}
 
   .modes{
     display:flex;gap:6px;margin-top:11px;
-    background:rgba(54,48,42,.07);border-radius:14px;padding:4px;
+    background:rgba(59,58,51,.07);border-radius:14px;padding:4px;
   }
   .modes button{
     flex:1;border:0;border-radius:10px;cursor:pointer;padding:8px 6px;
     font-family:inherit;font-size:14.5px;font-weight:600;
-    background:none;color:rgba(54,48,42,.55);transition:background .2s,color .2s;
+    background:none;color:rgba(59,58,51,.55);transition:background .2s,color .2s;
   }
-  .modes button.on{background:linear-gradient(160deg,#F2B544,#E08A2A);color:#4A2E00;
-    box-shadow:0 4px 12px rgba(224,138,42,.35)}
+  .modes button.on{background:linear-gradient(160deg,#E0574A,#B32E22);color:#FFF1EE;
+    box-shadow:0 4px 12px rgba(179,46,34,.35)}
   .modes button:active{transform:scale(.96)}
 
-  .tip{margin-top:11px;font-size:13.5px;line-height:1.55;color:rgba(54,48,42,.7);
-    background:rgba(242,181,68,.14);border-radius:14px;padding:11px 12px;text-align:left}
-  .tip b{color:#36302A;font-weight:600}
+  .tip{margin-top:11px;font-size:13.5px;line-height:1.55;color:rgba(59,58,51,.7);
+    background:rgba(224,87,74,.14);border-radius:14px;padding:11px 12px;text-align:left}
+  .tip b{color:#3B3A33;font-weight:600}
   .tip .row{display:flex;gap:9px;margin-top:7px}
   .tip .row:first-child{margin-top:0}
   .tip .k{flex:none;width:20px;text-align:center}
 
   .board{margin-top:12px;text-align:left;font-variant-numeric:tabular-nums}
-  .board .h{font-size:11px;letter-spacing:.14em;color:rgba(54,48,42,.4);
+  .board .h{font-size:11px;letter-spacing:.14em;color:rgba(59,58,51,.4);
     text-transform:uppercase;margin-bottom:6px;text-align:center}
   .board .one{display:none;text-align:center;font-size:13px;
-    color:rgba(54,48,42,.6);padding:5px 0}
-  .board .one b{color:#C9761F;font-weight:600}
+    color:rgba(59,58,51,.6);padding:5px 0}
+  .board .one b{color:#B32E22;font-weight:600}
   .board ol{list-style:none;counter-reset:r}
   .board li{counter-increment:r;display:flex;align-items:baseline;gap:8px;
     padding:5px 9px;border-radius:9px;font-size:14.5px}
-  .board li:nth-child(odd){background:rgba(54,48,42,.05)}
-  .board li.me{background:rgba(242,181,68,.3)}
+  .board li:nth-child(odd){background:rgba(59,58,51,.05)}
+  .board li.me{background:rgba(224,87,74,.3)}
   .board li::before{content:counter(r);width:14px;flex:none;
-    color:rgba(54,48,42,.38);font-size:12px}
+    color:rgba(59,58,51,.38);font-size:12px}
   .board li .nm{flex:1;min-width:0;font-weight:600;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .board li .sc{flex:none;font-weight:600}
@@ -193,8 +195,8 @@
   .big{
     margin:16px auto 0;width:min(38vw,132px);aspect-ratio:1;border:0;border-radius:50%;
     cursor:pointer;display:grid;place-items:center;font-size:min(16vw,54px);line-height:1;
-    background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.98),rgba(255,255,255,.3) 32%,rgba(242,181,68,.6) 60%,rgba(224,138,42,.45) 82%,rgba(255,255,255,.9) 100%);
-    box-shadow:0 16px 40px rgba(54,48,42,.28),inset 0 0 30px rgba(255,255,255,.6);
+    background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.98),rgba(255,255,255,.3) 32%,rgba(224,87,74,.6) 60%,rgba(179,46,34,.45) 82%,rgba(255,255,255,.9) 100%);
+    box-shadow:0 16px 40px rgba(59,58,51,.28),inset 0 0 30px rgba(255,255,255,.6);
     animation:float 3.6s ease-in-out infinite;
   }
   @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
@@ -203,23 +205,23 @@
   .score2 .n{font-size:clamp(38px,12vw,54px);font-weight:600;line-height:.95;
     font-variant-numeric:tabular-nums}
   .score2 .u{font-size:16px;font-weight:500;opacity:.5;padding-bottom:5px}
-  .was{margin-top:6px;font-size:14px;color:rgba(54,48,42,.6)}
-  .was b{color:#C9761F}
+  .was{margin-top:6px;font-size:14px;color:rgba(59,58,51,.6)}
+  .was b{color:#B32E22}
 
-  .newtop{margin-top:13px;background:rgba(242,181,68,.16);
-    border:1px solid rgba(224,138,42,.35);border-radius:14px;padding:11px}
-  .newtop .say{font-size:13px;color:#8A5410;margin-bottom:8px}
+  .newtop{margin-top:13px;background:rgba(224,87,74,.16);
+    border:1px solid rgba(179,46,34,.35);border-radius:14px;padding:11px}
+  .newtop .say{font-size:13px;color:#8A2A20;margin-bottom:8px}
   .newtop .line{display:flex;gap:8px;justify-content:center}
   .newtop input{
     flex:1;min-width:0;max-width:220px;text-align:center;font-family:inherit;
     font-size:19px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-    color:#8A5410;background:rgba(255,255,255,.8);
-    border:1px solid rgba(224,138,42,.45);border-radius:10px;padding:8px 6px;outline:none;
+    color:#8A2A20;background:rgba(255,255,255,.8);
+    border:1px solid rgba(179,46,34,.45);border-radius:10px;padding:8px 6px;outline:none;
   }
   .newtop button{
     border:0;border-radius:10px;padding:8px 16px;cursor:pointer;
     font-family:inherit;font-size:15px;font-weight:600;
-    background:linear-gradient(160deg,#F2B544,#E08A2A);color:#4A2E00;
+    background:linear-gradient(160deg,#E0574A,#B32E22);color:#FFF1EE;
   }
   .newtop button:active{transform:scale(.95)}
 
@@ -264,9 +266,7 @@
 <body>
 
 <div class="top">
-  <div class="pill hi" id="hiPill"><span class="ic">🏆</span><b id="hi">0</b></div>
-  <div class="pill score"><span class="ic">🥚</span><b id="score">0</b></div>
-  <div class="pill"><span class="broke" id="broke"></span></div>
+  <div class="plate">ЛОВЕЦ ЯИЦ</div>
   <button class="btn" id="pause" aria-label="Пауза" disabled>
     <svg class="on" viewBox="0 0 24 24"><path d="M9 5v14"/><path d="M15 5v14"/></svg>
     <svg class="off" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4l13 8-13 8z"/></svg>
@@ -331,6 +331,9 @@
     </div>
   </div>
 </div>
+
+<!-- шелкография на корпусе под стеклом, как на той железке -->
+<div class="stamp">игра на экране</div>
 
 <div class="pad" id="pad">
   <div class="side">
@@ -469,38 +472,48 @@
      к ближнему концу, где его и надо поймать. */
   const hub = () => ({ x: W / 2, y: H * 0.80 });
 
-  /* Раскладка как у «Электроники»: четыре места крестом вокруг зверя —
-     верхние дальше от него и выше, нижние ближе и ниже. Разброс ограничен
-     ещё и шириной экрана: на телефоне иначе корзины упираются в края и
-     жёлобу просто неоткуда идти. */
-  const spread = (up) => up ? Math.min(U() * 0.75, W * 0.26)
-                            : Math.min(U() * 0.52, W * 0.18);
+  /* Раскладка снята с настольной «Электроники»: зверь внизу по центру, от
+     него веером расходятся четыре доски — верхние короче и выше, нижние
+     длиннее и ниже. Доли ЭКРАНА, а не производные от роста зверя: только
+     так наклон получается тот самый, пологий. Экран для этого держится
+     широким (см. aspect-ratio у .yard) — на вытянутом в столбик доски
+     вставали почти вертикально, и веера не было. */
+  const PLANK = [
+    { sx: 0.035, sy: 0.17, ex: 0.325, ey: 0.46 },   // верхняя на стороне
+    { sx: 0.035, sy: 0.45, ex: 0.395, ey: 0.70 }    // нижняя на стороне
+  ];
 
-  function spot(i) {
-    const u = U(), h = hub();
+  /* Корзины расставлены по полю в пропорции 4:3 — как на стекле настоящей
+     игрушки. Иначе на очень широком экране (телефон лёжа) они разъезжаются
+     к краям, и зверю приходится тянуть лапу через полдвора. Дальний конец
+     доски при этом уходит к самому краю стекла: доска длиннее, скат
+     положе — ровно как в оригинале. */
+  const SW = () => Math.min(W, H * 4 / 3);
+  const SX = () => (W - SW()) / 2;
+
+  function plank(i) {
     const left = i < 2, up = i % 2 === 0;
-    return { x: h.x + (left ? -1 : 1) * spread(up),
-             y: h.y - (up ? u * 0.70 : u * 0.05) };
+    const L = PLANK[up ? 0 : 1];
+    const m = v => left ? v : 1 - v;
+    return { sx: m(L.sx) * W, sy: L.sy * H,
+             ex: SX() + m(L.ex) * SW(), ey: L.ey * H, left: left, up: up };
   }
 
-  /* Жёлоб — ПРЯМАЯ доска: контрольная точка ровно посередине, и квадратичная
-     кривая вырождается в отрезок. Верхняя доска на стороне выше нижней и в
-     начале, и в конце, а обе прямые — значит, одна идёт выше другой на всём
-     протяжении, и пересечься они не могут. Наклон задан длиной доски: на
-     широком экране скат пологий, как у «Электроники», на узком круче, но
-     доска остаётся длинной и читается как горка, а не как палка. */
+  // корзина стоит под нижним концом доски — яйцо скатывается прямо в неё
+  function spot(i) {
+    const c = plank(i);
+    return { x: c.ex, y: c.ey + U() * 0.1 };
+  }
+
+  /* Доска — ОТРЕЗОК: контрольная точка ровно посередине, и квадратичная
+     кривая вырождается в прямую. Верхняя доска на стороне выше нижней и в
+     начале, и в конце, а обе прямые — значит, выше на всём протяжении, и
+     пересечься они не могут ни на каком экране. */
   function chute(i) {
-    const u = U(), left = i < 2, up = i % 2 === 0;
-    const e = spot(i);
-    const sx = left ? W * 0.035 : W * 0.965;
-    const ex = e.x, ey = e.y - u * 0.12;
-    const run = Math.abs(ex - sx);
-    const drop = Math.max(H * 0.28, Math.min(H * 0.42, run * 1.15));
-    const sy = Math.max(H * 0.07, ey - drop);
-    return {
-      sx: sx, sy: sy, ex: ex, ey: ey, left: left, up: up,
-      cx: (sx + ex) / 2, cy: (sy + ey) / 2
-    };
+    const c = plank(i);
+    c.cx = (c.sx + c.ex) / 2;
+    c.cy = (c.sy + c.ey) / 2;
+    return c;
   }
 
   // точка на дуге жёлоба
@@ -560,9 +573,9 @@
     Array.prototype.forEach.call($('modes').children,
       b => b.classList.toggle('on', b.dataset.m === mode));
     $('tipMiss').textContent = 'Разбил ' + CFG.misses + ' — игра кончена';
+    applySkin();
     loadScores();
     if (!S.run) S.broke = 0;
-    hud();
     drawBoard(-1);
   }
 
@@ -604,7 +617,6 @@
       sh.t += dt;
       if (sh.t > 0.6) S.shells.splice(i, 1);
     }
-    hud();
   }
 
   /* Главное правило честности: два яйца не могут прилететь почти
@@ -658,7 +670,6 @@
       if (S.broke >= CFG.misses) { finish(); return; }
       flash('Ой!');
     }
-    hud();
   }
 
   function moveTo(i) {
@@ -700,7 +711,6 @@
     }
     drawBoard(-1);
     $('over').classList.remove('hidden');
-    hud();
   }
 
   function saveTop() {
@@ -716,391 +726,392 @@
     sNice();
   }
 
-  function hud() {
-    $('score').textContent = S.score;
-    $('hi').textContent = S.best;
-    const box = $('broke');
-    const n = CFG.misses;
-    const key = n + ':' + S.broke;
-    if (box.dataset.k !== key) {
-      box.dataset.k = key;
-      box.innerHTML = '';
-      if (n <= 5) {
-        for (let i = 0; i < n; i++) {
-          const el = document.createElement('i');
-          if (i < S.broke) el.className = 'out';
-          box.appendChild(el);
-        }
-      } else {
-        box.appendChild(document.createElement('i'));
-        const b = document.createElement('b');
-        b.textContent = S.broke + '/' + n;
-        box.appendChild(b);
-      }
+
+  /* ── рисование ──────────────────────────────────────────────────
+     Вид настольной «Электроники»: жидкокристаллический экран, на котором
+     ВСЁ напечатано заранее бледными погашенными сегментами, а то, что
+     сейчас происходит, горит тёмным. Поэтому дорожка каждого яйца и три
+     свободных угла видны всегда — гадать, откуда что катится, не нужно,
+     как не нужно было и на той железке.                                */
+
+  const SKINS = {
+    retro: { lcd: '#A3B393', ghost: 'rgba(30,35,24,.11)', ink: '#1E2318',
+             soft: '#47503C', case1: '#E6E2D8', case2: '#C9C4B6' },
+    kind:  { lcd: '#C6DBB0', ghost: 'rgba(30,35,24,.10)', ink: '#26301F',
+             soft: '#55683F', case1: '#EFEADD', case2: '#D2CCBC' }
+  };
+  let P = SKINS.retro;
+
+  function applySkin() {
+    P = SKINS[mode] || SKINS.retro;
+    document.documentElement.style.setProperty('--lcd', P.lcd);
+    document.documentElement.style.setProperty('--case1', P.case1);
+    document.documentElement.style.setProperty('--case2', P.case2);
+  }
+
+  /* ── семисегментные цифры ── */
+  const SEG = {
+    0: 0b1111110, 1: 0b0110000, 2: 0b1101101, 3: 0b1111001, 4: 0b0110011,
+    5: 0b1011011, 6: 0b1011111, 7: 0b1110000, 8: 0b1111111, 9: 0b1111011
+  };
+  // a b c d e f g — порядок битов слева направо в числах выше
+  function bar(x, y, w, t, horiz) {
+    const h = t / 2;
+    ctx.beginPath();
+    if (horiz) {
+      ctx.moveTo(x + h, y - h); ctx.lineTo(x + w - h, y - h);
+      ctx.lineTo(x + w, y); ctx.lineTo(x + w - h, y + h);
+      ctx.lineTo(x + h, y + h); ctx.lineTo(x, y);
+    } else {
+      ctx.moveTo(x - h, y + h); ctx.lineTo(x - h, y + w - h);
+      ctx.lineTo(x, y + w); ctx.lineTo(x + h, y + w - h);
+      ctx.lineTo(x + h, y + h); ctx.lineTo(x, y);
+    }
+    ctx.closePath(); ctx.fill();
+  }
+
+  function digit(x, y, h, n) {
+    const w = h * 0.58, t = Math.max(1.5, h * 0.13), m = n == null ? 0 : SEG[n];
+    const put = (bit, fx, fy, len, horiz) => {
+      ctx.fillStyle = (m >> bit) & 1 ? P.ink : P.ghost;
+      bar(fx, fy, len, t, horiz);
+    };
+    put(6, x + t * 0.6, y, w - t * 1.2, true);                     // a
+    put(5, x + w - t * 0.6, y + t * 0.6, h / 2 - t * 1.2, false);  // b
+    put(4, x + w - t * 0.6, y + h / 2 + t * 0.6, h / 2 - t * 1.2, false); // c
+    put(3, x + t * 0.6, y + h, w - t * 1.2, true);                 // d
+    put(2, x + t * 0.6, y + h / 2 + t * 0.6, h / 2 - t * 1.2, false); // e
+    put(1, x + t * 0.6, y + t * 0.6, h / 2 - t * 1.2, false);      // f
+    put(0, x + t * 0.6, y + h / 2, w - t * 1.2, true);             // g
+  }
+
+  // число справа налево: ведущие разряды остаются погашенными, как на табло
+  function digits(rx, y, h, value, cells) {
+    const w = h * 0.58, gap = h * 0.18;
+    const s = String(Math.max(0, Math.round(value)));
+    for (let i = 0; i < cells; i++) {
+      const ch = s.length - 1 - i;
+      digit(rx - (i + 1) * w - i * gap, y, h,
+            ch >= 0 ? +s[ch] : (i < s.length ? 0 : null));
     }
   }
 
-  /* ── рисование ──────────────────────────────────────────────── */
+  /* ── экранные мелочи ── */
+  function eggShape(x, y, r, spin) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(spin) * 0.3);
+    ctx.beginPath(); ctx.ellipse(0, 0, r * 0.78, r, 0, 0, 6.3); ctx.fill();
+    ctx.restore();
+  }
+
+  function basketShape(x, y, u) {
+    const w = u * 0.3, h = u * 0.26;
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, y - h / 2);
+    ctx.lineTo(x + w / 2, y - h / 2);
+    ctx.lineTo(x + w * 0.36, y + h / 2);
+    ctx.lineTo(x - w * 0.36, y + h / 2);
+    ctx.closePath(); ctx.fill();
+    ctx.lineWidth = Math.max(1.4, u * 0.022);
+    ctx.beginPath();                                   // дужка
+    ctx.arc(x, y - h / 2, w * 0.36, Math.PI, 0);
+    ctx.stroke();
+  }
+
+  function henShape(x, y, u, busy) {
+    const r = u * 0.07;
+    ctx.beginPath();                                   // туловище
+    ctx.ellipse(x, y, r * 1.2, r * 0.95, busy ? 0.35 : 0, 0, 6.3);
+    ctx.fill();
+    const hx = x + r * (busy ? 0.55 : 0.85), hy = y - r * (busy ? 0.45 : 0.95);
+    ctx.beginPath(); ctx.arc(hx, hy, r * 0.5, 0, 6.3); ctx.fill();
+    ctx.beginPath();                                   // гребешок
+    ctx.arc(hx - r * 0.16, hy - r * 0.52, r * 0.17, 0, 6.3);
+    ctx.arc(hx + r * 0.14, hy - r * 0.56, r * 0.18, 0, 6.3);
+    ctx.fill();
+    ctx.beginPath();                                   // хвост
+    ctx.moveTo(x - r * 1.0, y - r * 0.25);
+    ctx.lineTo(x - r * 1.55, y - r * 0.95);
+    ctx.lineTo(x - r * 0.95, y + r * 0.3);
+    ctx.closePath(); ctx.fill();
+  }
+
+  function chickShape(x, y, u, t) {
+    const r = u * 0.062, hop = Math.abs(Math.sin(t * 7)) * r * 0.5;
+    ctx.beginPath(); ctx.ellipse(x, y - hop, r, r * 0.92, 0, 0, 6.3); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + r * 0.7, y - hop - r * 0.85, r * 0.6, 0, 6.3); ctx.fill();
+    ctx.beginPath();                                   // клюв
+    ctx.moveTo(x + r * 1.25, y - hop - r * 0.9);
+    ctx.lineTo(x + r * 2, y - hop - r * 0.72);
+    ctx.lineTo(x + r * 1.25, y - hop - r * 0.5);
+    ctx.closePath(); ctx.fill();
+    ctx.lineWidth = Math.max(1.2, r * 0.3);            // лапки
+    ctx.beginPath();
+    ctx.moveTo(x - r * 0.3, y - hop + r * 0.8); ctx.lineTo(x - r * 0.3, y + r * 1.25);
+    ctx.moveTo(x + r * 0.4, y - hop + r * 0.8); ctx.lineTo(x + r * 0.4, y + r * 1.25);
+    ctx.stroke();
+  }
+
+  /* ── курятник на дальнем конце доски ── */
+  function coop(i, u) {
+    const c = chute(i);
+    const x = c.sx + (c.left ? u * 0.11 : -u * 0.11), y = c.sy - u * 0.2;
+    const w = u * 0.42, h = u * 0.3;
+
+    ctx.fillStyle = P.ghost;
+    ctx.beginPath();                                   // крыша
+    ctx.moveTo(x - w * 0.62, y);
+    ctx.lineTo(x, y - h * 0.62);
+    ctx.lineTo(x + w * 0.62, y);
+    ctx.closePath(); ctx.fill();
+    ctx.fillRect(x - w * 0.45, y, w * 0.9, h * 0.78);  // стена
+    ctx.fillStyle = P.lcd;
+    ctx.fillRect(x - w * 0.33, y + h * 0.1, w * 0.66, h * 0.6);   // проём
+
+    const busy = S.hens[i] > 0;
+    ctx.fillStyle = busy ? P.ink : P.ghost;
+    ctx.strokeStyle = busy ? P.ink : P.ghost;
+    henShape(x, y + h * 0.42, u, busy);
+  }
+
+  /* ── доска ── */
+  function rail(i, u) {
+    const c = chute(i);
+    const dx = c.ex - c.sx, dy = c.ey - c.sy;
+    const L = Math.hypot(dx, dy) || 1;
+    const nx = -dy / L, ny = dx / L;                   // нормаль к доске
+    const th = u * 0.055;
+
+    ctx.fillStyle = P.ghost;
+    ctx.beginPath();
+    ctx.moveTo(c.sx + nx * th, c.sy + ny * th);
+    ctx.lineTo(c.ex + nx * th, c.ey + ny * th);
+    ctx.lineTo(c.ex - nx * th * 0.4, c.ey - ny * th * 0.4);
+    ctx.lineTo(c.sx - nx * th * 0.4, c.sy - ny * th * 0.4);
+    ctx.closePath(); ctx.fill();
+
+    ctx.lineWidth = Math.max(1.6, u * 0.03);           // подпорки
+    ctx.strokeStyle = P.ghost;
+    ctx.lineCap = 'round';
+    [0.38, 0.76].forEach(t => {
+      const p = along(c, t);
+      ctx.beginPath();
+      ctx.moveTo(p.x + nx * th, p.y + ny * th);
+      ctx.lineTo(p.x + (c.left ? -u * 0.04 : u * 0.04), p.y + u * 0.2);
+      ctx.stroke();
+    });
+
+    // станции, по которым яйцо едет: на ЖК они напечатаны всегда
+    for (let k = 1; k <= 4; k++) {
+      const p = along(c, k / 5);
+      ctx.fillStyle = P.ghost;
+      eggShape(p.x, p.y, u * 0.058, 0);
+    }
+  }
+
+  /* ── лис с корзиной. Свой рисунок: острые уши, клином морда и пышный
+     хвост со светлым кончиком — чтобы силуэт читался с одного взгляда ── */
+  function fox(u) {
+    const here = S.moveT > 0 ? S.posT : S.pos;
+    const p = spot(here);
+    const s = here < 2 ? -1 : 1;                       // куда развёрнут
+    const bx = W / 2, by = H * 0.78;
+    const r = u * 0.21;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // хвост: уходит назад и вверх, виден целиком за спиной
+    const tx = bx - s * r * 0.45, ty = by + r * 0.5;
+    ctx.fillStyle = P.ink;
+    ctx.beginPath();
+    ctx.moveTo(tx, ty - r * 0.45);
+    ctx.bezierCurveTo(tx - s * r * 1.35, ty - r * 0.5,
+                      tx - s * r * 1.75, ty - r * 1.15,
+                      tx - s * r * 1.35, ty - r * 1.75);
+    ctx.bezierCurveTo(tx - s * r * 1.0, ty - r * 1.1,
+                      tx - s * r * 0.5, ty - r * 0.5,
+                      tx + s * r * 0.1, ty + r * 0.2);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = P.lcd;                             // светлый кончик
+    ctx.beginPath();
+    ctx.ellipse(tx - s * r * 1.33, ty - r * 1.62, r * 0.3, r * 0.22,
+                s > 0 ? 0.9 : -0.9, 0, 6.3);
+    ctx.fill();
+
+    ctx.fillStyle = P.ink;
+    ctx.strokeStyle = P.ink;
+
+    // лапы
+    ctx.lineWidth = r * 0.24;
+    ctx.beginPath();
+    ctx.moveTo(bx - r * 0.3, by + r * 0.72); ctx.lineTo(bx - r * 0.3, by + r * 1.15);
+    ctx.moveTo(bx + r * 0.3, by + r * 0.72); ctx.lineTo(bx + r * 0.3, by + r * 1.15);
+    ctx.stroke();
+
+    // туловище, чуть наклонено в сторону корзины
+    ctx.beginPath();
+    ctx.moveTo(bx - r * 0.55, by + r * 0.85);
+    ctx.quadraticCurveTo(bx - r * 0.72 + s * r * 0.1, by - r * 0.35,
+                         bx + s * r * 0.22, by - r * 0.62);
+    ctx.quadraticCurveTo(bx + r * 0.74 + s * r * 0.1, by - r * 0.3,
+                         bx + r * 0.55, by + r * 0.85);
+    ctx.closePath(); ctx.fill();
+
+    // лапа к корзине — с изгибом в локте, а не палкой
+    ctx.lineWidth = r * 0.2;
+    const ax = bx + s * r * 0.38, ay = by - r * 0.38;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.quadraticCurveTo((ax + p.x) / 2 + s * r * 0.4, (ay + p.y) / 2 + r * 0.35,
+                         p.x, p.y + u * 0.04);
+    ctx.stroke();
+
+    // голова
+    const hx = bx + s * r * 0.26, hy = by - r * 1.0;
+    ctx.beginPath();                                   // уши торчком
+    ctx.moveTo(hx - r * 0.48, hy - r * 0.08);
+    ctx.lineTo(hx - r * 0.52, hy - r * 0.95);
+    ctx.lineTo(hx + r * 0.02, hy - r * 0.4);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(hx + r * 0.48, hy - r * 0.08);
+    ctx.lineTo(hx + r * 0.52, hy - r * 0.95);
+    ctx.lineTo(hx - r * 0.02, hy - r * 0.4);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();                                   // череп и морда клином
+    ctx.moveTo(hx - s * r * 0.44, hy - r * 0.3);
+    ctx.quadraticCurveTo(hx - s * r * 0.5, hy + r * 0.42, hx + s * r * 0.08, hy + r * 0.44);
+    ctx.lineTo(hx + s * r * 1.08, hy + r * 0.2);
+    ctx.lineTo(hx + s * r * 0.3, hy - r * 0.42);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = P.lcd;                             // глаз
+    ctx.beginPath(); ctx.arc(hx + s * r * 0.1, hy - r * 0.08, r * 0.1, 0, 6.3); ctx.fill();
+
+    ctx.fillStyle = P.ink;
+    ctx.strokeStyle = P.ink;
+    basketShape(p.x, p.y, u);
+  }
+
+  /* ── заяц в окошке: выглядывает, когда идёт хорошая серия ── */
+  function hare(u) {
+    const on = S.run && S.streak >= 8;
+    const x = W / 2, y = H * 0.4, r = Math.min(u * 0.12, H * 0.06);
+    ctx.fillStyle = P.ghost;
+    ctx.fillRect(x - r * 1.5, y - r * 1.7, r * 3, r * 3.2);
+    ctx.fillStyle = P.lcd;
+    ctx.fillRect(x - r * 1.22, y - r * 1.42, r * 2.44, r * 2.64);
+    ctx.fillStyle = on ? P.ink : P.ghost;
+    ctx.beginPath();
+    ctx.ellipse(x - r * 0.4, y - r * 0.68, r * 0.19, r * 0.62, 0.14, 0, 6.3);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(x + r * 0.4, y - r * 0.68, r * 0.19, r * 0.62, -0.14, 0, 6.3);
+    ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y + r * 0.3, r * 0.6, 0, 6.3); ctx.fill();
+    ctx.fillStyle = P.lcd;
+    ctx.beginPath();
+    ctx.arc(x - r * 0.23, y + r * 0.16, r * 0.1, 0, 6.3);
+    ctx.arc(x + r * 0.23, y + r * 0.16, r * 0.1, 0, 6.3);
+    ctx.fill();
+  }
+
+  /* ── табло: счёт и промахи одним блоком по центру верха, где
+     не мешают ни доскам, ни курятникам ── */
+  function panelTop(u) {
+    const n = Math.min(CFG.misses, 5);
+    // табло целиком должно влезать в ширину стекла: чем больше отметок,
+    // тем мельче цифры, иначе на узком экране последний разряд срезает
+    const h = Math.min(u * 0.3, H * 0.14, W * 0.86 / (n * 0.66 + 3.36));
+    const cw = h * 0.58, gap = h * 0.18;
+    const r = h * 0.3;
+    const marks = n * r * 2.2;
+    const score = 4 * cw + 3 * gap;
+    const x0 = (W - marks - h * 0.5 - score) / 2;
+    const y = H * 0.035;
+
+    for (let i = 0; i < n; i++) {
+      ctx.fillStyle = i < S.broke ? P.ink : P.ghost;
+      const x = x0 + r + i * r * 2.2, cy = y + h * 0.5;
+      eggShape(x, cy, r, 0);
+      if (i < S.broke) {                       // разбитое: трещина поперёк
+        ctx.strokeStyle = P.lcd;
+        ctx.lineWidth = Math.max(1.4, r * 0.22);
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(x - r * 0.8, cy + r * 0.1);
+        ctx.lineTo(x - r * 0.25, cy - r * 0.28);
+        ctx.lineTo(x + r * 0.1, cy + r * 0.22);
+        ctx.lineTo(x + r * 0.8, cy - r * 0.2);
+        ctx.stroke();
+      }
+    }
+    if (CFG.misses > 5) {
+      ctx.fillStyle = P.ink;
+      digits(x0 + marks + r * 1.6, y + h * 0.25, h * 0.5, S.broke, 1);
+    }
+    digits(W - x0, y, h, S.score, 4);
+  }
+
   function draw() {
     if (!W || !H) return;
     const u = U();
 
-    const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#9CD2EC');
-    sky.addColorStop(0.55, '#CDE9F5');
-    sky.addColorStop(1, '#E6F3D8');
-    ctx.fillStyle = sky;
+    ctx.fillStyle = P.lcd;
     ctx.fillRect(0, 0, W, H);
 
-    // солнце и облака: иначе верх экрана — пустая синева
-    const su = u * 0.17, sx = W * 0.82, sy = H * 0.07;
-    const glow = ctx.createRadialGradient(sx, sy, su * 0.4, sx, sy, su * 2.4);
-    glow.addColorStop(0, 'rgba(255,236,160,.55)');
-    glow.addColorStop(1, 'rgba(255,236,160,0)');
-    ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(sx, sy, su * 2.4, 0, 6.3); ctx.fill();
-    ctx.fillStyle = '#FFE48A';
-    ctx.beginPath(); ctx.arc(sx, sy, su, 0, 6.3); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.8)';
-    [[0.18, 0.07, 1], [0.52, 0.12, 0.72], [0.3, 0.26, 0.5]].forEach(c => {
-      const cx = W * c[0], cy = H * c[1], cs = u * 0.17 * c[2];
+    // бледная земля и забор — тоже печать на стекле
+    ctx.fillStyle = P.ghost;
+    ctx.fillRect(0, H * 0.93, W, H * 0.07);
+    ctx.lineWidth = Math.max(1.4, u * 0.02);
+    ctx.strokeStyle = P.ghost;
+    for (let x = u * 0.1; x < W; x += u * 0.17) {
       ctx.beginPath();
-      ctx.arc(cx, cy, cs * 0.62, 0, 6.3);
-      ctx.arc(cx + cs * 0.66, cy - cs * 0.2, cs * 0.8, 0, 6.3);
-      ctx.arc(cx + cs * 1.4, cy, cs * 0.56, 0, 6.3);
-      ctx.rect(cx, cy - cs * 0.1, cs * 1.4, cs * 0.7);
-      ctx.fill();
-    });
+      ctx.moveTo(x, H * 0.93); ctx.lineTo(x, H * 0.86);
+      ctx.stroke();
+    }
 
-    // холмик и трава
-    ctx.fillStyle = '#AFDC8E';
-    ctx.beginPath();
-    ctx.ellipse(W / 2, H * 1.06, W * 0.86, H * 0.3, 0, Math.PI, 0);
-    ctx.fill();
-    ctx.fillStyle = '#95CE72';
-    ctx.fillRect(0, H * 0.9, W, H * 0.1);
-
-    barn(u);
+    hare(u);
     for (let i = 0; i < 4; i++) rail(i, u);
     for (let i = 0; i < 4; i++) coop(i, u);
 
-    S.shells.forEach(sh => {
-      const k = sh.t / 0.6;
-      ctx.globalAlpha = Math.max(0, 1 - k);
-      ctx.fillStyle = '#FFF4DF';
-      for (let i = 0; i < 5; i++) {
-        const a = i / 5 * 6.283;
-        ctx.beginPath();
-        ctx.ellipse(sh.x + Math.cos(a) * u * 0.1 * (0.4 + k),
-                    sh.y + Math.sin(a) * u * 0.07 * (0.4 + k) + k * u * 0.1,
-                    u * 0.035, u * 0.025, a, 0, 6.3);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-    });
-
-    /* Метка на том месте, куда яйцо прикатится. Разглядывать, какой
-       скат куда ведёт, не нужно — цель подсвечена, и чем ближе яйцо,
-       тем ярче. Если корзина уже там, кольцо зелёное. */
+    // погашенные корзины в трёх свободных углах
     const here = S.moveT > 0 ? S.posT : S.pos;
-    S.eggs.forEach(e => {
-      const p = spot(e.c);
-      const k = Math.min(1, e.t * 1.25);
-      const mine = e.c === here;
-      ctx.lineWidth = u * (0.022 + k * 0.016);
-      ctx.strokeStyle = mine
-        ? 'rgba(96,180,86,' + (0.3 + k * 0.6).toFixed(2) + ')'
-        : 'rgba(224,138,42,' + (0.22 + k * 0.6).toFixed(2) + ')';
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, u * (0.26 - k * 0.07), 0, 6.3);
-      ctx.stroke();
-      if (!mine) {
-        ctx.fillStyle = 'rgba(224,138,42,' + (0.08 + k * 0.14).toFixed(2) + ')';
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, u * (0.26 - k * 0.07), 0, 6.3);
-        ctx.fill();
-      }
-    });
+    ctx.fillStyle = P.ghost;
+    ctx.strokeStyle = P.ghost;
+    for (let i = 0; i < 4; i++) if (i !== here) basketShape(spot(i).x, spot(i).y, u);
 
+    // яйца в пути
+    ctx.fillStyle = P.ink;
     S.eggs.forEach(e => {
       const pt = along(chute(e.c), e.t);
-      egg(pt.x, pt.y, u, e.t * 9 + e.ph);
+      eggShape(pt.x, pt.y, u * 0.075, e.t * 9 + e.ph);
     });
 
+    // скорлупа на земле
+    ctx.lineCap = 'round';
+    S.shells.forEach(sh => {
+      const k = Math.min(1, sh.t / 0.6);
+      ctx.strokeStyle = k > 0.7 && Math.floor(sh.t * 12) % 2 ? P.ghost : P.ink;
+      ctx.lineWidth = Math.max(1.5, u * 0.026);
+      const d = u * 0.07 * (0.4 + k);
+      ctx.beginPath();
+      ctx.arc(sh.x - d, sh.y + k * u * 0.06, u * 0.055, Math.PI * 1.05, Math.PI * 1.95);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(sh.x + d, sh.y + k * u * 0.06, u * 0.05, Math.PI * 1.1, Math.PI * 1.9);
+      ctx.stroke();
+    });
+
+    ctx.fillStyle = P.ink;
+    ctx.strokeStyle = P.ink;
     S.chicks.forEach(c => {
-      ctx.globalAlpha = Math.max(0, 1 - c.t / CFG.hatch);
-      chick(c.x, c.y, u, c.t);
-      ctx.globalAlpha = 1;
+      const k = c.t / CFG.hatch;
+      if (k > 0.75 && Math.floor(c.t * 10) % 2) return;   // мигает и гаснет
+      chickShape(c.x, c.y, u, c.t);
     });
 
-    coon(u);
-  }
-
-  // сарай в глубине: держит середину двора, чтобы взгляд не висел в пустоте
-  function barn(u) {
-    const bw = u * 0.5, bh = u * 0.42;
-    const x = W / 2, y = H * 0.62;
-    ctx.fillStyle = '#C97A4E';
-    ctx.beginPath();
-    ctx.moveTo(x - bw * 0.62, y - bh * 0.52);
-    ctx.lineTo(x, y - bh);
-    ctx.lineTo(x + bw * 0.62, y - bh * 0.52);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = '#E8A27A';
-    ctx.fillRect(x - bw * 0.5, y - bh * 0.52, bw, bh * 0.52);
-    ctx.fillStyle = '#B9643C';
-    ctx.fillRect(x - bw * 0.16, y - bh * 0.34, bw * 0.32, bh * 0.34);
-    ctx.strokeStyle = 'rgba(185,100,60,.55)';
-    ctx.lineWidth = Math.max(1.5, u * 0.012);
-    ctx.beginPath();
-    ctx.moveTo(x - bw * 0.16, y - bh * 0.3);
-    ctx.lineTo(x + bw * 0.16, y - bh * 0.12);
-    ctx.moveTo(x + bw * 0.16, y - bh * 0.3);
-    ctx.lineTo(x - bw * 0.16, y - bh * 0.12);
-    ctx.stroke();
-    ctx.fillStyle = '#F2E2C8';
-    ctx.beginPath();
-    ctx.arc(x, y - bh * 0.66, u * 0.06, 0, 6.3);
-    ctx.fill();
-  }
-
-  function rail(i, u) {
-    const c = chute(i);
-    ctx.lineCap = 'round';
-
-    // подпорки под доской — как у настольной «Электроники»
-    ctx.strokeStyle = '#A87B45';
-    ctx.lineWidth = u * 0.035;
-    [0.34, 0.72].forEach(t => {
-      const p = along(c, t);
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y + u * 0.09);
-      ctx.lineTo(p.x + (c.left ? -u * 0.05 : u * 0.05), p.y + u * 0.26);
-      ctx.stroke();
-    });
-
-    ctx.strokeStyle = '#C79A5E';
-    ctx.lineWidth = u * 0.115;
-    ctx.beginPath();
-    ctx.moveTo(c.sx, c.sy + u * 0.07);
-    ctx.quadraticCurveTo(c.cx, c.cy + u * 0.07, c.ex, c.ey + u * 0.07);
-    ctx.stroke();
-    ctx.strokeStyle = '#E3BE8A';
-    ctx.lineWidth = u * 0.062;
-    ctx.beginPath();
-    ctx.moveTo(c.sx, c.sy + u * 0.05);
-    ctx.quadraticCurveTo(c.cx, c.cy + u * 0.05, c.ex, c.ey + u * 0.05);
-    ctx.stroke();
-    // бортик на конце, чтобы было видно, где ловить
-    ctx.strokeStyle = '#A87B45';
-    ctx.lineWidth = u * 0.035;
-    ctx.beginPath();
-    ctx.moveTo(c.ex, c.ey + u * 0.1);
-    ctx.lineTo(c.ex + (c.left ? -u * 0.06 : u * 0.06), c.ey + u * 0.2);
-    ctx.stroke();
-  }
-
-  function coop(i, u) {
-    const c = chute(i);
-    const x = c.sx + (c.left ? -u * 0.06 : u * 0.06), y = c.sy - u * 0.02;
-    const w = u * 0.34, h = u * 0.27;
-    ctx.fillStyle = '#B9643C';
-    ctx.beginPath();
-    ctx.moveTo(x - w * 0.6, y - h * 0.25);
-    ctx.lineTo(x, y - h * 0.8);
-    ctx.lineTo(x + w * 0.6, y - h * 0.25);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = '#F2E2C8';
-    ctx.fillRect(x - w * 0.42, y - h * 0.25, w * 0.84, h * 0.72);
-    // курица выглядывает, когда снесла
-    const peek = S.hens[i] > 0;
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.ellipse(x, y + h * (peek ? 0.05 : 0.14), u * 0.1, u * 0.085, 0, 0, 6.3);
-    ctx.fill();
-    ctx.fillStyle = '#E2503C';
-    ctx.beginPath();
-    ctx.arc(x, y + h * (peek ? -0.12 : -0.03), u * 0.03, 0, 6.3);
-    ctx.fill();
-    ctx.fillStyle = '#2E2A26';
-    ctx.beginPath();
-    ctx.arc(x + (c.left ? u * 0.04 : -u * 0.04), y + h * (peek ? 0 : 0.09), u * 0.013, 0, 6.3);
-    ctx.fill();
-    ctx.fillStyle = '#F2A33A';
-    ctx.beginPath();
-    ctx.moveTo(x + (c.left ? u * 0.09 : -u * 0.09), y + h * (peek ? 0.03 : 0.12));
-    ctx.lineTo(x + (c.left ? u * 0.14 : -u * 0.14), y + h * (peek ? 0.06 : 0.15));
-    ctx.lineTo(x + (c.left ? u * 0.09 : -u * 0.09), y + h * (peek ? 0.09 : 0.18));
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  function egg(x, y, u, spin) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(Math.sin(spin) * 0.3);
-    ctx.fillStyle = '#FFF6E6';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, u * 0.062, u * 0.078, 0, 0, 6.3);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(214,180,130,.45)';
-    ctx.beginPath();
-    ctx.ellipse(u * 0.018, u * 0.02, u * 0.03, u * 0.042, 0.4, 0, 6.3);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.9)';
-    ctx.beginPath();
-    ctx.ellipse(-u * 0.02, -u * 0.03, u * 0.016, u * 0.022, -0.3, 0, 6.3);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  function chick(x, y, u, t) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(Math.sin(t * 14) * 0.25);
-    ctx.fillStyle = '#FFD75E';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, u * 0.06, u * 0.055, 0, 0, 6.3);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(0, -u * 0.055, u * 0.042, 0, 6.3);
-    ctx.fill();
-    ctx.fillStyle = '#2E2A26';
-    ctx.beginPath();
-    ctx.arc(u * 0.016, -u * 0.062, u * 0.009, 0, 6.3);
-    ctx.fill();
-    ctx.fillStyle = '#F2A33A';
-    ctx.beginPath();
-    ctx.moveTo(u * 0.04, -u * 0.05);
-    ctx.lineTo(u * 0.075, -u * 0.04);
-    ctx.lineTo(u * 0.04, -u * 0.03);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
-
-  /* Енот с корзиной. Свой рисунок: полосатый хвост, маска на морде.
-     Стоит по центру, корзину держит в том углу, который выбран. */
-  function coon(u) {
-    const here = S.moveT > 0 ? S.posT : S.pos;
-    const p = spot(here);
-    const left = here < 2;
-    const bx = W / 2, by = H * 0.8;
-
-    // хвост
-    ctx.save();
-    ctx.translate(bx + (left ? u * 0.3 : -u * 0.3), by + u * 0.06);
-    ctx.rotate(left ? 0.5 : -0.5);
-    for (let i = 4; i >= 0; i--) {
-      ctx.fillStyle = i % 2 ? '#3F3A42' : '#9A8F97';
-      ctx.beginPath();
-      ctx.ellipse(0, -i * u * 0.058, u * 0.065, u * 0.045, 0, 0, 6.3);
-      ctx.fill();
-    }
-    ctx.restore();
-
-    // лапа к корзине — с изгибом в локте, а не палкой
-    ctx.strokeStyle = '#6E6670';
-    ctx.lineWidth = u * 0.055;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    const ax = bx + (left ? -u * 0.14 : u * 0.14), ay = by - u * 0.14;
-    ctx.beginPath();
-    ctx.moveTo(ax, ay);
-    ctx.quadraticCurveTo((ax + p.x) / 2 + (left ? -u * 0.08 : u * 0.08),
-                         (ay + p.y) / 2 + u * 0.1, p.x, p.y + u * 0.03);
-    ctx.stroke();
-
-    // тело
-    ctx.fillStyle = '#8A8290';
-    ctx.beginPath();
-    ctx.ellipse(bx, by, u * 0.2, u * 0.23, 0, 0, 6.3);
-    ctx.fill();
-    ctx.fillStyle = '#C9C2CC';
-    ctx.beginPath();
-    ctx.ellipse(bx, by + u * 0.05, u * 0.12, u * 0.15, 0, 0, 6.3);
-    ctx.fill();
-
-    // голова
-    const hx = bx + (left ? -u * 0.05 : u * 0.05), hy = by - u * 0.24;
-    ctx.fillStyle = '#6E6670';
-    ctx.beginPath();
-    ctx.arc(hx - u * 0.11, hy - u * 0.1, u * 0.055, 0, 6.3);
-    ctx.arc(hx + u * 0.11, hy - u * 0.1, u * 0.055, 0, 6.3);
-    ctx.fill();
-    ctx.fillStyle = '#9A929E';
-    ctx.beginPath();
-    ctx.arc(hx, hy, u * 0.15, 0, 6.3);
-    ctx.fill();
-    ctx.fillStyle = '#F0EAF2';
-    ctx.beginPath();
-    ctx.ellipse(hx, hy + u * 0.05, u * 0.1, u * 0.08, 0, 0, 6.3);
-    ctx.fill();
-    // маска
-    ctx.fillStyle = '#3F3A42';
-    ctx.beginPath();
-    ctx.ellipse(hx - u * 0.062, hy - u * 0.02, u * 0.055, u * 0.042, -0.25, 0, 6.3);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(hx + u * 0.062, hy - u * 0.02, u * 0.055, u * 0.042, 0.25, 0, 6.3);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(hx - u * 0.055, hy - u * 0.022, u * 0.021, 0, 6.3);
-    ctx.arc(hx + u * 0.055, hy - u * 0.022, u * 0.021, 0, 6.3);
-    ctx.fill();
-    ctx.fillStyle = '#1F1C22';
-    const look = left ? -u * 0.007 : u * 0.007;
-    ctx.beginPath();
-    ctx.arc(hx - u * 0.055 + look, hy - u * 0.02, u * 0.012, 0, 6.3);
-    ctx.arc(hx + u * 0.055 + look, hy - u * 0.02, u * 0.012, 0, 6.3);
-    ctx.fill();
-    ctx.fillStyle = '#2E2A26';
-    ctx.beginPath();
-    ctx.ellipse(hx, hy + u * 0.045, u * 0.022, u * 0.017, 0, 0, 6.3);
-    ctx.fill();
-
-    basket(p.x, p.y, u);
-  }
-
-  function basket(x, y, u) {
-    const k = S.pop > 0 ? S.pop / 0.26 : 0;
-    if (k > 0) {                              // вспышка в момент поимки
-      ctx.strokeStyle = 'rgba(242,181,68,' + (k * 0.9).toFixed(2) + ')';
-      ctx.lineWidth = u * 0.03;
-      ctx.beginPath();
-      ctx.arc(x, y, u * (0.18 + (1 - k) * 0.18), 0, 6.3);
-      ctx.stroke();
-    }
-    const s2 = 1 + k * 0.18;
-    const w = u * 0.15 * s2, h = u * 0.11 * s2;
-    ctx.strokeStyle = '#B07B3E';
-    ctx.lineWidth = u * 0.022;
-    ctx.beginPath();
-    ctx.arc(x, y - h * 0.1, w * 0.8, Math.PI, 0);
-    ctx.stroke();
-    ctx.fillStyle = '#D9A057';
-    ctx.beginPath();
-    ctx.moveTo(x - w, y - h);
-    ctx.lineTo(x + w, y - h);
-    ctx.lineTo(x + w * 0.74, y + h);
-    ctx.lineTo(x - w * 0.74, y + h);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(140,95,40,.5)';
-    ctx.lineWidth = u * 0.012;
-    for (let i = -1; i <= 1; i++) {
-      ctx.beginPath();
-      ctx.moveTo(x + i * w * 0.45, y - h);
-      ctx.lineTo(x + i * w * 0.36, y + h);
-      ctx.stroke();
-    }
-    ctx.beginPath();
-    ctx.moveTo(x - w * 0.9, y);
-    ctx.lineTo(x + w * 0.9, y);
-    ctx.stroke();
+    fox(u);
+    panelTop(u);
   }
 
   /* ── цикл ── */
@@ -1181,7 +1192,6 @@
     $('pause').removeAttribute('disabled');
     S.run = true;
     last = 0; acc = 0;
-    hud();
   }
 
   /* ── ввод: жмём в тот угол, куда катится яйцо ── */
