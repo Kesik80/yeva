@@ -441,6 +441,9 @@
       </label>
     </div>
     <button id="btnGen">2 · Озвучить недостающие</button>
+    <div class="note">Можно свернуть и заняться другим: пока идёт озвучка,
+      страница держит себя включённой. Если телефон всё же её оборвёт,
+      неудачные слова она переспросит сама, а готовые не потеряются.</div>
     <button class="go" id="btnPub" disabled>3 · Записать одним коммитом</button>
     <div class="bar" id="bar"><i id="fill"></i></div>
     <div class="log" id="log"></div>
@@ -528,7 +531,7 @@
 
   // Видно в заголовке и в логе: сразу ясно, та ли сборка открыта.
   // Меняется при каждой правке страницы.
-  const VERSION = '01.11 13.10';
+  const VERSION = '03.11 04.20';
 
   let PW = '';                       // ADMIN_TOKEN, введённый на входе
   const $ = id => document.getElementById(id);
@@ -1183,9 +1186,92 @@
   let lastTrim = null;   // на какой секунде отрезали хвост
   let lastFrom = null;   // с какой секунды оставили запись (начало отрезано)
 
+  const nap = ms => new Promise(r => setTimeout(r, ms));
+
+  // страница снова на экране (или уже на нём)
+  const visible = () => document.visibilityState !== 'hidden'
+    ? Promise.resolve()
+    : new Promise(res => {
+        const f = () => {
+          if (document.visibilityState === 'hidden') return;
+          document.removeEventListener('visibilitychange', f);
+          res();
+        };
+        document.addEventListener('visibilitychange', f);
+      });
+
+  // ── чтобы работа не падала у свёрнутой страницы ─────────────
+  // Chrome на телефоне экономит батарею: у свёрнутой вкладки
+  // сначала таймеры срабатывают раз в минуту, потом страницу
+  // замораживают совсем, а запрос, висевший в воздухе, обрывается.
+  // Единственное исключение в этом правиле — звук: пока страница
+  // что-то играет, её не морозят и таймеры не душат. Поэтому на
+  // время озвучки включаем вечный гул 55 Гц — телефонный динамик
+  // такую низкую ноту не воспроизводит, слышно её не будет.
+  const awake = (() => {
+    let el = null, lock = null;
+    function hum() {
+      const rate = 8000, n = rate;            // ровно секунда, по кругу
+      const b = new Uint8Array(44 + n * 2), d = new DataView(b.buffer);
+      const put = (o, t) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
+      put(0, 'RIFF'); d.setUint32(4, 36 + n * 2, true); put(8, 'WAVEfmt ');
+      d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true);
+      d.setUint32(24, rate, true); d.setUint32(28, rate * 2, true);
+      d.setUint16(32, 2, true); d.setUint16(34, 16, true);
+      put(36, 'data'); d.setUint32(40, n * 2, true);
+      for (let i = 0; i < n; i++) {
+        d.setInt16(44 + i * 2, Math.round(Math.sin(i / rate * 55 * 6.2831853) * 220), true);
+      }
+      let s = '';
+      for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+      return 'data:audio/wav;base64,' + btoa(s);
+    }
+    return {
+      on() {
+        try {
+          if (!el) { el = new Audio(hum()); el.loop = true; }
+          el.play().catch(() => {});
+        } catch (e) {}
+        // и заодно не даём экрану гаснуть, пока телефон просто лежит
+        try {
+          if (navigator.wakeLock && !lock) {
+            navigator.wakeLock.request('screen')
+              .then(l => { lock = l; l.addEventListener('release', () => { lock = null; }); })
+              .catch(() => {});
+          }
+        } catch (e) {}
+      },
+      off() {
+        try { if (el) el.pause(); } catch (e) {}
+        try { if (lock) lock.release(); } catch (e) {}
+        lock = null;
+      }
+    };
+  })();
+
+  let genOn = false, hidden0 = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (!genOn) return;
+    if (document.visibilityState === 'hidden') { hidden0 = Date.now(); return; }
+    awake.on();                                  // замок экрана сняли, пока нас не было
+    if (hidden0) {
+      const sec = Math.round((Date.now() - hidden0) / 1000);
+      log('страница была свёрнута ' + sec + ' с — продолжаю', 'have');
+      hidden0 = 0;
+    }
+  });
+
+  // оборванный запрос почти всегда означает свёрнутую страницу
+  const dropped = e => /fail|network|abort|timeout|load|соедин/i.test(String((e && e.message) || e));
+
   // ── запрос к твоей функции ──────────────────────────────────
   async function speak(text, voiceId, a) {
+    // если ответа нет полторы минуты, запрос уже не придёт:
+    // обрываем сами, иначе очередь встанет навсегда
+    const stop = new AbortController();
+    const bell = setTimeout(() => stop.abort(), 90000);
     const r = await fetch('/api/speak', {
+      signal: stop.signal,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1210,7 +1296,8 @@
         nextText: modelOf(model).ctx
           ? ((a && a.nextText) || ($('ctx').checked ? CTX_AFTER : undefined)) : undefined
       })
-    });
+    }).catch(e => { clearTimeout(bell); throw e; });
+    clearTimeout(bell);
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
     lastSaid = d.said || null;
@@ -1299,41 +1386,66 @@
   });
 
   // ── озвучка ─────────────────────────────────────────────────
+  // одно слово, с повторами: 429 из-за темпа и обрыв у свёрнутой
+  // страницы лечатся одинаково — подождать и попросить ещё раз
+  async function once(a) {
+    let last = null;
+    for (let t = 1; t <= 3; t++) {
+      try {
+        const b64 = await speak(phrase(a), $('v-' + grp(a)).value, a);
+        fresh[slug(a)] = b64;
+        keep(slug(a), b64);            // сразу в хранилище: перезагрузка не страшна
+        if (t > 1) log('↻ ' + a.de + ' — с попытки ' + t, 'fresh');
+        return true;
+      } catch (e) {
+        last = e;
+        if (t === 3) break;
+        // если запрос оборвался, ждём, пока на страницу снова
+        // посмотрят, но не дольше двадцати секунд
+        if (dropped(e)) await Promise.race([visible(), nap(20000)]);
+        await nap(t * 1400);
+      }
+    }
+    log('✗ ' + a.de + ' — ' + ((last && last.message) || 'ошибка'), 'err');
+    return false;
+  }
+
   async function generate(todo, btn, label) {
-    let ok = 0, bad = 0, n = 0;
+    let ok = 0, n = 0;
+    let left = [];
+    genOn = true; hidden0 = 0; awake.on();
     busy(btn, 'озвучиваю…');
     $('bar').classList.remove('busy');   // тут прогресс настоящий
-    for (const a of todo) {
-      const g = grp(a);
-      try {
-        fresh[slug(a)] = await speak(phrase(a), $('v-' + g).value, a);
-        keep(slug(a), fresh[slug(a)]);
-        ok++;
-      } catch (e) {
-        // одна повторная попытка: чаще всего это 429 из-за темпа
-        await new Promise(r => setTimeout(r, 1200));
-        try {
-          fresh[slug(a)] = await speak(phrase(a), $('v-' + g).value, a);
-          keep(slug(a), fresh[slug(a)]);
-          ok++;
-          log('↻ ' + a.de + ' — со второй попытки', 'fresh');
-        } catch (e2) {
-          bad++;
-          log('✗ ' + a.de + ' — ' + e2.message, 'err');
-        }
-      }
-      n++;
+    const step = () => {
       $('fill').style.width = (n / todo.length * 100).toFixed(1) + '%';
       btn.textContent = 'озвучиваю… ' + n + ' / ' + todo.length;
       render();
-      await new Promise(r => setTimeout(r, 250));
+    };
+    for (const a of todo) {
+      if (await once(a)) ok++; else left.push(a);
+      n++; step();
+      await nap(250);
+    }
+    // второй заход по неудачам: чаще всего это обрыв у свёрнутой
+    // страницы, и когда на неё возвращаются, всё встаёт на место
+    if (left.length) {
+      log('повторный заход: ' + left.length, 'have');
+      await Promise.race([visible(), nap(15000)]);
+      const again = left;
+      left = [];
+      for (const a of again) {
+        if (await once(a)) ok++; else left.push(a);
+        await nap(250);
+      }
     }
     if (ok) {
       const groups = {};
       todo.forEach(a => { groups[grp(a)] = 1; });
       Object.keys(groups).forEach(saveRecipe);
     }
-    log('озвучено ' + ok + (label ? ' (' + label + ')' : '') + ', ошибок ' + bad, bad ? 'err' : 'have');
+    log('озвучено ' + ok + (label ? ' (' + label + ')' : '') + ', ошибок ' + left.length,
+      left.length ? 'err' : 'have');
+    genOn = false; awake.off();
     loadQuota();
     idle(btn);
     if (ok) $('btnPub').disabled = false;
@@ -1631,6 +1743,7 @@
   } catch (e) {}
 })();
 </script>
+<script src="home.js"></script>
 <script src="console.js"></script>
 </body>
 </html>

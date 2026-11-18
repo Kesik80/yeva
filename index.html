@@ -384,7 +384,7 @@
         if (document.fullscreenElement) return;
         e.preventDefault();
         goFullscreen('карточка');
-        setTimeout(() => { location.href = link.getAttribute('href'); }, 280);
+        setTimeout(() => { location.replace(link.getAttribute('href')); }, 280);
       });
     });
   }
@@ -397,7 +397,7 @@
   const start = () => {
     clearTimeout(timer);
     title.classList.add('hold');
-    timer = setTimeout(() => { location.href = 'voicegen.html'; }, 1500);
+    timer = setTimeout(() => { location.replace('voicegen.html'); }, 1500);
   };
   const stop = () => {
     clearTimeout(timer);
@@ -412,7 +412,7 @@
       e.preventDefault();          // иначе Android начнёт выделять текст и оборвёт нажатие
       clearTimeout(timer2);
       sub.classList.add('hold');
-      timer2 = setTimeout(() => { location.href = 'prep.html'; }, 1500);
+      timer2 = setTimeout(() => { location.replace('prep.html'); }, 1500);
     });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev =>
       sub.addEventListener(ev, () => { clearTimeout(timer2); sub.classList.remove('hold'); }));
@@ -473,10 +473,11 @@
   });
 
   // запасной вход, если удержание не сработает: /?voice
-  if (location.search.indexOf('voice') >= 0) location.href = 'voicegen.html';
-  if (location.search.indexOf('prep') >= 0) location.href = 'prep.html';
+  if (location.search.indexOf('voice') >= 0) location.replace('voicegen.html');
+  if (location.search.indexOf('prep') >= 0) location.replace('prep.html');
 })();
 </script>
+<script src="home.js"></script>
 <script src="install.js"></script>
 <script src="console.js"></script>
 </body>
