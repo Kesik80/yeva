@@ -131,11 +131,11 @@
   .panel .ru{font-size:13.5px;color:rgba(51,43,70,.55);margin-top:2px}
 
   .modes{
-    display:flex;gap:6px;margin-top:11px;
+    display:flex;flex-wrap:wrap;gap:6px;margin-top:11px;
     background:rgba(51,43,70,.07);border-radius:14px;padding:4px;
   }
   .modes button{
-    flex:1;border:0;border-radius:10px;cursor:pointer;padding:8px 6px;
+    flex:1 0 54px;border:0;border-radius:10px;cursor:pointer;padding:8px 6px;
     font-family:inherit;font-size:14.5px;font-weight:600;
     background:none;color:rgba(51,43,70,.55);transition:background .2s,color .2s;
   }
@@ -252,11 +252,8 @@
     <div class="panel">
       <h1>Schnappschuss</h1>
       <div class="ru">Фотопазл</div>
-      <div class="modes" id="modes">
-        <button data-m="s4">🧩 4</button>
-        <button data-m="s9">🧩 9</button>
-        <button data-m="s16">🧩 16</button>
-      </div>
+      <!-- кнопки уровней расставляет скрипт: их число зависит от экрана -->
+      <div class="modes" id="modes"></div>
       <div class="tip">
         <div class="row"><span class="k">📷</span><span>Сними <b>что угодно</b>: кота, игрушку, папу</span></div>
         <div class="row"><span class="k">🧩</span><span>Снимок рассыплется на кусочки — перетащи каждый на своё место</span></div>
@@ -315,11 +312,20 @@
      значит греть телефон и жечь батарею впустую.
      ══════════════════════════════════════════════════════════════ */
 
+  /* Крупные сетки показываем только там, где кусочек остаётся достаточно
+     большим, чтобы по нему попасть пальцем. На телефоне это 4, 9 и 16,
+     на планшете добавляются 25 и 36, на ноутбуке — 64 и 100. Список
+     кнопок собирается под экран, а не прибит гвоздями. */
   const MODES = {
-    s4:  { n: 2, ghost: true,  snap: 0.52 },
-    s9:  { n: 3, ghost: true,  snap: 0.40 },
-    s16: { n: 4, ghost: false, snap: 0.32 }
+    s4:   { n: 2,  ghost: true,  snap: 0.52 },
+    s9:   { n: 3,  ghost: true,  snap: 0.40 },
+    s16:  { n: 4,  ghost: false, snap: 0.32 },
+    s25:  { n: 5,  ghost: false, snap: 0.30 },
+    s36:  { n: 6,  ghost: false, snap: 0.30 },
+    s64:  { n: 8,  ghost: false, snap: 0.30 },
+    s100: { n: 10, ghost: false, snap: 0.30 }
   };
+  const MINPC = 46;        // кусочек мельче — пальцем уже не ухватить
   const K_MODE = 'yeva-snap-mode';
   const K_MUTE = 'yeva-snap-mute';
   const K_BEST = 'yeva-snap-best-';
@@ -415,6 +421,7 @@
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (S.pieces.length) relayout();
+    drawModes();
   }
 
   /* Поле и лоток. Доска квадратная — снимок тоже квадратный, иначе
@@ -451,12 +458,14 @@
     const c = i % cols, r = Math.floor(i / cols);
     const jx = (rnd(i * 7 + 1) - 0.5) * Math.max(0, cw - p) * 0.8;
     const jy = (rnd(i * 13 + 5) - 0.5) * Math.max(0, ch - p) * 0.8;
-    // Лоток бывает теснее кусочка (маленький экран, 16 кусочков). Тогда
-    // разброс выкидывал край кусочка за пределы двора — прижимаем.
-    const clamp = (v, lo, hi) => hi < lo ? lo : Math.max(lo, Math.min(hi, v));
+    // Лоток бывает теснее кусочка (маленький экран, много кусочков). Тогда
+    // разброс выкидывал край кусочка за пределы двора — прижимаем. Запас
+    // считаем с замками: они торчат за клетку, и у края их срезало.
+    const m = p * 0.3;
+    const clamp = (v, lo, hi) => hi < lo ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, v));
     return {
-      x: clamp(L.tx + c * cw + (cw - p) / 2 + jx, 0, W - p),
-      y: clamp(L.ty + r * ch + (ch - p) / 2 + jy, 0, H - p)
+      x: clamp(L.tx + c * cw + (cw - p) / 2 + jx, m, W - p - m),
+      y: clamp(L.ty + r * ch + (ch - p) / 2 + jy, m, H - p - m)
     };
   }
 
@@ -467,6 +476,97 @@
     return x - Math.floor(x);
   }
 
+  /* ══ замки ══════════════════════════════════════════════════════
+     Каждый шов между двумя кусочками — одна и та же кривая: у одного
+     она выпуклая, у другого вогнутая. Поэтому полярность хранится не у
+     кусочка, а у ШВА, и соседу достаётся та же линия со сменённым
+     знаком — иначе замки не сойдутся.
+
+     Профиль нарочно симметричен относительно середины шва. Верхний
+     кусочек обводит этот шов слева направо, нижний — справа налево, и
+     только у симметричной кривой обход в обе стороны даёт одну и ту же
+     линию. Несимметричный профиль (например, со сдвинутой головкой)
+     развалил бы стык.
+     ═══════════════════════════════════════════════════════════════ */
+  let E = null;
+
+  function seams(n) {
+    const h = [], v = [];
+    for (let r = 0; r <= n; r++) {
+      h[r] = [];
+      for (let c = 0; c < n; c++) h[r][c] = seam(r * 131 + c * 17 + 3);
+    }
+    for (let c = 0; c <= n; c++) {
+      v[c] = [];
+      for (let r = 0; r < n; r++) v[c][r] = seam(c * 211 + r * 29 + 7);
+    }
+    return { h: h, v: v };
+  }
+  function seam(k) {
+    return { s: rnd(k) < 0.5 ? -1 : 1, k: 0.88 + rnd(k + 991) * 0.24 };
+  }
+  const flip = e => ({ s: -e.s, k: e.k });
+
+  /* Один шов: из A в B. Наружу — по нормали слева от хода, а кусок
+     обводится по часовой, поэтому «наружу» всегда от его середины. */
+  function edgeTo(P, ax, ay, bx, by, e) {
+    if (!e || !e.s) { P.lineTo(bx, by); return; }
+    const dx = bx - ax, dy = by - ay;
+    const nx = dy, ny = -dx;
+    const w = e.s * e.k;
+    const px = (u, q) => ax + dx * u + nx * q * w;
+    const py = (u, q) => ay + dy * u + ny * q * w;
+    const C = (u1, q1, u2, q2, u3, q3) => P.bezierCurveTo(
+      px(u1, q1), py(u1, q1), px(u2, q2), py(u2, q2), px(u3, q3), py(u3, q3));
+    P.lineTo(px(0.34, 0), py(0.34, 0));
+    C(0.37, 0.02, 0.30, 0.12, 0.35, 0.18);   // шейка наружу с поднутрением
+    C(0.42, 0.25, 0.58, 0.25, 0.65, 0.18);   // круглая головка
+    C(0.70, 0.12, 0.63, 0.02, 0.66, 0.00);   // шейка обратно
+    P.lineTo(bx, by);
+  }
+
+  function pathOf(i, p) {
+    const n = cfg().n, r = Math.floor(i / n), c = i % n;
+    const top    = r === 0     ? null : E.h[r][c];
+    const right  = c === n - 1 ? null : flip(E.v[c + 1][r]);
+    const bottom = r === n - 1 ? null : flip(E.h[r + 1][c]);
+    const left   = c === 0     ? null : E.v[c][r];
+    const P = new Path2D();
+    P.moveTo(0, 0);
+    edgeTo(P, 0, 0, p, 0, top);
+    edgeTo(P, p, 0, p, p, right);
+    edgeTo(P, p, p, 0, p, bottom);
+    edgeTo(P, 0, p, 0, 0, left);
+    P.closePath();
+    return P;
+  }
+
+  /* Каждый кусочек печатаем один раз в свой холстик. Рисовать всю
+     фотографию с обрезкой по контуру на каждом кадре — это сто больших
+     отрисовок в кадр на сотне кусочков; телефон такого не простит. */
+  function bake() {
+    if (!hasShot || !S.pieces.length) return;
+    const L = layout(), n = cfg().n, p = L.B / n;
+    const pad = Math.ceil(p * 0.3);
+    const box = Math.ceil(p) + pad * 2;
+    S.pieces.forEach(pc => {
+      const c = pc.i % n, r = Math.floor(pc.i / n);
+      pc.path = pathOf(pc.i, p);
+      pc.pad = pad; pc.box = box;
+      const cvp = pc.cv || (pc.cv = document.createElement('canvas'));
+      cvp.width = Math.round(box * dpr); cvp.height = Math.round(box * dpr);
+      const g = cvp.getContext('2d');
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, box, box);
+      g.save();
+      g.translate(pad, pad);
+      g.clip(pc.path);
+      // вся фотография, сдвинутая так, чтобы клетка куска легла в (0,0)
+      g.drawImage(src, 0, 0, SRC, SRC, -c * p, -r * p, L.B, L.B);
+      g.restore();
+    });
+  }
+
   function relayout() {
     const L = layout();
     S.pieces.forEach(pc => {
@@ -475,12 +575,14 @@
       if (pc.placed) { pc.x = h.x; pc.y = h.y; }
       else if (!pc.grab) { const s2 = nest(pc.slot, L); pc.x = s2.x; pc.y = s2.y; }
     });
+    bake();
   }
 
   /* ── подготовка пазла ── */
   function build() {
     const n = cfg().n, total = n * n;
     const L = layout();
+    E = seams(n);
     const order = [];
     for (let i = 0; i < total; i++) order.push(i);
     // тасуем места в лотке, чтобы кусочки не лежали по порядку
@@ -500,6 +602,7 @@
     }
     S.total = total; S.placed = 0; S.moves = 0;
     S.time = 0; S.sparks = [];
+    bake();
     paint();
   }
 
@@ -656,17 +759,22 @@
       ctx.restore();
     }
 
-    // сетка мест
-    ctx.save();
-    ctx.strokeStyle = 'rgba(51,43,70,.16)';
-    ctx.lineWidth = Math.max(1, L.B * 0.004);
-    const n = cfg().n, p = L.B / n;
-    for (let i = 1; i < n; i++) {
-      ctx.beginPath();
-      ctx.moveTo(L.bx + i * p, L.by); ctx.lineTo(L.bx + i * p, L.by + L.B);
-      ctx.moveTo(L.bx, L.by + i * p); ctx.lineTo(L.bx + L.B, L.by + i * p);
-      ctx.stroke();
+    // бледные следы кусочков на своих местах — видно, куда что ляжет
+    if (S.phase !== 'done') {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(51,43,70,.17)';
+      ctx.lineWidth = Math.max(1, L.B * 0.003);
+      S.pieces.forEach(pc => {
+        if (pc.placed || !pc.path) return;
+        ctx.save();
+        ctx.translate(pc.home.x, pc.home.y);
+        ctx.stroke(pc.path);
+        ctx.restore();
+      });
+      ctx.restore();
     }
+
+    ctx.save();
     round(L.bx, L.by, L.B, L.B, r);
     ctx.strokeStyle = 'rgba(51,43,70,.3)';
     ctx.lineWidth = Math.max(2, L.B * 0.008);
@@ -675,7 +783,7 @@
 
     // кусочки: сначала лежащие, потом поднятый — чтобы он был сверху
     const list = S.pieces.slice().sort((a, b) => a.z - b.z);
-    list.forEach(pc => piece(pc, L));
+    list.forEach(pc => piece(pc));
 
     // конфетти
     S.sparks.forEach(s2 => {
@@ -686,37 +794,30 @@
     ctx.globalAlpha = 1;
   }
 
-  function piece(pc, L) {
-    const n = cfg().n, sp = SRC / n;
-    const sx = (pc.i % n) * sp, sy = Math.floor(pc.i / n) * sp;
+  /* Кусочек — готовый холстик с прозрачными полями, поэтому тень ложится
+     по фигурному краю, а не по квадрату. Разложенные рисуем без тени и
+     без обводки: тогда собранная картинка выглядит целой. */
+  function piece(pc) {
+    if (!pc.cv) return;
     const s2 = pc.size;
-    const lift = pc.grab ? s2 * 0.06 : 0;
-
     ctx.save();
     if (pc.grab) {
-      ctx.shadowColor = 'rgba(51,43,70,.4)';
-      ctx.shadowBlur = s2 * 0.2; ctx.shadowOffsetY = s2 * 0.06;
+      ctx.shadowColor = 'rgba(51,43,70,.42)';
+      ctx.shadowBlur = s2 * 0.22; ctx.shadowOffsetY = s2 * 0.07;
     } else if (!pc.placed) {
-      ctx.shadowColor = 'rgba(51,43,70,.22)';
-      ctx.shadowBlur = s2 * 0.09; ctx.shadowOffsetY = s2 * 0.03;
+      ctx.shadowColor = 'rgba(51,43,70,.24)';
+      ctx.shadowBlur = s2 * 0.1; ctx.shadowOffsetY = s2 * 0.035;
     }
-    const rr = pc.placed ? 0 : s2 * 0.08;
-    round(pc.x - lift, pc.y - lift, s2 + lift * 2, s2 + lift * 2, rr);
-    ctx.clip();
-    if (hasShot) {
-      ctx.drawImage(src, sx, sy, sp, sp, pc.x - lift, pc.y - lift, s2 + lift * 2, s2 + lift * 2);
-    } else {
-      ctx.fillStyle = '#B79BF0';
-      ctx.fillRect(pc.x - lift, pc.y - lift, s2 + lift * 2, s2 + lift * 2);
-    }
+    ctx.drawImage(pc.cv, pc.x - pc.pad, pc.y - pc.pad, pc.box, pc.box);
     ctx.restore();
 
-    if (!pc.placed) {
+    if (!pc.placed && pc.path) {
       ctx.save();
-      round(pc.x - lift, pc.y - lift, s2 + lift * 2, s2 + lift * 2, rr);
-      ctx.strokeStyle = 'rgba(255,255,255,.9)';
-      ctx.lineWidth = Math.max(1.5, s2 * 0.03);
-      ctx.stroke();
+      ctx.translate(pc.x, pc.y);
+      ctx.strokeStyle = 'rgba(255,255,255,.88)';
+      ctx.lineWidth = Math.max(1.2, s2 * 0.022);
+      ctx.lineJoin = 'round';
+      ctx.stroke(pc.path);
       ctx.restore();
     }
   }
@@ -735,11 +836,16 @@
   /* ── перетаскивание ── */
   let drag = null, topZ = 100;
 
+  /* Попадание считаем по настоящему контуру, вместе с замками: иначе
+     по торчащей головке не ухватишь, а по пустому углу — ухватишь.
+     Отдельный холст без масштаба: в нём точка и путь в одних единицах. */
+  const hitc = document.createElement('canvas').getContext('2d');
+
   function at(x, y) {
     const list = S.pieces.slice().sort((a, b) => b.z - a.z);
     for (const pc of list) {
-      if (pc.placed) continue;
-      if (x >= pc.x && x <= pc.x + pc.size && y >= pc.y && y <= pc.y + pc.size) return pc;
+      if (pc.placed || !pc.path) continue;
+      if (hitc.isPointInPath(pc.path, x - pc.x, y - pc.y)) return pc;
     }
     return null;
   }
@@ -778,7 +884,8 @@
     pc.grab = false;
     S.moves++;
     const d = Math.hypot(pc.x - pc.home.x, pc.y - pc.home.y);
-    if (d <= pc.size * cfg().snap) {
+    // у мелких кусочков доля от размера превращается в пару пикселей
+    if (d <= Math.max(pc.size * cfg().snap, 15)) {
       pc.x = pc.home.x; pc.y = pc.home.y;
       pc.placed = true; pc.z = 0;
       S.placed++;
@@ -932,8 +1039,33 @@
     try { localStorage.setItem(K_MUTE, muted ? '1' : '0'); } catch (e) {}
   });
 
+  /* Кнопки уровней собираем под экран: на телефоне крупные сетки дали бы
+     кусочки по два десятка пикселей, в которые не попасть. */
+  function allowed() {
+    const L = layout();
+    return Object.keys(MODES).filter(k => MODES[k].n <= 3 || L.B / MODES[k].n >= MINPC);
+  }
+
+  function drawModes() {
+    const list = allowed();
+    const box = $('modes');
+    if (box.dataset.list === list.join()) return;
+    box.dataset.list = list.join();
+    box.innerHTML = '';
+    list.forEach(k => {
+      const b = document.createElement('button');
+      b.dataset.m = k;
+      b.textContent = '🧩 ' + (MODES[k].n * MODES[k].n);
+      b.addEventListener('click', () => applyMode(k));
+      box.appendChild(b);
+    });
+    if (list.indexOf(mode) < 0) applyMode(list[list.length - 1]);
+  }
+
   function applyMode(m) {
     if (!MODES[m]) return;
+    const list = allowed();
+    if (list.indexOf(m) < 0) m = list[list.length - 1];
     mode = m;
     [].forEach.call($('modes').children, b => b.classList.toggle('on', b.dataset.m === m));
     $('tipGhost').textContent = cfg().ghost
@@ -945,9 +1077,7 @@
     paint();
     try { localStorage.setItem(K_MODE, m); } catch (e) {}
   }
-  [].forEach.call($('modes').children, b => {
-    b.addEventListener('click', () => applyMode(b.dataset.m));
-  });
+
 
   // уходим со страницы или сворачиваемся — камеру гасим
   window.addEventListener('pagehide', stopCam);
@@ -961,8 +1091,10 @@
   applyMute();
   let saved = 's9';
   try { saved = localStorage.getItem(K_MODE) || 's9'; } catch (e) {}
-  applyMode(MODES[saved] ? saved : 's9');
-  fit();
+  mode = MODES[saved] ? saved : 's9';
+  fit();                       // размеры нужны раньше: от них зависит список
+  drawModes();
+  applyMode(mode);
   requestAnimationFrame(frame);
   draw();
 
@@ -1000,6 +1132,10 @@
       return true;
     },
     solve: () => { for (let i = 0; i < S.pieces.length; i++) window.YEVA_SNAP.put(i); },
+    paths: () => S.pieces.map(p => p.path),
+    // точные размеры поля: округлённые сбивают проверку швов
+    geom: () => { const L = layout(); return { B: L.B, bx: L.bx, by: L.by,
+      p: L.B / cfg().n, n: cfg().n }; },
     src: () => src,
     gain: () => master ? master.gain.value : -1
   };
