@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Schnappschuss</title>
+<meta name="theme-color" content="#9B8CE0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#9B8CE0}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#332B46;
+    background:linear-gradient(180deg,#9B8CE0 0%,#C6BAF0 48%,#F1EAFB 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 8px) 9px calc(env(safe-area-inset-bottom,0px) + 8px);
+  }
+
+  /* ── верх ── */
+  .top{display:flex;align-items:center;gap:6px;flex:none;position:relative;z-index:12}
+  .pill{
+    display:flex;align-items:center;gap:6px;
+    background:rgba(255,255,255,.84);border-radius:999px;
+    padding:6px 12px;min-height:38px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 4px 14px rgba(51,43,70,.14);
+    font-size:17px;font-weight:600;line-height:1;white-space:nowrap;
+    font-variant-numeric:tabular-nums;
+  }
+  .pill.score{flex:1;justify-content:center;min-width:0;overflow:hidden}
+  .pill .ic{font-size:14px;opacity:.75}
+  .pill.hi b{color:#6B46C1}
+  @media (max-width:429px){ #hiPill{display:none} }
+
+  .btn{
+    width:38px;height:38px;flex:none;border:0;border-radius:50%;
+    background:rgba(255,255,255,.84);color:#332B46;text-decoration:none;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 4px 14px rgba(51,43,70,.16);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.92)}
+  .btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;
+    stroke-linecap:round;stroke-linejoin:round}
+  .btn .off{display:none}
+  .btn.mute .on{display:none}
+  .btn.mute .off{display:block}
+  .btn[disabled]{opacity:.4}
+
+  /* ── двор ── */
+  .yard{flex:1;min-height:0;position:relative;margin-top:8px;
+    border-radius:22px;overflow:hidden;
+    box-shadow:0 10px 30px rgba(51,43,70,.18) inset,0 2px 0 rgba(255,255,255,.4)}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+  /* ── окно камеры ── */
+  .cam{position:absolute;inset:0;z-index:8;display:none;background:#241F33}
+  .cam.on{display:block}
+  .cam video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#241F33}
+  .cam video.flip{transform:scaleX(-1)}
+  /* рамка показывает, что именно попадёт в пазл: снимок всегда квадратный */
+  .mask{position:absolute;inset:0;pointer-events:none;
+    display:grid;place-items:center}
+  .mask .hole{
+    width:min(86vw,56vh);aspect-ratio:1;border-radius:18px;
+    box-shadow:0 0 0 9999px rgba(36,31,51,.52);
+    outline:3px solid rgba(255,255,255,.9);outline-offset:-3px;
+  }
+  .camBar{position:absolute;left:0;right:0;bottom:0;z-index:9;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:14px 18px calc(env(safe-area-inset-bottom,0px) + 14px)}
+  .shoot{
+    width:min(22vw,78px);aspect-ratio:1;border-radius:50%;border:0;cursor:pointer;
+    background:radial-gradient(circle at 34% 28%,#fff,rgba(255,255,255,.75) 48%,#D9CFF5 100%);
+    box-shadow:0 8px 24px rgba(0,0,0,.4),inset 0 0 0 4px rgba(155,140,224,.5);
+    display:grid;place-items:center;font-size:min(10vw,34px);line-height:1;
+  }
+  .shoot:active{transform:scale(.94)}
+  .camBtn{
+    border:0;border-radius:999px;cursor:pointer;font-family:inherit;
+    font-size:14px;font-weight:600;padding:11px 15px;min-height:46px;
+    background:rgba(255,255,255,.22);color:#fff;
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    display:flex;align-items:center;gap:7px;
+  }
+  .camBtn:active{transform:scale(.95)}
+  .camBtn.wide{min-width:92px;justify-content:center}
+  .shot{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:10;
+    transition:opacity .18s}
+  .shot.on{opacity:.92;transition:none}
+
+  .say{
+    position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:7;
+    background:rgba(51,43,70,.82);color:#fff;border-radius:999px;
+    padding:8px 16px;font-size:15px;font-weight:600;white-space:nowrap;
+    opacity:0;transition:opacity .25s;pointer-events:none;
+  }
+  .say.on{opacity:1}
+
+  /* кнопку «все игры» от home.js прячем: домик и так в верхней полосе */
+  .yv-home{display:none!important}
+
+  /* ── шторки ── */
+  .veil{
+    position:fixed;inset:0;z-index:10;display:flex;
+    background:rgba(155,140,224,.52);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    transition:opacity .28s;padding:15px;
+    overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .panel{
+    width:100%;max-width:400px;text-align:center;margin:auto;flex:none;
+    background:rgba(255,255,255,.96);border-radius:26px;padding:20px 18px 24px;
+    box-shadow:0 18px 44px rgba(51,43,70,.26);
+  }
+  .panel h1{font-size:clamp(23px,6.6vw,30px);font-weight:600}
+  .panel .ru{font-size:13.5px;color:rgba(51,43,70,.55);margin-top:2px}
+
+  .modes{
+    display:flex;gap:6px;margin-top:11px;
+    background:rgba(51,43,70,.07);border-radius:14px;padding:4px;
+  }
+  .modes button{
+    flex:1;border:0;border-radius:10px;cursor:pointer;padding:8px 6px;
+    font-family:inherit;font-size:14.5px;font-weight:600;
+    background:none;color:rgba(51,43,70,.55);transition:background .2s,color .2s;
+  }
+  .modes button.on{background:linear-gradient(160deg,#B79BF0,#8A5BD8);color:#fff;
+    box-shadow:0 4px 12px rgba(138,91,216,.4)}
+  .modes button:active{transform:scale(.96)}
+
+  .tip{margin-top:11px;font-size:13.5px;line-height:1.55;color:rgba(51,43,70,.7);
+    background:rgba(155,140,224,.16);border-radius:14px;padding:11px 12px;text-align:left}
+  .tip b{color:#332B46;font-weight:600}
+  .tip .row{display:flex;gap:9px;margin-top:7px}
+  .tip .row:first-child{margin-top:0}
+  .tip .k{flex:none;width:20px;text-align:center}
+
+  .big{
+    margin:16px auto 0;width:min(38vw,132px);aspect-ratio:1;border:0;border-radius:50%;
+    cursor:pointer;display:grid;place-items:center;font-size:min(16vw,54px);line-height:1;
+    background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.98),rgba(255,255,255,.3) 32%,rgba(183,155,240,.6) 60%,rgba(138,91,216,.45) 82%,rgba(255,255,255,.9) 100%);
+    box-shadow:0 16px 40px rgba(51,43,70,.28),inset 0 0 30px rgba(255,255,255,.6);
+    animation:float 3.6s ease-in-out infinite;
+  }
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+
+  .row2{display:flex;gap:10px;justify-content:center;margin-top:14px}
+  .row2 button{
+    flex:1;max-width:160px;border:0;border-radius:16px;cursor:pointer;
+    font-family:inherit;font-size:15px;font-weight:600;padding:13px 10px;
+    background:rgba(51,43,70,.07);color:#332B46;
+    display:flex;align-items:center;justify-content:center;gap:7px;
+  }
+  .row2 button.hot{background:linear-gradient(160deg,#B79BF0,#8A5BD8);color:#fff;
+    box-shadow:0 6px 16px rgba(138,91,216,.35)}
+  .row2 button:active{transform:scale(.96)}
+
+  .score2{display:flex;justify-content:center;align-items:flex-end;gap:7px;margin-top:14px}
+  .score2 .n{font-size:clamp(34px,11vw,48px);font-weight:600;line-height:.95;
+    font-variant-numeric:tabular-nums}
+  .score2 .u{font-size:16px;font-weight:500;opacity:.5;padding-bottom:5px}
+  .was{margin-top:6px;font-size:14px;color:rgba(51,43,70,.6)}
+  .was b{color:#6B46C1}
+
+  .warn{margin-top:12px;font-size:13.5px;line-height:1.5;text-align:left;
+    background:rgba(216,72,60,.1);border-radius:14px;padding:11px 12px;color:#8A3028}
+  .warn b{font-weight:600}
+
+  @media (max-height:600px){
+    .modes{margin-top:7px;padding:3px}
+    .modes button{padding:6px 5px;font-size:12.5px}
+    .panel{padding:12px 15px 13px}
+    .panel h1{font-size:19px}
+    .panel .ru{font-size:12px}
+    .tip{margin-top:8px;font-size:11.5px;line-height:1.4;padding:7px 9px}
+    .tip .row{margin-top:5px;gap:7px}
+    .big{margin-top:8px;width:min(16vh,68px);font-size:min(8vh,30px)}
+    .score2{margin-top:9px}
+    .score2 .n{font-size:min(9vh,40px)}
+    .row2{margin-top:9px}
+    .row2 button{padding:9px 8px;font-size:13.5px}
+  }
+  @media (max-height:430px){
+    .veil{padding:8px}
+    .panel{padding:10px 14px 12px;border-radius:18px}
+    .panel h1{font-size:18px}
+    .modes{margin-top:6px}
+    .modes button{padding:6px 4px;font-size:12px}
+    .tip{margin-top:5px;font-size:10.5px;line-height:1.3;padding:6px 8px}
+    .tip .row{margin-top:4px;gap:6px}
+    .big{margin-top:7px;width:min(15vh,62px);font-size:min(7vh,26px)}
+    /* Лёжа кнопки встают столбиком справа, как в обычной камере:
+       снизу они залезали на рамку и закрывали угол кадра. */
+    .mask{padding-right:min(34vw,150px)}
+    .mask .hole{width:min(42vw,74vh)}
+    .camBar{flex-direction:column-reverse;left:auto;top:0;
+      width:min(34vw,150px);justify-content:center;gap:10px;
+      padding:8px 10px calc(env(safe-area-inset-bottom,0px) + 8px)}
+    .camBtn{font-size:12.5px;padding:9px 11px;min-height:40px}
+    .shoot{width:min(13vh,62px)}
+  }
+  @media (prefers-reduced-motion:reduce){ .big{animation:none} }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="pill hi" id="hiPill"><span class="ic">🏆</span><b id="hi">—</b></div>
+  <div class="pill score"><span class="ic">🧩</span><b id="score">0 / 0</b></div>
+  <div class="pill"><span class="ic">⏱</span><b id="clock">0:00</b></div>
+  <button class="btn" id="snd" aria-label="Звук">
+    <svg class="on" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>
+    <svg class="off" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6"/><path d="M21 9l-5 6"/></svg>
+  </button>
+  <a class="btn" href="index.html" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/></svg>
+  </a>
+</div>
+
+<div class="yard" id="yard">
+  <canvas id="cv"></canvas>
+  <div class="say" id="say"></div>
+
+  <!-- камера: живая картинка, рамка и спуск -->
+  <div class="cam" id="cam">
+    <video id="vid" playsinline autoplay muted></video>
+    <div class="mask"><div class="hole"></div></div>
+    <div class="camBar">
+      <button class="camBtn wide" id="flip">🔄 Повернуть</button>
+      <button class="shoot" id="shoot" aria-label="Снять">📷</button>
+      <button class="camBtn wide" id="fromFile">📁 Из галереи</button>
+    </div>
+    <div class="shot" id="shot"></div>
+  </div>
+
+  <div class="veil" id="veil">
+    <div class="panel">
+      <h1>Schnappschuss</h1>
+      <div class="ru">Фотопазл</div>
+      <div class="modes" id="modes">
+        <button data-m="s4">🧩 4</button>
+        <button data-m="s9">🧩 9</button>
+        <button data-m="s16">🧩 16</button>
+      </div>
+      <div class="tip">
+        <div class="row"><span class="k">📷</span><span>Сними <b>что угодно</b>: кота, игрушку, папу</span></div>
+        <div class="row"><span class="k">🧩</span><span>Снимок рассыплется на кусочки — перетащи каждый на своё место</span></div>
+        <div class="row"><span class="k">👻</span><span id="tipGhost">Под рамкой видно бледную подсказку</span></div>
+        <div class="row"><span class="k">🔒</span><span>Фотографии остаются <b>в телефоне</b> и никуда не отправляются</span></div>
+      </div>
+      <div class="was" id="bestLine"></div>
+      <button class="big" id="go" aria-label="Снять">📷</button>
+    </div>
+  </div>
+
+  <div class="veil hidden" id="deny">
+    <div class="panel">
+      <h1 id="denyHead">Камеру не пустили</h1>
+      <div class="ru">Но пазл всё равно будет</div>
+      <div class="warn" id="denyWhy"></div>
+      <div class="row2">
+        <button id="denyRetry">📷 Ещё раз</button>
+        <button class="hot" id="denyFile">📁 Из галереи</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="veil hidden" id="over">
+    <div class="panel">
+      <h1>Fertig!</h1>
+      <div class="ru">Собрала!</div>
+      <div class="score2"><span class="n" id="sTime">0:00</span><span class="u">минут</span></div>
+      <div class="was" id="sMoves"></div>
+      <div class="was" id="sBest"></div>
+      <div class="row2">
+        <button class="hot" id="again">🔁 Ещё раз</button>
+        <button id="newShot">📷 Новое фото</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="pick" accept="image/*" hidden>
+
+<script>
+(function () {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+
+  /* ══════════════════════════════════════════════════════════════
+     Фотопазл. Снимок с камеры режется на кусочки, их надо разложить
+     по местам.
+
+     Про снимок: он живёт только в памяти вкладки — в холсте. Нигде не
+     сохраняется, никуда не отправляется, при выходе из игры исчезает.
+     Сетевых запросов игра не делает вовсе, это проверено тестом.
+
+     Камеру выключаем сразу после кадра: держать её открытой всю игру
+     значит греть телефон и жечь батарею впустую.
+     ══════════════════════════════════════════════════════════════ */
+
+  const MODES = {
+    s4:  { n: 2, ghost: true,  snap: 0.52 },
+    s9:  { n: 3, ghost: true,  snap: 0.40 },
+    s16: { n: 4, ghost: false, snap: 0.32 }
+  };
+  const K_MODE = 'yeva-snap-mode';
+  const K_MUTE = 'yeva-snap-mute';
+  const K_BEST = 'yeva-snap-best-';
+
+  const SRC = 720;                 // сторона исходного квадрата, пикселей
+  const PEEK = 1.5;                // сколько секунд показываем снимок целиком
+
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  const vid = $('vid');
+
+  let W = 0, H = 0, dpr = 1;
+  let mode = 's9';
+  let muted = false;
+
+  // холст-исходник: из него нарезаются кусочки
+  const src = document.createElement('canvas');
+  src.width = src.height = SRC;
+  const sctx = src.getContext('2d');
+  let hasShot = false;
+
+  let stream = null, facing = 'user';
+
+  const S = {
+    phase: 'start',      // start | cam | peek | play | done
+    pieces: [],
+    placed: 0,
+    total: 0,
+    moves: 0,
+    t0: 0,
+    time: 0,
+    peekT: 0,
+    sparks: []
+  };
+
+  /* ── звук ── */
+  let actx = null, master = null;
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = muted ? 0 : 0.26;
+    master.connect(actx.destination);
+  }
+  function applyMute() {
+    if (master) master.gain.value = muted ? 0 : 0.26;
+    $('snd').classList.toggle('mute', muted);
+  }
+  function tone(type, f, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + dur * 0.92);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+  function noise(dur, vol, at) {
+    if (!actx) return;
+    const t = actx.currentTime + (at || 0);
+    const n = Math.floor(actx.sampleRate * dur);
+    const b = actx.createBuffer(1, n, actx.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s2 = actx.createBufferSource();
+    s2.buffer = b;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s2.connect(g); g.connect(master);
+    s2.start(t);
+  }
+  const sndShot  = () => { noise(0.09, 0.5, 0); tone('sine', 1400, 0.02, 0.09, 0.25, 900); };
+  const sndSnap  = () => { tone('sine', 620, 0, 0.1, 0.3, 880); tone('sine', 880, 0.06, 0.12, 0.2); };
+  const sndMiss  = () => tone('triangle', 240, 0, 0.1, 0.16, 190);
+  const sndGrab  = () => tone('sine', 420, 0, 0.05, 0.12);
+  function sndWin() {
+    [523, 659, 784, 1046].forEach((f, i) => tone('sine', f, i * 0.11, 0.3, 0.26));
+    noise(0.5, 0.18, 0.12);
+  }
+
+  /* ── размеры ── */
+  function fit() {
+    const r = $('yard').getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    W = Math.round(r.width); H = Math.round(r.height);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (S.pieces.length) relayout();
+  }
+
+  /* Поле и лоток. Доска квадратная — снимок тоже квадратный, иначе
+     кусочки пришлось бы делать прямоугольными и на узком экране они
+     превращались бы в полоски. */
+  function layout() {
+    const pad = Math.max(8, Math.min(W, H) * 0.035);
+    const wide = W > H * 1.15;
+    let B;
+    if (wide) {
+      B = Math.min(H - pad * 2, W * 0.54);
+      return { wide: wide, B: B, bx: pad, by: (H - B) / 2,
+               tx: pad * 2 + B, ty: pad, tw: W - (pad * 3 + B), th: H - pad * 2 };
+    }
+    B = Math.min(W - pad * 2, H * 0.56);
+    return { wide: wide, B: B, bx: (W - B) / 2, by: pad,
+             tx: pad, ty: pad * 2 + B, tw: W - pad * 2, th: H - (pad * 3 + B) };
+  }
+
+  const cfg = () => MODES[mode];
+
+  function homeOf(i, L) {
+    const n = cfg().n, p = L.B / n;
+    return { x: L.bx + (i % n) * p, y: L.by + Math.floor(i / n) * p, p: p };
+  }
+
+  /* Кусочки раскладываем в лотке по сетке с лёгким разбросом: случайные
+     точки сбивались бы в кучу и перекрывали друг друга целиком. */
+  function nest(i, L) {
+    const n = cfg().n, total = n * n, p = L.B / n;
+    const cols = Math.max(1, Math.round(Math.sqrt(total * L.tw / Math.max(1, L.th))));
+    const rows = Math.ceil(total / cols);
+    const cw = L.tw / cols, ch = L.th / rows;
+    const c = i % cols, r = Math.floor(i / cols);
+    const jx = (rnd(i * 7 + 1) - 0.5) * Math.max(0, cw - p) * 0.8;
+    const jy = (rnd(i * 13 + 5) - 0.5) * Math.max(0, ch - p) * 0.8;
+    // Лоток бывает теснее кусочка (маленький экран, 16 кусочков). Тогда
+    // разброс выкидывал край кусочка за пределы двора — прижимаем.
+    const clamp = (v, lo, hi) => hi < lo ? lo : Math.max(lo, Math.min(hi, v));
+    return {
+      x: clamp(L.tx + c * cw + (cw - p) / 2 + jx, 0, W - p),
+      y: clamp(L.ty + r * ch + (ch - p) / 2 + jy, 0, H - p)
+    };
+  }
+
+  // свой генератор: раскладка должна пережить поворот экрана без скачков
+  let seed = 1;
+  function rnd(k) {
+    const x = Math.sin(seed * 9301 + k * 49297) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  function relayout() {
+    const L = layout();
+    S.pieces.forEach(pc => {
+      const h = homeOf(pc.i, L);
+      pc.home = h; pc.size = h.p;
+      if (pc.placed) { pc.x = h.x; pc.y = h.y; }
+      else if (!pc.grab) { const s2 = nest(pc.slot, L); pc.x = s2.x; pc.y = s2.y; }
+    });
+  }
+
+  /* ── подготовка пазла ── */
+  function build() {
+    const n = cfg().n, total = n * n;
+    const L = layout();
+    const order = [];
+    for (let i = 0; i < total; i++) order.push(i);
+    // тасуем места в лотке, чтобы кусочки не лежали по порядку
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd(i * 3 + 2) * (i + 1));
+      const t = order[i]; order[i] = order[j]; order[j] = t;
+    }
+    S.pieces = [];
+    for (let i = 0; i < total; i++) {
+      const h = homeOf(i, L);
+      S.pieces.push({
+        i: i, slot: order[i], home: h, size: h.p,
+        x: h.x, y: h.y,          // при показе снимка кусочки лежат на месте
+        placed: false, grab: false, z: i,
+        fx: 0, fy: 0, fly: 0     // разлёт после показа
+      });
+    }
+    S.total = total; S.placed = 0; S.moves = 0;
+    S.time = 0; S.sparks = [];
+    paint();
+  }
+
+  function scatter() {
+    const L = layout();
+    S.pieces.forEach(pc => {
+      const s2 = nest(pc.slot, L);
+      pc.fx = pc.x; pc.fy = pc.y;      // откуда летим
+      pc.tx = s2.x; pc.ty = s2.y;      // куда
+      pc.fly = 1;
+    });
+  }
+
+  /* ── ход игры ── */
+  function startPeek() {
+    S.phase = 'peek';
+    S.peekT = PEEK;
+    build();
+    say('Запомни!');
+    hideVeils();
+  }
+
+  function startPlay() {
+    S.phase = 'play';
+    S.t0 = now();
+    S.time = 0;
+    say('');
+    paint();
+  }
+
+  function finish() {
+    S.phase = 'done';
+    S.time = (now() - S.t0) / 1000;
+    sndWin();
+    burst();
+    const b = best();
+    const better = !b || S.time < b;
+    if (better) setBest(S.time);
+    setTimeout(() => {
+      $('sTime').textContent = clock(S.time);
+      $('sMoves').textContent = 'Кусочков: ' + S.total + ' · перекладываний: ' + S.moves;
+      $('sBest').innerHTML = better
+        ? 'Это <b>лучшее время</b>!'
+        : 'Лучшее: <b>' + clock(b) + '</b>';
+      show('over');
+      paint();
+    }, 1100);
+  }
+
+  function clock(sec) {
+    if (sec == null) return '—';
+    const s = Math.max(0, Math.round(sec));
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+  const now = () => (window.performance && performance.now ? performance.now() : Date.now());
+
+  function best() {
+    try {
+      const v = parseFloat(localStorage.getItem(K_BEST + mode) || '');
+      return isFinite(v) && v > 0 ? v : null;
+    } catch (e) { return null; }
+  }
+  function setBest(v) { try { localStorage.setItem(K_BEST + mode, String(v)); } catch (e) {} }
+
+  function paint() {
+    $('score').textContent = S.placed + ' / ' + S.total;
+    $('clock').textContent = clock(S.phase === 'play' ? (now() - S.t0) / 1000 : S.time);
+    const b = best();
+    $('hi').textContent = b ? clock(b) : '—';
+  }
+
+  function say(t) {
+    const el = $('say');
+    el.textContent = t;
+    el.classList.toggle('on', !!t);
+  }
+
+  /* ── конфетти при победе ── */
+  function burst() {
+    const L = layout();
+    for (let i = 0; i < 70; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const v = (0.3 + Math.random() * 0.9) * L.B;
+      S.sparks.push({
+        x: L.bx + L.B / 2, y: L.by + L.B / 2,
+        vx: Math.cos(a) * v, vy: Math.sin(a) * v - L.B * 0.3,
+        life: 1 + Math.random() * 0.7, t: 0,
+        c: ['#F2B544', '#8A5BD8', '#4FC3A1', '#E8637C', '#fff'][i % 5],
+        s: L.B * (0.012 + Math.random() * 0.016)
+      });
+    }
+  }
+
+  /* ── рисование ── */
+  let last = 0, auto = true;
+
+  function frame(ts) {
+    if (!auto) return;
+    requestAnimationFrame(frame);
+    const dt = last ? Math.min(0.25, (ts - last) / 1000) : 0;
+    last = ts;
+    step(dt);
+  }
+
+  function step(dt) {
+    if (S.phase === 'peek') {
+      S.peekT -= dt;
+      if (S.peekT <= 0) { scatter(); startPlay(); }
+    }
+    S.pieces.forEach(pc => {
+      if (pc.fly > 0) {
+        pc.fly = Math.max(0, pc.fly - dt / 0.45);
+        const k = 1 - Math.pow(pc.fly, 3);          // мягкое торможение
+        pc.x = pc.fx + (pc.tx - pc.fx) * k;
+        pc.y = pc.fy + (pc.ty - pc.fy) * k;
+      }
+    });
+    S.sparks.forEach(s2 => {
+      s2.t += dt;
+      s2.x += s2.vx * dt; s2.y += s2.vy * dt;
+      s2.vy += 900 * dt;
+    });
+    S.sparks = S.sparks.filter(s2 => s2.t < s2.life);
+    if (S.phase === 'play') paint();
+    draw();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const L = layout();
+
+    // двор
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#EDE6FB'); g.addColorStop(1, '#DCD2F5');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    if (!S.pieces.length) return;
+
+    // рамка поля
+    const r = L.B * 0.035;
+    ctx.save();
+    round(L.bx, L.by, L.B, L.B, r);
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.fill();
+    ctx.restore();
+
+    // бледная подсказка под рамкой
+    if (cfg().ghost && hasShot && S.phase !== 'done') {
+      ctx.save();
+      round(L.bx, L.by, L.B, L.B, r);
+      ctx.clip();
+      ctx.globalAlpha = 0.22;
+      ctx.drawImage(src, 0, 0, SRC, SRC, L.bx, L.by, L.B, L.B);
+      ctx.restore();
+    }
+
+    // сетка мест
+    ctx.save();
+    ctx.strokeStyle = 'rgba(51,43,70,.16)';
+    ctx.lineWidth = Math.max(1, L.B * 0.004);
+    const n = cfg().n, p = L.B / n;
+    for (let i = 1; i < n; i++) {
+      ctx.beginPath();
+      ctx.moveTo(L.bx + i * p, L.by); ctx.lineTo(L.bx + i * p, L.by + L.B);
+      ctx.moveTo(L.bx, L.by + i * p); ctx.lineTo(L.bx + L.B, L.by + i * p);
+      ctx.stroke();
+    }
+    round(L.bx, L.by, L.B, L.B, r);
+    ctx.strokeStyle = 'rgba(51,43,70,.3)';
+    ctx.lineWidth = Math.max(2, L.B * 0.008);
+    ctx.stroke();
+    ctx.restore();
+
+    // кусочки: сначала лежащие, потом поднятый — чтобы он был сверху
+    const list = S.pieces.slice().sort((a, b) => a.z - b.z);
+    list.forEach(pc => piece(pc, L));
+
+    // конфетти
+    S.sparks.forEach(s2 => {
+      ctx.globalAlpha = Math.max(0, 1 - s2.t / s2.life);
+      ctx.fillStyle = s2.c;
+      ctx.fillRect(s2.x, s2.y, s2.s, s2.s * 1.6);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  function piece(pc, L) {
+    const n = cfg().n, sp = SRC / n;
+    const sx = (pc.i % n) * sp, sy = Math.floor(pc.i / n) * sp;
+    const s2 = pc.size;
+    const lift = pc.grab ? s2 * 0.06 : 0;
+
+    ctx.save();
+    if (pc.grab) {
+      ctx.shadowColor = 'rgba(51,43,70,.4)';
+      ctx.shadowBlur = s2 * 0.2; ctx.shadowOffsetY = s2 * 0.06;
+    } else if (!pc.placed) {
+      ctx.shadowColor = 'rgba(51,43,70,.22)';
+      ctx.shadowBlur = s2 * 0.09; ctx.shadowOffsetY = s2 * 0.03;
+    }
+    const rr = pc.placed ? 0 : s2 * 0.08;
+    round(pc.x - lift, pc.y - lift, s2 + lift * 2, s2 + lift * 2, rr);
+    ctx.clip();
+    if (hasShot) {
+      ctx.drawImage(src, sx, sy, sp, sp, pc.x - lift, pc.y - lift, s2 + lift * 2, s2 + lift * 2);
+    } else {
+      ctx.fillStyle = '#B79BF0';
+      ctx.fillRect(pc.x - lift, pc.y - lift, s2 + lift * 2, s2 + lift * 2);
+    }
+    ctx.restore();
+
+    if (!pc.placed) {
+      ctx.save();
+      round(pc.x - lift, pc.y - lift, s2 + lift * 2, s2 + lift * 2, rr);
+      ctx.strokeStyle = 'rgba(255,255,255,.9)';
+      ctx.lineWidth = Math.max(1.5, s2 * 0.03);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function round(x, y, w, h, r) {
+    ctx.beginPath();
+    if (!r) { ctx.rect(x, y, w, h); return; }
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  /* ── перетаскивание ── */
+  let drag = null, topZ = 100;
+
+  function at(x, y) {
+    const list = S.pieces.slice().sort((a, b) => b.z - a.z);
+    for (const pc of list) {
+      if (pc.placed) continue;
+      if (x >= pc.x && x <= pc.x + pc.size && y >= pc.y && y <= pc.y + pc.size) return pc;
+    }
+    return null;
+  }
+
+  function point(e) {
+    const r = cv.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  function down(e) {
+    if (S.phase !== 'play') return;
+    initAudio();
+    const p = point(e);
+    const pc = at(p.x, p.y);
+    if (!pc) return;
+    drag = pc;
+    pc.grab = true; pc.fly = 0;
+    pc.gx = p.x - pc.x; pc.gy = p.y - pc.y;
+    pc.z = ++topZ;
+    sndGrab();
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+  }
+
+  function move(e) {
+    if (!drag) return;
+    const p = point(e);
+    drag.x = p.x - drag.gx;
+    drag.y = p.y - drag.gy;
+    e.preventDefault();
+  }
+
+  function up(e) {
+    if (!drag) return;
+    const pc = drag; drag = null;
+    pc.grab = false;
+    S.moves++;
+    const d = Math.hypot(pc.x - pc.home.x, pc.y - pc.home.y);
+    if (d <= pc.size * cfg().snap) {
+      pc.x = pc.home.x; pc.y = pc.home.y;
+      pc.placed = true; pc.z = 0;
+      S.placed++;
+      sndSnap();
+      paint();
+      if (S.placed === S.total) finish();
+    } else {
+      sndMiss();
+    }
+    if (e) e.preventDefault();
+  }
+
+  cv.addEventListener('pointerdown', down);
+  cv.addEventListener('pointermove', move);
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+
+  /* ── камера ── */
+  function hideVeils() {
+    ['veil', 'deny', 'over'].forEach(id => $(id).classList.add('hidden'));
+  }
+  function show(id) {
+    hideVeils();
+    $(id).classList.remove('hidden');
+  }
+
+  async function openCam() {
+    initAudio();
+    hideVeils();
+    S.phase = 'cam';
+    $('cam').classList.add('on');
+    try {
+      stopCam();
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 1280 } },
+        audio: false
+      });
+      vid.srcObject = stream;
+      vid.classList.toggle('flip', facing === 'user');
+      await vid.play().catch(() => {});
+    } catch (err) {
+      $('cam').classList.remove('on');
+      denied(err);
+    }
+  }
+
+  function stopCam() {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    vid.srcObject = null;
+  }
+
+  function denied(err) {
+    S.phase = 'start';
+    const name = err && err.name ? err.name : '';
+    let head = 'Камеру не пустили', why;
+    if (name === 'NotAllowedError') {
+      why = 'Телефон не дал доступ к камере. Разреши его в настройках: ' +
+            '<b>долгое нажатие на значок YEVA → «О приложении» → Разрешения → Камера</b>. ' +
+            'А пока можно взять готовый снимок из галереи.';
+    } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+      head = 'Камеры не нашлось';
+      why = 'Устройство не отдало ни одной камеры. Возьми снимок из галереи — пазл будет точно такой же.';
+    } else if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      head = 'Нужен защищённый адрес';
+      why = 'Камера работает только по <b>https</b>. Открой игру из установленного приложения YEVA.';
+    } else {
+      why = 'Камера не открылась' + (name ? ' (' + name + ')' : '') +
+            '. Попробуй ещё раз или возьми снимок из галереи.';
+    }
+    $('denyHead').textContent = head;
+    $('denyWhy').innerHTML = why;
+    show('deny');
+  }
+
+  /* Кадр: берём центральный квадрат — ровно то, что обведено рамкой. */
+  function grab() {
+    const vw = vid.videoWidth, vh = vid.videoHeight;
+    if (!vw || !vh) return false;
+    const side = Math.min(vw, vh);
+    const sx = (vw - side) / 2, sy = (vh - side) / 2;
+    sctx.save();
+    sctx.clearRect(0, 0, SRC, SRC);
+    if (facing === 'user') { sctx.translate(SRC, 0); sctx.scale(-1, 1); }
+    sctx.drawImage(vid, sx, sy, side, side, 0, 0, SRC, SRC);
+    sctx.restore();
+    hasShot = true;
+    return true;
+  }
+
+  function shoot() {
+    if (!grab()) return;
+    sndShot();
+    const fl = $('shot');
+    fl.classList.add('on');
+    requestAnimationFrame(() => { fl.classList.remove('on'); });
+    stopCam();
+    $('cam').classList.remove('on');
+    startPeek();
+  }
+
+  /* Снимок из галереи — запасной путь, если камеру не пустили. */
+  function fromFile(file) {
+    if (!file) return;
+    const fr = new FileReader();
+    fr.onload = () => {
+      const im = new Image();
+      im.onload = () => {
+        const side = Math.min(im.width, im.height);
+        sctx.clearRect(0, 0, SRC, SRC);
+        sctx.drawImage(im, (im.width - side) / 2, (im.height - side) / 2,
+                       side, side, 0, 0, SRC, SRC);
+        hasShot = true;
+        stopCam();
+        $('cam').classList.remove('on');
+        initAudio(); sndShot();
+        startPeek();
+      };
+      im.onerror = () => { $('denyWhy').innerHTML = 'Этот файл не открылся как картинка. Попробуй другой.'; show('deny'); };
+      im.src = fr.result;
+    };
+    fr.onerror = () => { $('denyWhy').innerHTML = 'Файл не прочитался. Попробуй другой.'; show('deny'); };
+    fr.readAsDataURL(file);
+  }
+
+  $('pick').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    fromFile(f);
+  });
+
+  /* ── кнопки ── */
+  $('go').addEventListener('click', openCam);
+  $('shoot').addEventListener('click', shoot);
+  $('flip').addEventListener('click', () => {
+    facing = facing === 'user' ? 'environment' : 'user';
+    openCam();
+  });
+  $('fromFile').addEventListener('click', () => $('pick').click());
+  $('denyFile').addEventListener('click', () => $('pick').click());
+  $('denyRetry').addEventListener('click', openCam);
+  $('newShot').addEventListener('click', openCam);
+  $('again').addEventListener('click', () => {
+    if (!hasShot) { openCam(); return; }
+    seed++;
+    startPeek();
+  });
+
+  $('snd').addEventListener('click', () => {
+    muted = !muted;
+    applyMute();
+    try { localStorage.setItem(K_MUTE, muted ? '1' : '0'); } catch (e) {}
+  });
+
+  function applyMode(m) {
+    if (!MODES[m]) return;
+    mode = m;
+    [].forEach.call($('modes').children, b => b.classList.toggle('on', b.dataset.m === m));
+    $('tipGhost').textContent = cfg().ghost
+      ? 'Под рамкой видно бледную подсказку'
+      : 'Подсказки под рамкой нет — только память';
+    const b = best();
+    $('bestLine').innerHTML = b ? 'Лучшее время: <b>' + clock(b) + '</b>' : '';
+    S.total = cfg().n * cfg().n;
+    paint();
+    try { localStorage.setItem(K_MODE, m); } catch (e) {}
+  }
+  [].forEach.call($('modes').children, b => {
+    b.addEventListener('click', () => applyMode(b.dataset.m));
+  });
+
+  // уходим со страницы или сворачиваемся — камеру гасим
+  window.addEventListener('pagehide', stopCam);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stopCam(); });
+
+  window.addEventListener('resize', fit);
+  window.addEventListener('orientationchange', () => setTimeout(fit, 120));
+
+  /* ── пуск ── */
+  try { muted = localStorage.getItem(K_MUTE) === '1'; } catch (e) {}
+  applyMute();
+  let saved = 's9';
+  try { saved = localStorage.getItem(K_MODE) || 's9'; } catch (e) {}
+  applyMode(MODES[saved] ? saved : 's9');
+  fit();
+  requestAnimationFrame(frame);
+  draw();
+
+  /* ── ручки для проверки ── */
+  window.YEVA_SNAP = {
+    state: () => ({
+      phase: S.phase, mode: mode, placed: S.placed, total: S.total,
+      moves: S.moves, shot: hasShot, cam: !!stream,
+      best: best(), W: W, H: H, ghost: cfg().ghost
+    }),
+    mode: m => { if (m) applyMode(m); return mode; },
+    auto: on => { auto = on; last = 0; if (on) requestAnimationFrame(frame); },
+    step: step,
+    open: openCam,
+    shoot: shoot,
+    // подсунуть картинку вместо камеры — для проверки без железа
+    feed: (draw2) => {
+      sctx.clearRect(0, 0, SRC, SRC);
+      draw2(sctx, SRC);
+      hasShot = true;
+      startPeek();
+    },
+    peekDone: () => { if (S.phase === 'peek') { scatter(); startPlay(); } },
+    pieces: () => S.pieces.map(p => ({
+      i: p.i, x: Math.round(p.x), y: Math.round(p.y),
+      hx: Math.round(p.home.x), hy: Math.round(p.home.y),
+      size: Math.round(p.size), placed: p.placed
+    })),
+    // положить кусочек руками, как будто его перетащили
+    put: i => {
+      const pc = S.pieces[i];
+      if (!pc || pc.placed) return false;
+      pc.x = pc.home.x; pc.y = pc.home.y;
+      drag = pc; up(null);
+      return true;
+    },
+    solve: () => { for (let i = 0; i < S.pieces.length; i++) window.YEVA_SNAP.put(i); },
+    src: () => src,
+    gain: () => master ? master.gain.value : -1
+  };
+})();
+</script>
+<script src="install.js"></script>
+<script src="home.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
