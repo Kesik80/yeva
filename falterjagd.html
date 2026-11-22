@@ -204,8 +204,12 @@
       <div class="tip">
         <div class="row"><span class="k">🦋</span><span>По экрану летают бабочки, а на экране — <b>ты</b></span></div>
         <div class="row"><span class="k">👋</span><span>Маши рукой там, где бабочка — она улетит с ладошки</span></div>
+        <div class="row"><span class="k">🔄</span><span id="tipTurn">Бабочки кружат вокруг — лови их взмахом</span></div>
         <div class="row"><span class="k">⏱</span><span id="tipTime">Минута — и считаем, сколько поймала</span></div>
         <div class="row"><span class="k">🔒</span><span>Камера <b>никуда не передаёт</b> картинку, всё считается в телефоне</span></div>
+      </div>
+      <div class="row2">
+        <button id="camSide">🤳 Камера: на себя</button>
       </div>
       <div class="was" id="bestLine"></div>
       <button class="big" id="go" aria-label="Начать">👋</button>
@@ -275,6 +279,7 @@
   const K_MODE = 'yeva-falter-mode';
   const K_MUTE = 'yeva-falter-mute';
   const K_BEST = 'yeva-falter-best-';
+  const K_FRONT = 'yeva-falter-front';
 
   const MW = 64, MH = 48;          // сетка движения
   const GLOBAL = 0.38;             // шевельнулось больше трети кадра — не наш случай
@@ -288,12 +293,15 @@
   let touchOnly = false;           // ловим пальцем: камеры нет или её не пустили
 
   let stream = null;
+  let front = true;               // на себя или от себя
 
   const S = {
     phase: 'start',                // start | play | done
     flies: [], puffs: [],
     score: 0, missed: 0,
     left: 0, spawnT: 0,
+    world: false,                  // бабочки привязаны к комнате, а не к экрану
+    settle: 0,                     // секунды «не ловим»: кадру не с чем сравниваться
     moved: 0,                      // доля шевелящихся клеток в кадре
     bg: 0,                         // средняя энергия по кадру — фон сцены
     quiet: 0                       // сколько секунд не видно никакого движения
@@ -433,6 +441,7 @@
      приходится проносить по три раза. Поэтому берём самые яркие клетки
      пятна — те самые края — и усредняем уже их. */
   const spot = [];
+  let spotSum = 0;                  // вся энергия пятна, для оценки её доли
   function heatAt(x, y, r) {
     const gx = x / W * MW, gy = y / H * MH;
     const gr = Math.max(1, r / W * MW);
@@ -445,6 +454,8 @@
         spot.push(heat[b * MW + a]);
       }
     }
+    spotSum = 0;
+    for (let i = 0; i < spot.length; i++) spotSum += spot[i];
     if (!spot.length) return 0;
     spot.sort((p, q) => q - p);
     const take = Math.max(3, Math.round(spot.length * 0.4));
@@ -453,24 +464,196 @@
     return sum / n;
   }
 
+  /* ══ комната вокруг телефона ═══════════════════════════════════
+     Бабочка живёт не на экране, а в комнате: у неё есть азимут (куда
+     повернуться) и высота над горизонтом. Экран — окошко: куда телефон
+     направлен, тот кусок комнаты и показывает. Поворот берём с датчика
+     ориентации, а не с картинки: по картинке поворот от взмаха руки не
+     отличить, а датчик говорит прямо.
+
+     Если датчиков нет (ноутбук, старый планшет, отказ), игра молча
+     возвращается к прежнему поведению: бабочки летят поперёк экрана.
+     ═══════════════════════════════════════════════════════════════ */
+  const now = () => (window.performance && performance.now ? performance.now() : Date.now());
+
+  const RAD = Math.PI / 180;
+  const SENSOR = 62 * RAD;          // обычный обзор телефонной камеры по ширине
+  const TURN = 30;                  // градусов в секунду: быстрее — это поворот
+
+  const Wd = {
+    on: false,                      // датчик отвечает
+    R: [1, 0, 0, 0, 1, 0, 0, 0, 1], // поворот телефона: из его осей в мировые
+    yaw: 0,                         // куда смотрит телефон, градусы
+    pitch: 0,                       // и насколько задран, градусы
+    turn: 0,                        // как быстро крутят, градусов в секунду
+    seen: 0,                        // когда пришло последнее показание
+    prev: null
+  };
+
+  function matFrom(a, b, g) {
+    const ca = Math.cos(a * RAD), sa = Math.sin(a * RAD);
+    const cb = Math.cos(b * RAD), sb = Math.sin(b * RAD);
+    const cg = Math.cos(g * RAD), sg = Math.sin(g * RAD);
+    return [
+      ca * cg - sa * sb * sg, -sa * cb, ca * sg + sa * sb * cg,
+      sa * cg + ca * sb * sg,  ca * cb, sa * sg - ca * sb * cg,
+      -cb * sg,                sb,      cb * cg
+    ];
+  }
+
+  function onTilt(e) {
+    if (e.alpha == null && e.beta == null && e.gamma == null) return;
+    const a = e.alpha || 0, b = e.beta || 0, g = e.gamma || 0;
+    const t = now();
+    Wd.R = matFrom(a, b, g);
+    // датчик молчал почти секунду: по такому разрыву скорость не считают,
+    // и кадр до него сравнивать не с чем
+    if (Wd.prev && t - Wd.prev.t > 300) { Wd.prev = null; prevGray = null; S.settle = 0.3; }
+    if (Wd.prev && t > Wd.prev.t) {
+      // насколько повернулся телефон: берём ось взгляда и считаем угол
+      const p = Wd.prev;
+      const dot = Math.max(-1, Math.min(1,
+        p.v[0] * Wd.R[2] + p.v[1] * Wd.R[5] + p.v[2] * Wd.R[8]));
+      const deg = Math.acos(dot) / RAD;
+      const dt = (t - p.t) / 1000;
+      const rate = deg / Math.max(0.008, dt);
+      /* Вверх — сразу, вниз — плавно. Со сглаживанием в обе стороны
+         датчик узнаёт о повороте за два-три показания, и этих кадров
+         хватало, чтобы уезжающая комната сама поймала пару бабочек. */
+      Wd.turn = Math.max(rate, Wd.turn * 0.6 + rate * 0.4);
+    }
+    Wd.prev = { t: t, v: [Wd.R[2], Wd.R[5], Wd.R[8]] };
+    // куда смотрит объектив, в мировых координатах
+    const s = front ? 1 : -1;
+    Wd.yaw = Math.atan2(s * Wd.R[2], s * Wd.R[5]) / RAD;
+    Wd.pitch = Math.asin(Math.max(-1, Math.min(1, s * Wd.R[8]))) / RAD;
+    if (!Wd.on) {
+      Wd.on = true;
+      const el = document.getElementById('tipTurn');
+      if (el) el.innerHTML = 'Бабочки летают <b>по комнате</b> — поворачивайся, ' +
+        'экран как окошко';
+    }
+    Wd.seen = t;
+  }
+
+  function listenTilt() {
+    window.addEventListener('deviceorientation', onTilt);
+    window.addEventListener('deviceorientationabsolute', onTilt);
+  }
+
+  // На iPhone датчик просит разрешения, и только по нажатию кнопки.
+  function askTilt() {
+    const D = window.DeviceOrientationEvent;
+    if (D && typeof D.requestPermission === 'function') {
+      return D.requestPermission().then(listenTilt).catch(() => {});
+    }
+    listenTilt();
+    return Promise.resolve();
+  }
+
+  const screenAngle = () => {
+    const o = screen.orientation;
+    if (o && typeof o.angle === 'number') return o.angle;
+    return window.orientation || 0;
+  };
+
+  /* Фокус в пикселях экрана. Кадр рисуется с обрезкой краёв, поэтому
+     обзор на экране уже, чем у объектива: считаем от исходного кадра и
+     переводим тем же масштабом, каким его растягивали. */
+  function focal() {
+    const fallback = (W / 2) / Math.tan(SENSOR / 2);
+    if (!vid.videoWidth || !vid.videoHeight) return fallback;
+    const s = Math.max(W / vid.videoWidth, H / vid.videoHeight);
+    return ((vid.videoWidth / 2) / Math.tan(SENSOR / 2)) * s;
+  }
+
+  const dirOf = (az, el) => {
+    const ce = Math.cos(el * RAD);
+    return [Math.sin(az * RAD) * ce, Math.cos(az * RAD) * ce, Math.sin(el * RAD)];
+  };
+
+  /* Направление в комнате → точка на экране. */
+  function project(az, el) {
+    const w = dirOf(az, el), R = Wd.R;
+    // d = Rᵀ·w — то же направление, но в осях телефона
+    let dx = R[0] * w[0] + R[3] * w[1] + R[6] * w[2];
+    let dy = R[1] * w[0] + R[4] * w[1] + R[7] * w[2];
+    const dz = R[2] * w[0] + R[5] * w[1] + R[8] * w[2];
+    /* Экран мог повернуться вместе с телефоном. Знак здесь обратный, и
+       это не описка: если телефон повернули вокруг своей оси на θ, то
+       Android докручивает содержимое на −θ и сообщает угол θ. Чтобы
+       точка осталась на том же пикселе, обе эти прокрутки должны
+       сложиться в ноль. */
+    const a = -screenAngle() * RAD, c = Math.cos(a), s2 = Math.sin(a);
+    const rx = dx * c + dy * s2, ry = -dx * s2 + dy * c;
+    const depth = (front ? 1 : -1) * dz;
+    if (depth <= 0.12) return { on: false, dx: rx, dy: ry, depth: depth };
+    const f = focal();
+    const x = W / 2 + (rx / depth) * f, y = H / 2 - (ry / depth) * f;
+    const m = U() * 0.3;
+    return { on: x > -m && x < W + m && y > -m && y < H + m, x: x, y: y, depth: depth,
+             dx: rx, dy: ry };
+  }
+
+  /* Энергия в кольце ВОКРУГ бабочки. В этом вся разница между взмахом
+     и поворотом: когда крутят телефон, движение размазано по всему кадру
+     ровным слоем, и вокруг бабочки его столько же, сколько под ней. Рука
+     же собрана в одном месте — под бабочкой густо, рядом пусто. */
+  function ringAt(x, y, r) {
+    const gx = x / W * MW, gy = y / H * MH;
+    const r1 = Math.max(1.4, r / W * MW * 1.7), r0 = Math.max(1, r / W * MW * 1.05);
+    let sum = 0, n = 0;
+    for (let b = Math.floor(gy - r1); b <= gy + r1; b++) {
+      for (let a = Math.floor(gx - r1); a <= gx + r1; a++) {
+        if (a < 0 || b < 0 || a >= MW || b >= MH) continue;
+        const d = Math.hypot(a + 0.5 - gx, b + 0.5 - gy);
+        if (d < r0 || d > r1) continue;
+        sum += heat[b * MW + a]; n++;
+      }
+    }
+    return n ? sum / n : 0;
+  }
+
   /* ── бабочки ── */
   function spawn() {
     const u = U();
     const r = u * cfg().r * (0.85 + Math.random() * 0.3);
-    const side = Math.random() < 0.5 ? -1 : 1;
     const v = u * (cfg().vmin + Math.random() * (cfg().vmax - cfg().vmin));
-    S.flies.push({
-      x: side < 0 ? -r : W + r,
-      y: r * 1.4 + Math.random() * Math.max(1, H - r * 2.8),
-      vx: side * -v * (0.7 + Math.random() * 0.6),
-      vy: 0,
+    const common = {
       amp: u * (0.03 + Math.random() * 0.06),
       w: 1.2 + Math.random() * 1.6,
       t: Math.random() * 6,
       r: r,
       hue: [340, 28, 52, 150, 196, 268][Math.floor(Math.random() * 6)],
-      caught: 0
-    });
+      caught: 0, on: true
+    };
+    if (S.world) {
+      /* Сажаем вокруг того, куда телефон смотрит сейчас, и близко.
+         Окошко камеры узкое — градусов двадцать пять в ширину, — так что
+         разброс на полкомнаты означал бы пустой экран и ребёнка, который
+         крутится наугад. Бабочка появляется у края окошка и сама плывёт
+         поперёк: за ней достаточно чуть повернуться.
+
+         Высоту тоже берём от телефона, а не от горизонта: держат его и
+         задрав, и опустив, а бабочка должна оказаться в кадре. */
+      const side = Math.random() < 0.5 ? -1 : 1;
+      S.flies.push(Object.assign(common, {
+        az: Wd.yaw + side * (5 + Math.random() * 22),
+        el: Math.max(-35, Math.min(55, Wd.pitch + (Math.random() - 0.5) * 26)),
+        vaz: -side * (2 + Math.random() * 5),          // градусов в секунду
+        vel: (Math.random() - 0.5) * 4,
+        ttl: 11 + Math.random() * 8,
+        x: W / 2, y: H / 2
+      }));
+      return;
+    }
+    const side = Math.random() < 0.5 ? -1 : 1;
+    S.flies.push(Object.assign(common, {
+      x: side < 0 ? -r : W + r,
+      y: r * 1.4 + Math.random() * Math.max(1, H - r * 2.8),
+      vx: side * -v * (0.7 + Math.random() * 0.6),
+      vy: 0
+    }));
   }
 
   function puff(x, y, hue) {
@@ -493,9 +676,14 @@
     S.quiet = 0;
     prevGray = null;
     heat.fill(0);
+    S.settle = 0.4;
+    /* Привязываем бабочек к комнате, только если датчик реально отвечает.
+       На ноутбуке и на части планшетов его нет, и тогда игра работает
+       по-старому: бабочки летят поперёк экрана. */
+    S.world = !touchOnly && Wd.on;
     hideVeils();
-    say(touchOnly ? 'Лови пальцем!' : 'Маши рукой!');
-    setTimeout(() => { if (S.phase === 'play') say(''); }, 2200);
+    say(touchOnly ? 'Лови пальцем!' : (S.world ? 'Крутись — они везде!' : 'Маши рукой!'));
+    setTimeout(() => { if (S.phase === 'play') say(''); }, 2400);
     paint();
   }
 
@@ -582,25 +770,63 @@
       }
     }
 
-    const quietFrame = S.moved < GLOBAL;        // весь кадр поехал — не ловим
+    /* Пока телефон крутят, вся картинка едет, и разница кадров горит
+       везде. Ловлю на это время выключаем и след гасим — иначе одним
+       разворотом сметало бы всех бабочек разом. О повороте спрашиваем
+       датчик: по картинке его от взмаха руки не отличить. */
+    const turning = S.world && Wd.turn > TURN;
+    if (turning) heat.fill(0);
+    /* Пока кадру не с чем сравниться — сразу после включения камеры или
+       после провала в показаниях датчика — не ловим вовсе: за этот провал
+       телефон мог развернуться, и первая же разница кадров огромна. */
+    if (S.settle > 0) { S.settle -= dt; heat.fill(0); }
+    const quietFrame = S.moved < GLOBAL && !turning && S.settle <= 0;
+    Wd.turn *= Math.pow(0.02, dt);              // затухает, если показаний нет
+
     S.flies.forEach(f => {
       if (f.caught) { f.caught += dt; return; }
       f.t += dt;
-      f.x += f.vx * dt;
-      f.y += Math.sin(f.t * f.w * 2.2) * f.amp * dt * 6;
-      f.y = Math.max(f.r, Math.min(H - f.r, f.y));
+      if (S.world) {
+        f.az += f.vaz * dt;
+        f.el += f.vel * dt + Math.sin(f.t * f.w * 2.2) * 1.4 * dt;
+        f.el = Math.max(-40, Math.min(58, f.el));
+        f.ttl -= dt;
+        const p = project(f.az, f.el);
+        f.on = p.on; f.x = p.x; f.y = p.y; f.dx = p.dx; f.dy = p.dy; f.depth = p.depth;
+      } else {
+        f.x += f.vx * dt;
+        f.y += Math.sin(f.t * f.w * 2.2) * f.amp * dt * 6;
+        f.y = Math.max(f.r, Math.min(H - f.r, f.y));
+      }
       /* Ловим, только если под бабочкой шевелится ЗАМЕТНО больше, чем
          в среднем по кадру. Без этого достаточно было бы, чтобы вся
          комната чуть подрагивала, — и бабочки падали бы сами. */
-      if (S.phase === 'play' && !touchOnly && quietFrame) {
+      /* Чем сильнее телефон крутится, тем выше планка. Жёсткого порога
+         мало: на медленном повороте (градусов сорок в секунду) комната
+         едет, края предметов проползают под бабочкой — и она ловится
+         сама, без единого взмаха. Проверено, так и было. */
+      if (S.phase === 'play' && !touchOnly && quietFrame && f.on) {
+        const spin = Math.min(3, Wd.turn / 12);
         const e = heatAt(f.x, f.y, f.r);
-        if (e > cfg().hit && e > S.bg * 2.2 + 4) catchFly(f);
+        /* Решающий признак — не сила движения, а его СОБРАННОСТЬ. Пятно
+           под бабочкой занимает пару процентов кадра. Когда машут рукой,
+           в этих процентах лежит чуть ли не всё движение кадра; когда
+           крутят телефон, движение размазано ровно, и на пятно приходится
+           ровно его доля площади. Отсюда и порог. */
+        const share = spotSum / (S.bg * MW * MH + 1);
+        if (e > cfg().hit * (1 + spin * 2) &&
+            e > S.bg * (2.2 + spin) + 4 &&
+            share > 0.08 &&
+            e > ringAt(f.x, f.y, f.r) * 1.6 + 5) catchFly(f);
       }
     });
 
     S.flies = S.flies.filter(f => {
       if (f.caught > 0.45) return false;
-      if (!f.caught && (f.x < -f.r * 2.5 || f.x > W + f.r * 2.5)) {
+      if (f.caught) return true;
+      // в комнате бабочка не «улетает за край экрана» — у неё свой срок
+      const gone = S.world ? f.ttl <= 0 : (f.x < -f.r * 2.5 || f.x > W + f.r * 2.5);
+      if (gone) {
         if (S.phase === 'play') { S.missed++; sndGone(); }
         return false;
       }
@@ -652,7 +878,8 @@
     }
 
     if (!touchOnly && S.phase === 'play') ghostHeat();
-    S.flies.forEach(f => butterfly(f));
+    S.flies.forEach(f => { if (f.on !== false) butterfly(f); });
+    if (S.world && S.phase === 'play') arrows();
 
     S.puffs.forEach(p => {
       ctx.globalAlpha = Math.max(0, 1 - p.t / p.life);
@@ -678,6 +905,42 @@
       }
     }
     ctx.restore();
+  }
+
+  /* Стрелки к бабочкам за краем окошка: без них ребёнок крутился бы
+     наугад. Бабочку позади телефона показываем у того края, в сторону
+     которого ближе повернуться. */
+  function arrows() {
+    const out = S.flies.filter(f => !f.caught && f.on === false);
+    if (!out.length) return;
+    const u = U(), m = u * 0.09;
+    out.slice(0, 3).forEach(f => {
+      const len = Math.hypot(f.dx, f.dy) || 1;
+      const ax = f.dx / len, ay = f.dy / len;
+      // упираем в край окна
+      const k = Math.min(
+        Math.abs((W / 2 - m) / (ax || 1e-6)),
+        Math.abs((H / 2 - m) / (ay || 1e-6))
+      );
+      const x = W / 2 + ax * k, y = H / 2 - ay * k;
+      const ang = Math.atan2(-ay, ax);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(ang);
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = 'hsl(' + f.hue + ',85%,66%)';
+      ctx.strokeStyle = 'rgba(255,255,255,.9)';
+      ctx.lineWidth = Math.max(1.5, u * 0.008);
+      ctx.beginPath();
+      ctx.moveTo(u * 0.055, 0);
+      ctx.lineTo(-u * 0.03, u * 0.032);
+      ctx.lineTo(-u * 0.012, 0);
+      ctx.lineTo(-u * 0.03, -u * 0.032);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    });
   }
 
   function butterfly(f) {
@@ -738,7 +1001,7 @@
     if (S.phase !== 'play') return;
     for (let i = S.flies.length - 1; i >= 0; i--) {
       const f = S.flies[i];
-      if (f.caught) continue;
+      if (f.caught || f.on === false) continue;
       if (Math.hypot(f.x - x, f.y - y) <= f.r * 1.25) { catchFly(f); return; }
     }
   }
@@ -755,15 +1018,19 @@
 
   async function openCam() {
     initAudio();
+    await askTilt();                 // на iPhone спросит разрешение, на Android просто подпишется
     try {
       stopCam();
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        video: { facingMode: front ? 'user' : 'environment',
+                 width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false
       });
       vid.srcObject = stream;
       await vid.play().catch(() => {});
       touchOnly = false;
+      // даём датчику мгновение отозваться: от этого зависит, будет ли комната
+      if (!Wd.on) await new Promise(r => setTimeout(r, 260));
       begin();
     } catch (err) {
       denied(err);
@@ -806,6 +1073,15 @@
   $('again').addEventListener('click', () => { touchOnly ? begin() : openCam(); });
   $('toMenu').addEventListener('click', () => { stopCam(); location.replace('index.html'); });
 
+  function camLabel() {
+    $('camSide').textContent = front ? '🤳 Камера: на себя' : '📷 Камера: от себя';
+  }
+  $('camSide').addEventListener('click', () => {
+    front = !front;
+    camLabel();
+    try { localStorage.setItem(K_FRONT, front ? '1' : '0'); } catch (e) {}
+  });
+
   $('snd').addEventListener('click', () => {
     muted = !muted;
     applyMute();
@@ -840,10 +1116,13 @@
 
   /* ── пуск ── */
   try { muted = localStorage.getItem(K_MUTE) === '1'; } catch (e) {}
+  try { front = localStorage.getItem(K_FRONT) !== '0'; } catch (e) {}
   applyMute();
+  camLabel();
   let saved = 'kind';
   try { saved = localStorage.getItem(K_MODE) || 'kind'; } catch (e) {}
   fit();
+  listenTilt();                    // на Android разрешения не нужно
   applyMode(MODES[saved] ? saved : 'kind');
   requestAnimationFrame(frame);
   draw();
@@ -873,6 +1152,25 @@
           if (a >= 0 && b >= 0 && a < MW && b < MH) heat[b * MW + a] = v == null ? 200 : v;
     },
     shake: v => { S.moved = v; forced = v; },   // будто дёрнули телефон
+    // повернуть «телефон»: те же три угла, что шлёт датчик
+    tilt: (a2, b2, g2) => onTilt({ alpha: a2, beta: b2, gamma: g2 }),
+    world: () => ({ on: Wd.on, yaw: +Wd.yaw.toFixed(1), turn: +Wd.turn.toFixed(1),
+                    world: S.world, front: front, focal: +focal().toFixed(1) }),
+    at: (az, el) => project(az, el),
+    seats: () => S.flies.filter(f => !f.caught)
+      .map(f => ({ az: +f.az.toFixed(2), el: +f.el.toFixed(2), on: f.on,
+                   x: Math.round(f.x), y: Math.round(f.y), r: Math.round(f.r) })),
+    front: v => { front = v; camLabel(); },
+    calm: () => { Wd.turn = 0; },
+    // повернуть телефон вокруг своей оси: R' = R·Rz(угол)
+    roll: deg => {
+      const c = Math.cos(deg * RAD), s2 = Math.sin(deg * RAD), R = Wd.R;
+      Wd.R = [
+        R[0] * c + R[1] * s2, -R[0] * s2 + R[1] * c, R[2],
+        R[3] * c + R[4] * s2, -R[3] * s2 + R[4] * c, R[5],
+        R[6] * c + R[7] * s2, -R[6] * s2 + R[7] * c, R[8]
+      ];
+    },
     sampling: on => { sampling = on; },         // снимать ли кадры с камеры
     bg: v => { S.bg = v; },
     heatAt: heatAt,
