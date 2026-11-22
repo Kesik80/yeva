@@ -273,8 +273,15 @@
      ══════════════════════════════════════════════════════════════ */
 
   const MODES = {
-    kind: { spawn: 1.15, vmin: 0.05, vmax: 0.12, r: 0.105, hit: 10, round: 60, max: 5 },
-    fast: { spawn: 1.75, vmin: 0.10, vmax: 0.22, r: 0.078, hit: 15, round: 60, max: 8 }
+    /* Порог взят замером, а не на глаз: взмах ладонью над бабочкой даёт
+       энергию заметно выше, чем проползающий при повороте край мебели.
+       Пороги подобраны замером в трёх освещённостях — светлая комната,
+       сумерки, темнота — так, чтобы взмах засчитывался с первой-второй
+       попытки, а повороты в 20, 48 и 90 градусов в секунду не ловили ни
+       одной бабочки сами. От поворотов защищает в первую очередь снос
+       взгляда, поэтому порог можно держать низким ради ребёнка. */
+    kind: { spawn: 1.15, vmin: 0.05, vmax: 0.12, r: 0.105, hit: 9, round: 60, max: 5 },
+    fast: { spawn: 1.75, vmin: 0.10, vmax: 0.22, r: 0.078, hit: 14, round: 60, max: 8 }
   };
   const K_MODE = 'yeva-falter-mode';
   const K_MUTE = 'yeva-falter-mute';
@@ -303,7 +310,6 @@
     world: false,                  // бабочки привязаны к комнате, а не к экрану
     settle: 0,                     // секунды «не ловим»: кадру не с чем сравниваться
     moved: 0,                      // доля шевелящихся клеток в кадре
-    bg: 0,                         // средняя энергия по кадру — фон сцены
     quiet: 0                       // сколько секунд не видно никакого движения
   };
 
@@ -420,16 +426,17 @@
       const noise = total / cur.length;
       const thr = Math.max(7, noise * 2.2);
 
-      let moved = 0, sum = 0;
+      let moved = 0;
       for (let i = 0; i < cur.length; i++) {
         const diff = Math.abs(cur[i] - prevGray[i]);
-        heat[i] *= 0.6;                           // след гаснет за пару кадров
+        /* След нарочно короткий. С длинным энергия взмаха остаётся
+           висеть в кольце вокруг бабочки, кольцо перестаёт отличаться от
+           пятна — и взмах не засчитывается вовсе. */
+        heat[i] *= 0.6;
         if (diff > thr) { heat[i] += diff; moved++; }
         if (heat[i] > 255) heat[i] = 255;
-        sum += heat[i];
       }
       S.moved = forced == null ? moved / cur.length : forced;
-      S.bg = sum / cur.length;                    // фоновая энергия кадра
     }
     prevGray = cur;
   }
@@ -441,7 +448,6 @@
      приходится проносить по три раза. Поэтому берём самые яркие клетки
      пятна — те самые края — и усредняем уже их. */
   const spot = [];
-  let spotSum = 0;                  // вся энергия пятна, для оценки её доли
   function heatAt(x, y, r) {
     const gx = x / W * MW, gy = y / H * MH;
     const gr = Math.max(1, r / W * MW);
@@ -454,8 +460,6 @@
         spot.push(heat[b * MW + a]);
       }
     }
-    spotSum = 0;
-    for (let i = 0; i < spot.length; i++) spotSum += spot[i];
     if (!spot.length) return 0;
     spot.sort((p, q) => q - p);
     const take = Math.max(3, Math.round(spot.length * 0.4));
@@ -478,7 +482,7 @@
 
   const RAD = Math.PI / 180;
   const SENSOR = 62 * RAD;          // обычный обзор телефонной камеры по ширине
-  const TURN = 30;                  // градусов в секунду: быстрее — это поворот
+  const TURN = 110;                 // градусов в секунду: быстрее — это уже взмах всем телефоном
 
   const Wd = {
     on: false,                      // датчик отвечает
@@ -486,6 +490,8 @@
     yaw: 0,                         // куда смотрит телефон, градусы
     pitch: 0,                       // и насколько задран, градусы
     turn: 0,                        // как быстро крутят, градусов в секунду
+    drift: 0,                       // насколько «поворот» похож на поворот: больше 1 — да
+    hist: [],                       // недавние направления взгляда
     seen: 0,                        // когда пришло последнее показание
     prev: null
   };
@@ -508,7 +514,9 @@
     Wd.R = matFrom(a, b, g);
     // датчик молчал почти секунду: по такому разрыву скорость не считают,
     // и кадр до него сравнивать не с чем
-    if (Wd.prev && t - Wd.prev.t > 300) { Wd.prev = null; prevGray = null; S.settle = 0.3; }
+    if (Wd.prev && t - Wd.prev.t > 300) {
+      Wd.prev = null; prevGray = null; S.settle = 0.3; Wd.hist.length = 0; Wd.drift = 0;
+    }
     if (Wd.prev && t > Wd.prev.t) {
       // насколько повернулся телефон: берём ось взгляда и считаем угол
       const p = Wd.prev;
@@ -523,6 +531,32 @@
       Wd.turn = Math.max(rate, Wd.turn * 0.6 + rate * 0.4);
     }
     Wd.prev = { t: t, v: [Wd.R[2], Wd.R[5], Wd.R[8]] };
+
+    /* Снос взгляда за последние полсекунды. Ради него всё и затевалось:
+       дрожь руки и настоящий поворот дают одинаковую мгновенную скорость
+       (у ребёнка рука трясётся на те же двадцать градусов в секунду), но
+       дрожь качается туда-сюда и в сумме никуда не уходит, а поворот
+       уходит. Отличить их можно только так — по накопленному сносу. */
+    Wd.hist.push(Wd.prev);
+    while (Wd.hist.length && t - Wd.hist[0].t > 900) Wd.hist.shift();
+
+    /* Два окна. Короткое (0.2 с, порог 3°) ловит самое НАЧАЛО поворота:
+       длинное окно за эти первые кадры ещё ничего не накопило, и комната
+       успевала поймать бабочку сама. Длинное (0.45 с, порог 6°) отделяет
+       настоящий поворот от дрожи: за полсекунды тремор возвращается
+       туда же, откуда начал, а поворот уходит. */
+    const away = ms => {
+      for (let i = 0; i < Wd.hist.length; i++) {
+        if (t - Wd.hist[i].t >= ms) {
+          const h = Wd.hist[i];
+          const dot = Math.max(-1, Math.min(1,
+            h.v[0] * Wd.R[2] + h.v[1] * Wd.R[5] + h.v[2] * Wd.R[8]));
+          return Math.acos(dot) / RAD;
+        }
+      }
+      return 0;
+    };
+    Wd.drift = Math.max(away(190) / 3, away(430) / 6);
     // куда смотрит объектив, в мировых координатах
     const s = front ? 1 : -1;
     Wd.yaw = Math.atan2(s * Wd.R[2], s * Wd.R[5]) / RAD;
@@ -536,9 +570,40 @@
     Wd.seen = t;
   }
 
+  /* Слушаем РОВНО ОДНО событие ориентации.
+
+     На Android приходят оба: deviceorientation и deviceorientationabsolute.
+     Углы у них в разных системах отсчёта — одно считает от магнитного
+     севера, другое от того, как телефон лежал при запуске. Если слушать
+     оба, матрица дёргается между двумя мирами по очереди, и бабочки
+     ведут себя по-разному, когда крутишь телефон в кисти и когда ведёшь
+     всей рукой. Поэтому берём то, что откликнулось первым, и второе
+     отключаем навсегда. */
+  let tiltSrc = null, listening = false;
+
   function listenTilt() {
-    window.addEventListener('deviceorientation', onTilt);
-    window.addEventListener('deviceorientationabsolute', onTilt);
+    if (listening) return;
+    listening = true;
+    const pick = name => function (e) {
+      if (tiltSrc && tiltSrc !== name) return;
+      // Пустые события тоже приходят — например, когда у устройства нет
+      // магнитометра. Привязываться к такому источнику нельзя: он так и
+      // будет молчать, а живой мы к тому времени уже отключим.
+      if (e.alpha == null && e.beta == null && e.gamma == null) return;
+      if (!tiltSrc) {
+        tiltSrc = name;
+        const other = name === 'deviceorientation'
+          ? 'deviceorientationabsolute' : 'deviceorientation';
+        window.removeEventListener(other, handlers[other]);
+      }
+      onTilt(e);
+    };
+    const handlers = {
+      deviceorientation: pick('deviceorientation'),
+      deviceorientationabsolute: pick('deviceorientationabsolute')
+    };
+    window.addEventListener('deviceorientation', handlers.deviceorientation);
+    window.addEventListener('deviceorientationabsolute', handlers.deviceorientationabsolute);
   }
 
   // На iPhone датчик просит разрешения, и только по нажатию кнопки.
@@ -587,12 +652,16 @@
     const a = -screenAngle() * RAD, c = Math.cos(a), s2 = Math.sin(a);
     const rx = dx * c + dy * s2, ry = -dx * s2 + dy * c;
     const depth = (front ? 1 : -1) * dz;
-    if (depth <= 0.12) return { on: false, dx: rx, dy: ry, depth: depth };
     const f = focal();
-    const x = W / 2 + (rx / depth) * f, y = H / 2 - (ry / depth) * f;
+    // За спиной глубина отрицательная, и точка «улетает» в бесконечность.
+    // Координаты всё равно считаем от прижатой глубины: лучше заведомо
+    // далёкая точка за краем экрана, чем NaN, который расползётся дальше.
+    const d = Math.max(0.12, depth);
+    const x = W / 2 + (rx / d) * f * (depth > 0 ? 1 : -4);
+    const y = H / 2 - (ry / d) * f * (depth > 0 ? 1 : -4);
     const m = U() * 0.3;
-    return { on: x > -m && x < W + m && y > -m && y < H + m, x: x, y: y, depth: depth,
-             dx: rx, dy: ry };
+    return { on: depth > 0.12 && x > -m && x < W + m && y > -m && y < H + m,
+             x: x, y: y, depth: depth, dx: rx, dy: ry };
   }
 
   /* Энергия в кольце ВОКРУГ бабочки. В этом вся разница между взмахом
@@ -774,7 +843,7 @@
        везде. Ловлю на это время выключаем и след гасим — иначе одним
        разворотом сметало бы всех бабочек разом. О повороте спрашиваем
        датчик: по картинке его от взмаха руки не отличить. */
-    const turning = S.world && Wd.turn > TURN;
+    const turning = S.world && (Wd.turn > TURN || Wd.drift > 1);
     if (turning) heat.fill(0);
     /* Пока кадру не с чем сравниться — сразу после включения камеры или
        после провала в показаниях датчика — не ловим вовсе: за этот провал
@@ -806,18 +875,25 @@
          едет, края предметов проползают под бабочкой — и она ловится
          сама, без единого взмаха. Проверено, так и было. */
       if (S.phase === 'play' && !touchOnly && quietFrame && f.on) {
-        const spin = Math.min(3, Wd.turn / 12);
+        /* Решающий признак — не сила движения, а разница между пятном
+           под бабочкой и КОЛЬЦОМ вокруг него. При повороте телефона
+           движение размазано ровно: под бабочкой его столько же, сколько
+           рядом. Рука собрана в одном месте: под бабочкой густо, рядом
+           пусто.
+
+           Раньше тут считалась доля пятна от движения ВСЕГО кадра, и это
+           было ошибкой: ночью матрица шумит по всему кадру, доля падает
+           ниже любого порога, и взмах не засчитывался вовсе. Кольцо от
+           шума не страдает — шум одинаков и под бабочкой, и вокруг. */
+        /* Планку поднимает СНОС, а не мгновенная скорость. У дрожащей
+           в руке трубки мгновенная скорость доходит до полутора сотен
+           градусов в секунду при нулевом сносе — по ней штрафовать
+           нельзя, иначе ребёнок не поймает ничего. */
+        const spin = Math.min(3, Wd.drift * 1.2);
         const e = heatAt(f.x, f.y, f.r);
-        /* Решающий признак — не сила движения, а его СОБРАННОСТЬ. Пятно
-           под бабочкой занимает пару процентов кадра. Когда машут рукой,
-           в этих процентах лежит чуть ли не всё движение кадра; когда
-           крутят телефон, движение размазано ровно, и на пятно приходится
-           ровно его доля площади. Отсюда и порог. */
-        const share = spotSum / (S.bg * MW * MH + 1);
-        if (e > cfg().hit * (1 + spin * 2) &&
-            e > S.bg * (2.2 + spin) + 4 &&
-            share > 0.08 &&
-            e > ringAt(f.x, f.y, f.r) * 1.6 + 5) catchFly(f);
+        const ring = ringAt(f.x, f.y, f.r);
+        if (e > cfg().hit * (1 + spin) &&
+            e > ring * (1.25 + spin * 0.9) + 4) catchFly(f);
       }
     });
 
@@ -1154,14 +1230,15 @@
     shake: v => { S.moved = v; forced = v; },   // будто дёрнули телефон
     // повернуть «телефон»: те же три угла, что шлёт датчик
     tilt: (a2, b2, g2) => onTilt({ alpha: a2, beta: b2, gamma: g2 }),
-    world: () => ({ on: Wd.on, yaw: +Wd.yaw.toFixed(1), turn: +Wd.turn.toFixed(1),
+    world: () => ({ on: Wd.on, src: tiltSrc, yaw: +Wd.yaw.toFixed(1), turn: +Wd.turn.toFixed(1),
+                    drift: +Wd.drift.toFixed(1),
                     world: S.world, front: front, focal: +focal().toFixed(1) }),
     at: (az, el) => project(az, el),
     seats: () => S.flies.filter(f => !f.caught)
       .map(f => ({ az: +f.az.toFixed(2), el: +f.el.toFixed(2), on: f.on,
                    x: Math.round(f.x), y: Math.round(f.y), r: Math.round(f.r) })),
     front: v => { front = v; camLabel(); },
-    calm: () => { Wd.turn = 0; },
+    calm: () => { Wd.turn = 0; Wd.drift = 0; Wd.hist.length = 0; },
     // повернуть телефон вокруг своей оси: R' = R·Rz(угол)
     roll: deg => {
       const c = Math.cos(deg * RAD), s2 = Math.sin(deg * RAD), R = Wd.R;
@@ -1172,8 +1249,8 @@
       ];
     },
     sampling: on => { sampling = on; },         // снимать ли кадры с камеры
-    bg: v => { S.bg = v; },
     heatAt: heatAt,
+    ringAt: ringAt,
     left: v => { S.left = v; }
   };
 })();
