@@ -406,7 +406,10 @@
     if (!stream || vid.readyState < 2 || !vid.videoWidth) return;
     const c = cover(vid.videoWidth, vid.videoHeight, MW, MH);
     mctx.save();
-    mctx.translate(MW, 0); mctx.scale(-1, 1);     // зеркально, как на экране
+    // Отражаем ровно так же, как рисуем на экран: иначе ладонь в сетке
+    // окажется зеркально не там, где бабочка на картинке, и махать
+    // придётся в противоположную сторону.
+    if (front) { mctx.translate(MW, 0); mctx.scale(-1, 1); }
     mctx.drawImage(vid, c.x, c.y, c.w, c.h);
     mctx.restore();
 
@@ -941,7 +944,11 @@
     if (!touchOnly && stream && vid.readyState >= 2 && vid.videoWidth) {
       const c = cover(vid.videoWidth, vid.videoHeight, W, H);
       ctx.save();
-      ctx.translate(W, 0); ctx.scale(-1, 1);       // зеркало, как в зеркале
+      /* Зеркалим ТОЛЬКО переднюю камеру — чтобы ребёнок видел себя как в
+         зеркале. Заднюю зеркалить нельзя: комната в ней поедет не в ту
+         сторону, и бабочки, привязанные к комнате, разъедутся с ней
+         ровно наоборот. Именно это и было видно на телефоне. */
+      if (front) { ctx.translate(W, 0); ctx.scale(-1, 1); }
       ctx.drawImage(vid, c.x, c.y, c.w, c.h);
       ctx.restore();
       // приглушаем, чтобы бабочки читались на любой комнате
