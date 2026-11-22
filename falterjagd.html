@@ -309,6 +309,7 @@
     left: 0, spawnT: 0,
     world: false,                  // бабочки привязаны к комнате, а не к экрану
     settle: 0,                     // секунды «не ловим»: кадру не с чем сравниваться
+    offX: 0, offY: 0,              // снос картинки, не объяснённый поворотом
     moved: 0,                      // доля шевелящихся клеток в кадре
     quiet: 0                       // сколько секунд не видно никакого движения
   };
@@ -318,6 +319,7 @@
   mcv.width = MW; mcv.height = MH;
   const mctx = mcv.getContext('2d', { willReadFrequently: true });
   let prevGray = null;
+  let prevR = null;               // поворот на прошлом кадре: от него считаем снос
   let forced = null;        // подменённая доля движения: только для проверок
   let sampling = true;      // съём кадров можно выключить, чтобы проверять руками
   const heat = new Float32Array(MW * MH);
@@ -440,8 +442,120 @@
         if (heat[i] > 255) heat[i] = 255;
       }
       S.moved = forced == null ? moved / cur.length : forced;
+      glide(cur, prevGray);
     }
     prevGray = cur;
+  }
+
+  /* ══ снос картинки ══════════════════════════════════════════════
+     Датчик ориентации знает только о ПОВОРОТЕ телефона. Когда ведёшь
+     вытянутой рукой по большой дуге, телефон в основном переезжает, а
+     не поворачивается: датчик молчит, бабочки стоят на экране, а
+     комната едет — и кажется, что они летят не в ту сторону.
+
+     Перемещение можно увидеть только в самой картинке. Считаем, на
+     сколько уехал весь кадр, вычитаем то, что объясняется поворотом, и
+     остаток добавляем бабочкам как сдвиг по экрану.
+
+     Сдвиг ищем по профилям — суммам яркости по столбцам и по строкам.
+     Это вчетверо дешевле честного перебора по двум осям и достаточно
+     устойчиво: машущая рука занимает малую часть профиля и перевесить
+     фон не может.
+     ═══════════════════════════════════════════════════════════════ */
+  const SH = 7;                     // насколько далеко ищем сдвиг, в клетках
+  const colA = new Float32Array(MW), colB = new Float32Array(MW);
+  const rowA = new Float32Array(MH), rowB = new Float32Array(MH);
+
+  function profiles(src2, col, row) {
+    col.fill(0); row.fill(0);
+    for (let y = 0, i = 0; y < MH; y++) {
+      for (let x = 0; x < MW; x++, i++) {
+        const v = src2[i];
+        col[x] += v; row[y] += v;
+      }
+    }
+  }
+
+  /* Лучший сдвиг одного профиля — и обязательно ДРОБНЫЙ.
+
+     За кадр комната уезжает меньше чем на клетку сетки: при ведении
+     рукой это полклетки, при спокойном повороте и того меньше. Поиск
+     целыми клетками такой сдвиг просто теряет — он каждый раз выдаёт
+     ноль, и бабочки отстают впятеро. Поэтому вокруг лучшего целого
+     сдвига ставим параболу по трём точкам и берём её вершину. */
+  const sad = new Float32Array(SH * 2 + 1);
+
+  function best1(a, b, n) {
+    let zero = 0;
+    for (let i = 0; i < n; i++) zero += Math.abs(a[i] - b[i]);
+    let bestS = 0, bestV = Infinity;
+    for (let s = -SH; s <= SH; s++) {
+      let sum = 0, cnt = 0;
+      for (let i = Math.max(0, -s); i < Math.min(n, n - s); i++) {
+        sum += Math.abs(a[i + s] - b[i]); cnt++;
+      }
+      const v = cnt < n * 0.6 ? Infinity : sum / cnt * n;
+      sad[s + SH] = v;
+      if (v < bestV) { bestV = v; bestS = s; }
+    }
+    let frac = 0;
+    const l = sad[bestS + SH - 1], c = sad[bestS + SH], r = sad[bestS + SH + 1];
+    if (isFinite(l) && isFinite(r)) {
+      const den = l - 2 * c + r;
+      if (den > 0) frac = Math.max(-0.5, Math.min(0.5, 0.5 * (l - r) / den));
+    }
+    return { s: bestS + frac, sure: zero > 0 ? 1 - bestV / zero : 0 };
+  }
+
+  function glide(cur, prev) {
+    profiles(cur, colA, rowA);
+    profiles(prev, colB, rowB);
+    const hx = best1(colA, colB, MW), hy = best1(rowA, rowB, MH);
+    // Сдвиг принимаем, только если он заметно лучше «ничего не двигалось».
+    // Иначе на шуме бабочки поползли бы сами по себе.
+    const px2 = cellPx();
+    const dx = hx.sure > 0.08 ? hx.s * px2 : 0;
+    const dy = hy.sure > 0.08 ? hy.s * px2 : 0;
+
+    // сколько из этого объясняется поворотом телефона
+    let px = 0, py = 0;
+    if (S.world && prevR) {
+      const s2 = front ? 1 : -1;
+      const v = [s2 * prevR[2], s2 * prevR[5], s2 * prevR[8]];   // куда смотрели
+      const p = projectVec(v);
+      if (p.on) { px = p.x - W / 2; py = p.y - H / 2; }
+    }
+    prevR = Wd.R.slice();
+
+    S.offX += dx - px;
+    S.offY += dy - py;
+    // остаток медленно тает: без этого мелкие ошибки копились бы весь раунд
+    S.offX *= 0.997; S.offY *= 0.997;
+    const lim = U() * 1.2;
+    S.offX = Math.max(-lim, Math.min(lim, S.offX));
+    S.offY = Math.max(-lim, Math.min(lim, S.offY));
+  }
+
+  /* ══ экран ↔ сетка движения ═══════════════════════════════════════
+     Кадр ложится на экран и в сетку ПО-РАЗНОМУ: сетка 4:3 берёт кадр
+     целиком, а вытянутый экран обрезает ему бока. Поэтому переводить
+     координаты делением на ширину нельзя — ошибка выходит в два-три
+     раза. Считаем через сам кадр: экран → доля кадра → сетка.
+     ═══════════════════════════════════════════════════════════════ */
+  function covers() {
+    const vw = vid.videoWidth, vh = vid.videoHeight;
+    return { s: cover(vw, vh, W, H), g: cover(vw, vh, MW, MH) };
+  }
+  function toGrid(x, y, r) {
+    const c = covers();
+    const k = c.g.w / c.s.w;
+    return { x: c.g.x + (x - c.s.x) * k, y: c.g.y + (y - c.s.y) * k,
+             r: (r || 0) * k };
+  }
+  // сколько пикселей экрана в одной клетке сетки
+  function cellPx() {
+    const c = covers();
+    return c.s.w / c.g.w;
   }
 
   /* Энергия под бабочкой. По одной клетке судить нельзя — это шум; по
@@ -452,8 +566,8 @@
      пятна — те самые края — и усредняем уже их. */
   const spot = [];
   function heatAt(x, y, r) {
-    const gx = x / W * MW, gy = y / H * MH;
-    const gr = Math.max(1, r / W * MW);
+    const p = toGrid(x, y, r);
+    const gx = p.x, gy = p.y, gr = Math.max(1, p.r);
     spot.length = 0;
     for (let b = Math.floor(gy - gr); b <= gy + gr; b++) {
       for (let a = Math.floor(gx - gr); a <= gx + gr; a++) {
@@ -518,7 +632,8 @@
     // датчик молчал почти секунду: по такому разрыву скорость не считают,
     // и кадр до него сравнивать не с чем
     if (Wd.prev && t - Wd.prev.t > 300) {
-      Wd.prev = null; prevGray = null; S.settle = 0.3; Wd.hist.length = 0; Wd.drift = 0;
+      Wd.prev = null; prevGray = null; prevR = null;
+      S.settle = 0.3; Wd.hist.length = 0; Wd.drift = 0;
     }
     if (Wd.prev && t > Wd.prev.t) {
       // насколько повернулся телефон: берём ось взгляда и считаем угол
@@ -640,12 +755,13 @@
     return [Math.sin(az * RAD) * ce, Math.cos(az * RAD) * ce, Math.sin(el * RAD)];
   };
 
-  /* Направление в комнате → точка на экране. */
-  function project(az, el) {
-    const w = dirOf(az, el), R = Wd.R;
+  /* Направление в комнате → точка на экране. Без учёта сноса: этим же
+     счётом снос и вычисляется, подмешивать его сюда нельзя. */
+  function projectVec(w) {
+    const R = Wd.R;
     // d = Rᵀ·w — то же направление, но в осях телефона
-    let dx = R[0] * w[0] + R[3] * w[1] + R[6] * w[2];
-    let dy = R[1] * w[0] + R[4] * w[1] + R[7] * w[2];
+    const dx = R[0] * w[0] + R[3] * w[1] + R[6] * w[2];
+    const dy = R[1] * w[0] + R[4] * w[1] + R[7] * w[2];
     const dz = R[2] * w[0] + R[5] * w[1] + R[8] * w[2];
     /* Экран мог повернуться вместе с телефоном. Знак здесь обратный, и
        это не описка: если телефон повернули вокруг своей оси на θ, то
@@ -660,11 +776,18 @@
     // Координаты всё равно считаем от прижатой глубины: лучше заведомо
     // далёкая точка за краем экрана, чем NaN, который расползётся дальше.
     const d = Math.max(0.12, depth);
-    const x = W / 2 + (rx / d) * f * (depth > 0 ? 1 : -4);
-    const y = H / 2 - (ry / d) * f * (depth > 0 ? 1 : -4);
+    const k = depth > 0.12 ? 1 : -4;
+    return { on: depth > 0.12,
+             x: W / 2 + (rx / d) * f * k, y: H / 2 - (ry / d) * f * k,
+             depth: depth, dx: rx, dy: ry };
+  }
+
+  function project(az, el) {
+    const p = projectVec(dirOf(az, el));
+    p.x += S.offX; p.y += S.offY;
     const m = U() * 0.3;
-    return { on: depth > 0.12 && x > -m && x < W + m && y > -m && y < H + m,
-             x: x, y: y, depth: depth, dx: rx, dy: ry };
+    p.on = p.on && p.x > -m && p.x < W + m && p.y > -m && p.y < H + m;
+    return p;
   }
 
   /* Энергия в кольце ВОКРУГ бабочки. В этом вся разница между взмахом
@@ -672,8 +795,9 @@
      ровным слоем, и вокруг бабочки его столько же, сколько под ней. Рука
      же собрана в одном месте — под бабочкой густо, рядом пусто. */
   function ringAt(x, y, r) {
-    const gx = x / W * MW, gy = y / H * MH;
-    const r1 = Math.max(1.4, r / W * MW * 1.7), r0 = Math.max(1, r / W * MW * 1.05);
+    const p = toGrid(x, y, r);
+    const gx = p.x, gy = p.y;
+    const r1 = Math.max(1.4, p.r * 1.7), r0 = Math.max(1, p.r * 1.05);
     let sum = 0, n = 0;
     for (let b = Math.floor(gy - r1); b <= gy + r1; b++) {
       for (let a = Math.floor(gx - r1); a <= gx + r1; a++) {
@@ -747,6 +871,8 @@
     S.spawnT = 0.4;
     S.quiet = 0;
     prevGray = null;
+    prevR = null;
+    S.offX = 0; S.offY = 0;
     heat.fill(0);
     S.settle = 0.4;
     /* Привязываем бабочек к комнате, только если датчик реально отвечает.
@@ -853,7 +979,10 @@
        телефон мог развернуться, и первая же разница кадров огромна. */
     if (S.settle > 0) { S.settle -= dt; heat.fill(0); }
     const quietFrame = S.moved < GLOBAL && !turning && S.settle <= 0;
-    Wd.turn *= Math.pow(0.02, dt);              // затухает, если показаний нет
+    // Затухают оба: если датчик замолчал, судить по старым показаниям
+    // нельзя. Без этого ловля оставалась заблокированной навсегда.
+    Wd.turn *= Math.pow(0.02, dt);
+    Wd.drift *= Math.pow(0.05, dt);
 
     S.flies.forEach(f => {
       if (f.caught) { f.caught += dt; return; }
@@ -931,7 +1060,8 @@
     puff(f.x, f.y, f.hue);
     sndCatch(S.score);
     // энергию под пойманной гасим, иначе одним взмахом сметало бы соседок
-    const gx = f.x / W * MW, gy = f.y / H * MH, gr = Math.max(1, f.r / W * MW);
+    const p = toGrid(f.x, f.y, f.r);
+    const gx = p.x, gy = p.y, gr = Math.max(1, p.r);
     for (let b = Math.floor(gy - gr); b <= gy + gr; b++)
       for (let a = Math.floor(gx - gr); a <= gx + gr; a++)
         if (a >= 0 && b >= 0 && a < MW && b < MH) heat[b * MW + a] = 0;
@@ -1229,7 +1359,8 @@
     poke: poke,
     // подсыпать «движения» в сетку, чтобы проверить ловлю без живой руки
     wave: (x, y, r, v) => {
-      const gx = x / W * MW, gy = y / H * MH, gr = Math.max(1, (r || U() * 0.1) / W * MW);
+      const p = toGrid(x, y, r || U() * 0.1);
+      const gx = p.x, gy = p.y, gr = Math.max(1, p.r);
       for (let b = Math.floor(gy - gr); b <= gy + gr; b++)
         for (let a = Math.floor(gx - gr); a <= gx + gr; a++)
           if (a >= 0 && b >= 0 && a < MW && b < MH) heat[b * MW + a] = v == null ? 200 : v;
@@ -1246,6 +1377,9 @@
                    x: Math.round(f.x), y: Math.round(f.y), r: Math.round(f.r) })),
     front: v => { front = v; camLabel(); },
     calm: () => { Wd.turn = 0; Wd.drift = 0; Wd.hist.length = 0; },
+    // остановить собственный полёт бабочек: нужно, чтобы мерить
+    // отдельно привязку к комнате, не мешая её с их движением
+    freeze: () => S.flies.forEach(f => { f.vaz = 0; f.vel = 0; f.amp = 0; f.ttl = 99; }),
     // повернуть телефон вокруг своей оси: R' = R·Rz(угол)
     roll: deg => {
       const c = Math.cos(deg * RAD), s2 = Math.sin(deg * RAD), R = Wd.R;
@@ -1258,6 +1392,7 @@
     sampling: on => { sampling = on; },         // снимать ли кадры с камеры
     heatAt: heatAt,
     ringAt: ringAt,
+    off: () => ({ x: Math.round(S.offX), y: Math.round(S.offY) }),
     left: v => { S.left = v; }
   };
 })();
