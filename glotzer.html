@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Glotzer</title>
+<meta name="theme-color" content="#2B2142">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/icons/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" href="/icons/favicon.ico" sizes="any">
+<meta name="apple-mobile-web-app-title" content="YEVA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html{background:#2B2142}
+  body{
+    position:fixed;inset:0;
+    font-family:'Fredoka',ui-rounded,'SF Pro Rounded',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#F0ECF8;
+    background:linear-gradient(180deg,#2B2142 0%,#473364 52%,#6E5090 100%);
+    touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top,0px) + 8px) 9px calc(env(safe-area-inset-bottom,0px) + 8px);
+  }
+
+  /* ── верх ── */
+  .top{display:flex;align-items:center;gap:6px;flex:none;position:relative;z-index:12}
+  .pill{
+    display:flex;align-items:center;gap:6px;
+    background:rgba(20,14,34,.62);border-radius:999px;
+    padding:6px 12px;min-height:38px;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 4px 14px rgba(0,0,0,.3);
+    font-size:17px;font-weight:600;line-height:1;white-space:nowrap;
+    font-variant-numeric:tabular-nums;color:#F0ECF8;
+  }
+  .pill.score{flex:1;justify-content:center;min-width:0;overflow:hidden}
+  .pill .ic{font-size:14px;opacity:.8}
+  .pill.hi b{color:#7FE6B4}
+  .pill.life{letter-spacing:1px}
+  @media (max-width:429px){ #hiPill{display:none} }
+
+  .btn{
+    width:38px;height:38px;flex:none;border:0;border-radius:50%;
+    background:rgba(20,14,34,.62);color:#F0ECF8;text-decoration:none;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 4px 14px rgba(0,0,0,.3);
+    display:grid;place-items:center;cursor:pointer;transition:transform .12s;
+  }
+  .btn:active{transform:scale(.92)}
+  .btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;
+    stroke-linecap:round;stroke-linejoin:round}
+  .btn .off{display:none}
+  .btn.mute .on{display:none}
+  .btn.mute .off{display:block}
+
+  /* ── вид ── */
+  .yard{flex:1;min-height:0;position:relative;margin-top:8px;
+    border-radius:22px;overflow:hidden;background:#140E22;
+    box-shadow:0 10px 30px rgba(0,0,0,.35) inset,0 2px 0 rgba(255,255,255,.1)}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  video{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+  .say{
+    position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:7;
+    background:rgba(20,14,34,.85);color:#F0ECF8;border-radius:999px;
+    padding:8px 16px;font-size:15px;font-weight:600;white-space:nowrap;
+    opacity:0;transition:opacity .25s;pointer-events:none;max-width:92%;
+  }
+  .say.on{opacity:1}
+
+  /* ── гашетка ── */
+  /* Гашетка справа, а не по центру: по центру она закрывает ствол и
+     половину монстров прямо перед носом, да и большой палец у правши
+     именно там. */
+  .trigger{
+    position:absolute;right:14px;
+    bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:9;
+    width:min(24vw,92px);aspect-ratio:1;border-radius:50%;border:0;cursor:pointer;
+    background:radial-gradient(circle at 36% 28%,#FF9A7A,#E8422E 58%,#8E1F14 100%);
+    box-shadow:0 10px 26px rgba(0,0,0,.5),inset 0 0 0 4px rgba(255,255,255,.22);
+    display:none;place-items:center;font-size:min(11vw,38px);line-height:1;
+  }
+  .trigger.on{display:grid}
+  .trigger:active{transform:scale(.93)}
+  @media (max-height:430px){ .trigger{right:12px;bottom:10px;width:min(16vh,72px)} }
+
+  .yv-home{display:none!important}
+
+  /* ── шторки ── */
+  .veil{
+    position:fixed;inset:0;z-index:10;display:flex;
+    background:rgba(43,33,66,.62);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    transition:opacity .28s;padding:15px;
+    overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  }
+  .veil.hidden{opacity:0;pointer-events:none}
+  .panel{
+    width:100%;max-width:400px;text-align:center;margin:auto;flex:none;
+    background:rgba(28,20,46,.97);border-radius:26px;padding:20px 18px 24px;
+    box-shadow:0 18px 44px rgba(0,0,0,.5);
+  }
+  .panel h1{font-size:clamp(23px,6.6vw,30px);font-weight:600}
+  .panel .ru{font-size:13.5px;color:rgba(240,236,248,.55);margin-top:2px}
+
+  .modes{
+    display:flex;gap:6px;margin-top:11px;
+    background:rgba(255,255,255,.07);border-radius:14px;padding:4px;
+  }
+  .modes button{
+    flex:1;border:0;border-radius:10px;cursor:pointer;padding:8px 6px;
+    font-family:inherit;font-size:14.5px;font-weight:600;
+    background:none;color:rgba(240,236,248,.55);transition:background .2s,color .2s;
+  }
+  .modes button.on{background:linear-gradient(160deg,#8C6BD8,#5B2FA8);color:#fff;
+    box-shadow:0 4px 12px rgba(91,47,168,.5)}
+  .modes button:active{transform:scale(.96)}
+
+  .tip{margin-top:11px;font-size:13.5px;line-height:1.55;color:rgba(240,236,248,.75);
+    background:rgba(255,255,255,.06);border-radius:14px;padding:11px 12px;text-align:left}
+  .tip b{color:#F0ECF8;font-weight:600}
+  .tip .row{display:flex;gap:9px;margin-top:7px}
+  .tip .row:first-child{margin-top:0}
+  .tip .k{flex:none;width:20px;text-align:center}
+
+  .big{
+    margin:16px auto 0;width:min(38vw,132px);aspect-ratio:1;border:0;border-radius:50%;
+    cursor:pointer;display:grid;place-items:center;font-size:min(16vw,54px);line-height:1;
+    background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.95),rgba(140,107,216,.75) 38%,rgba(91,47,168,.6) 72%,rgba(255,255,255,.85) 100%);
+    box-shadow:0 16px 40px rgba(0,0,0,.45),inset 0 0 30px rgba(255,255,255,.35);
+    animation:float 3.6s ease-in-out infinite;
+  }
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+
+  .row2{display:flex;gap:10px;justify-content:center;margin-top:14px}
+  .row2 button{
+    flex:1;max-width:170px;border:0;border-radius:16px;cursor:pointer;
+    font-family:inherit;font-size:15px;font-weight:600;padding:13px 10px;
+    background:rgba(255,255,255,.08);color:#F0ECF8;
+    display:flex;align-items:center;justify-content:center;gap:7px;
+  }
+  .row2 button.hot{background:linear-gradient(160deg,#8C6BD8,#5B2FA8);color:#fff;
+    box-shadow:0 6px 16px rgba(91,47,168,.45)}
+  .row2 button:active{transform:scale(.96)}
+
+  .score2{display:flex;justify-content:center;align-items:flex-end;gap:7px;margin-top:14px}
+  .score2 .n{font-size:clamp(34px,11vw,48px);font-weight:600;line-height:.95;
+    font-variant-numeric:tabular-nums}
+  .score2 .u{font-size:16px;font-weight:500;opacity:.5;padding-bottom:5px}
+  .was{margin-top:6px;font-size:14px;color:rgba(240,236,248,.62)}
+  .was b{color:#7FE6B4}
+
+  .warn2{margin-top:12px;font-size:13.5px;line-height:1.5;text-align:left;
+    background:rgba(232,66,46,.16);border-radius:14px;padding:11px 12px;color:#FFC9BE}
+  .warn2 b{font-weight:600}
+
+  @media (max-height:600px){
+    .modes{margin-top:7px;padding:3px}
+    .modes button{padding:6px 5px;font-size:12.5px}
+    .panel{padding:12px 15px 13px}
+    .panel h1{font-size:19px}
+    .panel .ru{font-size:12px}
+    .tip{margin-top:8px;font-size:11.5px;line-height:1.4;padding:7px 9px}
+    .tip .row{margin-top:5px;gap:7px}
+    .big{margin-top:8px;width:min(16vh,68px);font-size:min(8vh,30px)}
+    .score2{margin-top:9px}
+    .score2 .n{font-size:min(9vh,40px)}
+    .row2{margin-top:9px}
+    .row2 button{padding:9px 8px;font-size:13.5px}
+  }
+  @media (max-height:430px){
+    .veil{padding:8px}
+    .panel{padding:10px 14px 12px;border-radius:18px}
+    .panel h1{font-size:18px}
+    .modes{margin-top:6px}
+    .modes button{padding:6px 4px;font-size:12px}
+    .tip{margin-top:5px;font-size:10.5px;line-height:1.3;padding:6px 8px}
+    .tip .row{margin-top:4px;gap:6px}
+    .big{margin-top:7px;width:min(15vh,62px);font-size:min(7vh,26px)}
+  }
+  @media (prefers-reduced-motion:reduce){ .big{animation:none} }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="pill hi" id="hiPill"><span class="ic">🏆</span><b id="hi">0</b></div>
+  <div class="pill score"><span class="ic">💥</span><b id="score">0</b></div>
+  <div class="pill life" id="lifePill">🛡🛡🛡</div>
+  <button class="btn" id="snd" aria-label="Звук">
+    <svg class="on" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>
+    <svg class="off" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6"/><path d="M21 9l-5 6"/></svg>
+  </button>
+  <a class="btn" href="index.html" aria-label="Домой">
+    <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/></svg>
+  </a>
+</div>
+
+<div class="yard" id="yard">
+  <canvas id="cv"></canvas>
+  <video id="vid" playsinline autoplay muted></video>
+  <div class="say" id="say"></div>
+  <button class="trigger" id="fire" aria-label="Огонь">🔥</button>
+
+  <div class="veil" id="veil">
+    <div class="panel">
+      <h1>Glotzer</h1>
+      <div class="ru">Монстры в комнате</div>
+      <div class="modes" id="modes">
+        <button data-m="kind">Малышам</button>
+        <button data-m="hard">Боевой</button>
+      </div>
+      <div class="tip">
+        <div class="row"><span class="k">👾</span><span>Монстры завелись <b>в комнате</b> — ищи их, поворачиваясь с телефоном</span></div>
+        <div class="row"><span class="k">🎯</span><span>Наведи прицел и жми гашетку. Можно и просто <b>ткнуть в монстра</b> пальцем</span></div>
+        <div class="row"><span class="k">🛡</span><span id="tipLife">Кто долетит до тебя — отнимет щит</span></div>
+        <div class="row"><span class="k">🔒</span><span>Камера <b>никуда не передаёт</b> картинку, всё считается в телефоне</span></div>
+      </div>
+      <div class="was" id="bestLine"></div>
+      <button class="big" id="go" aria-label="Начать">🎯</button>
+    </div>
+  </div>
+
+  <div class="veil hidden" id="deny">
+    <div class="panel">
+      <h1 id="denyHead">Камеру не пустили</h1>
+      <div class="ru">Монстры подождут</div>
+      <div class="warn2" id="denyWhy"></div>
+      <div class="row2">
+        <button id="denyRetry">📷 Ещё раз</button>
+        <button class="hot" id="denyDark">🌌 Играть без камеры</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="veil hidden" id="over">
+    <div class="panel">
+      <h1 id="overHead">Konter!</h1>
+      <div class="ru">Щиты кончились</div>
+      <div class="score2"><span class="n" id="sScore">0</span><span class="u">очков</span></div>
+      <div class="was" id="sWave"></div>
+      <div class="was" id="sBest"></div>
+      <div class="row2">
+        <button class="hot" id="again">🔁 Ещё раз</button>
+        <button id="toMenu">🏡 В меню</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+
+  /* ══════════════════════════════════════════════════════════════
+     Монстры в комнате.
+
+     Каждый монстр живёт не на экране, а в комнате: у него есть азимут,
+     высота над горизонтом и расстояние. Экран — окошко: куда телефон
+     направлен, тот кусок комнаты и видно. Монстр подлетает — становится
+     больше; долетел — отнял щит.
+
+     Держаться за комнату помогают две вещи сразу. Поворот телефона даёт
+     датчик ориентации. Перемещение (ведёшь рукой по дуге, идёшь по
+     квартире) датчик не видит вовсе — его считает glide по самой
+     картинке. Оба механизма вынуты из «Falterjagd» вместе со всеми
+     исправлениями, выстраданными на живом телефоне.
+
+     Картинка с камеры никуда не уходит: ни одного сетевого запроса, ни
+     одного сохранённого кадра. Камера гаснет при сворачивании.
+     ══════════════════════════════════════════════════════════════ */
+
+  const MODES = {
+    kind: { wave0: 3, add: 1, speed: 0.55, aim: 0.22, size: 1.25, lives: 5,
+            fireGap: 0.22, bullets: 3, hitR: 1.35, tipLife: 'Монстр долетит — отнимет щит, но их у тебя пять' },
+    hard: { wave0: 4, add: 2, speed: 1.0,  aim: 0.55, size: 1.0,  lives: 3,
+            fireGap: 0.13, bullets: 5, hitR: 1.0,
+            tipLife: 'Монстры целятся в тебя. Три щита — и всё' }
+  };
+  const K_MODE = 'yeva-glotz-mode';
+  const K_MUTE = 'yeva-glotz-mute';
+  const K_BEST = 'yeva-glotz-best-';
+  const K_FRONT = 'yeva-glotz-front';
+
+  const MW = 64, MH = 48;          // сетка для отслеживания сдвига картинки
+  const NEAR = 0.9;                // ближе этого монстр считается долетевшим
+  const FAR = 7;                   // с такого расстояния прилетают новые
+
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  const vid = $('vid');
+
+  let W = 0, H = 0, dpr = 1;
+  let mode = 'kind';
+  let muted = false;
+  let dark = false;                // играем без камеры, на звёздном небе
+  let stream = null;
+  let front = false;               // по умолчанию смотрим ОТ себя: это же комната
+
+  const S = {
+    phase: 'start',                // start | play | done
+    mobs: [], shots: [], bits: [],
+    score: 0, wave: 0, lives: 3,
+    world: false,
+    offX: 0, offY: 0,
+    shake: 0, flash: 0, hurt: 0,
+    fireT: 0, holding: false,
+    waveT: 0
+  };
+
+  /* ── сетка движения ── */
+  const mcv = document.createElement('canvas');
+  mcv.width = MW; mcv.height = MH;
+  const mctx = mcv.getContext('2d', { willReadFrequently: true });
+  let prevGray = null;
+  let prevR = null;               // поворот на прошлом кадре: от него считаем снос
+  let sampling = true;            // съём кадров можно выключить для проверок
+
+  /* ── звук ── */
+  let actx = null, master = null;
+
+  function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = muted ? 0 : 0.26;
+    master.connect(actx.destination);
+  }
+  function applyMute() {
+    if (master) master.gain.value = muted ? 0 : 0.26;
+    $('snd').classList.toggle('mute', muted);
+  }
+  function tone(type, f, at, dur, vol, to) {
+    if (!actx) return;
+    const t = actx.currentTime + at;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + dur * 0.92);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+  function noise(dur, vol, at) {
+    if (!actx) return;
+    const t = actx.currentTime + (at || 0);
+    const n = Math.floor(actx.sampleRate * dur);
+    const b = actx.createBuffer(1, n, actx.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = actx.createBufferSource();
+    s.buffer = b;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(g); g.connect(master);
+    s.start(t);
+  }
+  const sndShot = () => { noise(0.05, 0.3, 0); tone('square', 180, 0, 0.06, 0.12, 90); };
+  const sndHit = n => {
+    noise(0.12, 0.35, 0);
+    const f = 300 + Math.min(10, n) * 30;
+    tone('sawtooth', f, 0, 0.16, 0.2, f * 0.4);
+  };
+  const sndSpawn = () => tone('sawtooth', 120, 0, 0.3, 0.12, 200);
+  const sndHurt = () => { tone('square', 160, 0, 0.3, 0.3, 60); noise(0.3, 0.25, 0); };
+  function sndWave() {
+    [392, 523, 659].forEach((f, i) => tone('triangle', f, i * 0.09, 0.22, 0.2));
+  }
+  function sndEnd() {
+    [392, 330, 262, 196].forEach((f, i) => tone('sawtooth', f, i * 0.13, 0.35, 0.22));
+    noise(0.6, 0.2, 0.1);
+  }
+
+  /* ── размеры ── */
+  function fit() {
+    const r = $('yard').getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    W = Math.round(r.width); H = Math.round(r.height);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  const U = () => Math.min(W, H);
+  const cfg = () => MODES[mode];
+
+  /* Куда ляжет кадр: растягиваем по короткой стороне и обрезаем длинную,
+     как object-fit: cover. Сетка движения считается по этому же куску —
+     иначе ладошка на экране и ладошка в сетке оказались бы в разных
+     местах, и монстри ловились бы мимо. */
+  function cover(vw, vh, w, h) {
+    if (!vw || !vh) return { x: 0, y: 0, w: w, h: h };
+    const s = Math.max(w / vw, h / vh);
+    const dw = vw * s, dh = vh * s;
+    return { x: (w - dw) / 2, y: (h - dh) / 2, w: dw, h: dh };
+  }
+
+  function sample() {
+    if (!stream || vid.readyState < 2 || !vid.videoWidth) return;
+    const c = cover(vid.videoWidth, vid.videoHeight, MW, MH);
+    mctx.save();
+    // Отражаем ровно так же, как рисуем на экран, иначе сдвиг картинки
+    // получится зеркальным и монстры поедут не в ту сторону.
+    if (front) { mctx.translate(MW, 0); mctx.scale(-1, 1); }
+    mctx.drawImage(vid, c.x, c.y, c.w, c.h);
+    mctx.restore();
+
+    const d = mctx.getImageData(0, 0, MW, MH).data;
+    const cur = new Uint8Array(MW * MH);
+    for (let i = 0, p = 0; i < cur.length; i++, p += 4) {
+      cur[i] = (d[p] * 77 + d[p + 1] * 151 + d[p + 2] * 28) >> 8;
+    }
+    // Кадры нужны только затем, чтобы увидеть, на сколько уехала сама
+    // картинка: по повороту телефона этого не узнать (см. glide).
+    if (prevGray) glide(cur, prevGray);
+    prevGray = cur;
+  }
+
+
+  /* ══ снос картинки ══════════════════════════════════════════════
+     Датчик ориентации знает только о ПОВОРОТЕ телефона. Когда ведёшь
+     вытянутой рукой по большой дуге, телефон в основном переезжает, а
+     не поворачивается: датчик молчит, монстри стоят на экране, а
+     комната едет — и кажется, что они летят не в ту сторону.
+
+     Перемещение можно увидеть только в самой картинке. Считаем, на
+     сколько уехал весь кадр, вычитаем то, что объясняется поворотом, и
+     остаток добавляем монстрам как сдвиг по экрану.
+
+     Сдвиг ищем по профилям — суммам яркости по столбцам и по строкам.
+     Это вчетверо дешевле честного перебора по двум осям и достаточно
+     устойчиво: машущая рука занимает малую часть профиля и перевесить
+     фон не может.
+     ═══════════════════════════════════════════════════════════════ */
+  const SH = 7;                     // насколько далеко ищем сдвиг, в клетках
+  const colA = new Float32Array(MW), colB = new Float32Array(MW);
+  const rowA = new Float32Array(MH), rowB = new Float32Array(MH);
+
+  function profiles(src2, col, row) {
+    col.fill(0); row.fill(0);
+    for (let y = 0, i = 0; y < MH; y++) {
+      for (let x = 0; x < MW; x++, i++) {
+        const v = src2[i];
+        col[x] += v; row[y] += v;
+      }
+    }
+  }
+
+  /* Лучший сдвиг одного профиля — и обязательно ДРОБНЫЙ.
+
+     За кадр комната уезжает меньше чем на клетку сетки: при ведении
+     рукой это полклетки, при спокойном повороте и того меньше. Поиск
+     целыми клетками такой сдвиг просто теряет — он каждый раз выдаёт
+     ноль, и монстри отстают впятеро. Поэтому вокруг лучшего целого
+     сдвига ставим параболу по трём точкам и берём её вершину. */
+  const sad = new Float32Array(SH * 2 + 1);
+
+  function best1(a, b, n) {
+    let zero = 0;
+    for (let i = 0; i < n; i++) zero += Math.abs(a[i] - b[i]);
+    let bestS = 0, bestV = Infinity;
+    for (let s = -SH; s <= SH; s++) {
+      let sum = 0, cnt = 0;
+      for (let i = Math.max(0, -s); i < Math.min(n, n - s); i++) {
+        sum += Math.abs(a[i + s] - b[i]); cnt++;
+      }
+      const v = cnt < n * 0.6 ? Infinity : sum / cnt * n;
+      sad[s + SH] = v;
+      if (v < bestV) { bestV = v; bestS = s; }
+    }
+    let frac = 0;
+    const l = sad[bestS + SH - 1], c = sad[bestS + SH], r = sad[bestS + SH + 1];
+    if (isFinite(l) && isFinite(r)) {
+      const den = l - 2 * c + r;
+      if (den > 0) frac = Math.max(-0.5, Math.min(0.5, 0.5 * (l - r) / den));
+    }
+    return { s: bestS + frac, sure: zero > 0 ? 1 - bestV / zero : 0 };
+  }
+
+  function glide(cur, prev) {
+    profiles(cur, colA, rowA);
+    profiles(prev, colB, rowB);
+    const hx = best1(colA, colB, MW), hy = best1(rowA, rowB, MH);
+    // Сдвиг принимаем, только если он заметно лучше «ничего не двигалось».
+    // Иначе на шуме монстры поползли бы сами по себе.
+    const px2 = cellPx();
+    const dx = hx.sure > 0.08 ? hx.s * px2 : 0;
+    const dy = hy.sure > 0.08 ? hy.s * px2 : 0;
+
+    // сколько из этого объясняется поворотом телефона
+    let px = 0, py = 0;
+    if (S.world && prevR) {
+      const s2 = front ? 1 : -1;
+      const v = [s2 * prevR[2], s2 * prevR[5], s2 * prevR[8]];   // куда смотрели
+      const p = projectVec(v);
+      if (p.on) { px = p.x - W / 2; py = p.y - H / 2; }
+    }
+    prevR = Wd.R.slice();
+
+    S.offX += dx - px;
+    S.offY += dy - py;
+    // остаток медленно тает: без этого мелкие ошибки копились бы весь раунд
+    S.offX *= 0.997; S.offY *= 0.997;
+    const lim = U() * 1.2;
+    S.offX = Math.max(-lim, Math.min(lim, S.offX));
+    S.offY = Math.max(-lim, Math.min(lim, S.offY));
+  }
+
+
+  /* ══ экран ↔ сетка движения ═══════════════════════════════════════
+     Кадр ложится на экран и в сетку ПО-РАЗНОМУ: сетка 4:3 берёт кадр
+     целиком, а вытянутый экран обрезает ему бока. Поэтому переводить
+     координаты делением на ширину нельзя — ошибка выходит в два-три
+     раза. Считаем через сам кадр: экран → доля кадра → сетка.
+     ═══════════════════════════════════════════════════════════════ */
+  function covers() {
+    const vw = vid.videoWidth, vh = vid.videoHeight;
+    return { s: cover(vw, vh, W, H), g: cover(vw, vh, MW, MH) };
+  }
+  function toGrid(x, y, r) {
+    const c = covers();
+    const k = c.g.w / c.s.w;
+    return { x: c.g.x + (x - c.s.x) * k, y: c.g.y + (y - c.s.y) * k,
+             r: (r || 0) * k };
+  }
+  // сколько пикселей экрана в одной клетке сетки
+  function cellPx() {
+    const c = covers();
+    return c.s.w / c.g.w;
+  }
+
+
+  /* ══ комната вокруг телефона ═══════════════════════════════════
+     Монстра живёт не на экране, а в комнате: у неё есть азимут (куда
+     повернуться) и высота над горизонтом. Экран — окошко: куда телефон
+     направлен, тот кусок комнаты и показывает. Поворот берём с датчика
+     ориентации, а не с картинки: по картинке поворот от взмаха руки не
+     отличить, а датчик говорит прямо.
+
+     Если датчиков нет (ноутбук, старый планшет, отказ), игра молча
+     возвращается к прежнему поведению: монстри летят поперёк экрана.
+     ═══════════════════════════════════════════════════════════════ */
+  const now = () => (window.performance && performance.now ? performance.now() : Date.now());
+
+  const RAD = Math.PI / 180;
+  const SENSOR = 62 * RAD;          // обычный обзор телефонной камеры по ширине
+  const TURN = 110;                 // градусов в секунду: быстрее — это уже взмах всем телефоном
+
+  const Wd = {
+    on: false,                      // датчик отвечает
+    R: [1, 0, 0, 0, 1, 0, 0, 0, 1], // поворот телефона: из его осей в мировые
+    yaw: 0,                         // куда смотрит телефон, градусы
+    pitch: 0,                       // и насколько задран, градусы
+    turn: 0,                        // как быстро крутят, градусов в секунду
+    drift: 0,                       // насколько «поворот» похож на поворот: больше 1 — да
+    hist: [],                       // недавние направления взгляда
+    seen: 0,                        // когда пришло последнее показание
+    prev: null
+  };
+
+  function matFrom(a, b, g) {
+    const ca = Math.cos(a * RAD), sa = Math.sin(a * RAD);
+    const cb = Math.cos(b * RAD), sb = Math.sin(b * RAD);
+    const cg = Math.cos(g * RAD), sg = Math.sin(g * RAD);
+    return [
+      ca * cg - sa * sb * sg, -sa * cb, ca * sg + sa * sb * cg,
+      sa * cg + ca * sb * sg,  ca * cb, sa * sg - ca * sb * cg,
+      -cb * sg,                sb,      cb * cg
+    ];
+  }
+
+  function onTilt(e) {
+    if (e.alpha == null && e.beta == null && e.gamma == null) return;
+    const a = e.alpha || 0, b = e.beta || 0, g = e.gamma || 0;
+    const t = now();
+    Wd.R = matFrom(a, b, g);
+    // датчик молчал почти секунду: по такому разрыву скорость не считают,
+    // и кадр до него сравнивать не с чем
+    if (Wd.prev && t - Wd.prev.t > 300) {
+      Wd.prev = null; prevGray = null; prevR = null;
+      S.settle = 0.3; Wd.hist.length = 0; Wd.drift = 0;
+    }
+    if (Wd.prev && t > Wd.prev.t) {
+      // насколько повернулся телефон: берём ось взгляда и считаем угол
+      const p = Wd.prev;
+      const dot = Math.max(-1, Math.min(1,
+        p.v[0] * Wd.R[2] + p.v[1] * Wd.R[5] + p.v[2] * Wd.R[8]));
+      const deg = Math.acos(dot) / RAD;
+      const dt = (t - p.t) / 1000;
+      const rate = deg / Math.max(0.008, dt);
+      /* Вверх — сразу, вниз — плавно. Со сглаживанием в обе стороны
+         датчик узнаёт о повороте за два-три показания, и этих кадров
+         хватало, чтобы уезжающая комната сама поймала пару бабочек. */
+      Wd.turn = Math.max(rate, Wd.turn * 0.6 + rate * 0.4);
+    }
+    Wd.prev = { t: t, v: [Wd.R[2], Wd.R[5], Wd.R[8]] };
+
+    /* Снос взгляда за последние полсекунды. Ради него всё и затевалось:
+       дрожь руки и настоящий поворот дают одинаковую мгновенную скорость
+       (у ребёнка рука трясётся на те же двадцать градусов в секунду), но
+       дрожь качается туда-сюда и в сумме никуда не уходит, а поворот
+       уходит. Отличить их можно только так — по накопленному сносу. */
+    Wd.hist.push(Wd.prev);
+    while (Wd.hist.length && t - Wd.hist[0].t > 900) Wd.hist.shift();
+
+    /* Два окна. Короткое (0.2 с, порог 3°) ловит самое НАЧАЛО поворота:
+       длинное окно за эти первые кадры ещё ничего не накопило, и комната
+       успевала поймать монстру сама. Длинное (0.45 с, порог 6°) отделяет
+       настоящий поворот от дрожи: за полсекунды тремор возвращается
+       туда же, откуда начал, а поворот уходит. */
+    const away = ms => {
+      for (let i = 0; i < Wd.hist.length; i++) {
+        if (t - Wd.hist[i].t >= ms) {
+          const h = Wd.hist[i];
+          const dot = Math.max(-1, Math.min(1,
+            h.v[0] * Wd.R[2] + h.v[1] * Wd.R[5] + h.v[2] * Wd.R[8]));
+          return Math.acos(dot) / RAD;
+        }
+      }
+      return 0;
+    };
+    Wd.drift = Math.max(away(190) / 3, away(430) / 6);
+    // куда смотрит объектив, в мировых координатах
+    const s = front ? 1 : -1;
+    Wd.yaw = Math.atan2(s * Wd.R[2], s * Wd.R[5]) / RAD;
+    Wd.pitch = Math.asin(Math.max(-1, Math.min(1, s * Wd.R[8]))) / RAD;
+    if (!Wd.on) {
+      Wd.on = true;
+      const el = document.getElementById('tipTurn');
+      if (el) el.innerHTML = 'Монстри летают <b>по комнате</b> — поворачивайся, ' +
+        'экран как окошко';
+    }
+    Wd.seen = t;
+  }
+
+  /* Слушаем РОВНО ОДНО событие ориентации.
+
+     На Android приходят оба: deviceorientation и deviceorientationabsolute.
+     Углы у них в разных системах отсчёта — одно считает от магнитного
+     севера, другое от того, как телефон лежал при запуске. Если слушать
+     оба, матрица дёргается между двумя мирами по очереди, и монстри
+     ведут себя по-разному, когда крутишь телефон в кисти и когда ведёшь
+     всей рукой. Поэтому берём то, что откликнулось первым, и второе
+     отключаем навсегда. */
+  let tiltSrc = null, listening = false;
+
+  function listenTilt() {
+    if (listening) return;
+    listening = true;
+    const pick = name => function (e) {
+      if (tiltSrc && tiltSrc !== name) return;
+      // Пустые события тоже приходят — например, когда у устройства нет
+      // магнитометра. Привязываться к такому источнику нельзя: он так и
+      // будет молчать, а живой мы к тому времени уже отключим.
+      if (e.alpha == null && e.beta == null && e.gamma == null) return;
+      if (!tiltSrc) {
+        tiltSrc = name;
+        const other = name === 'deviceorientation'
+          ? 'deviceorientationabsolute' : 'deviceorientation';
+        window.removeEventListener(other, handlers[other]);
+      }
+      onTilt(e);
+    };
+    const handlers = {
+      deviceorientation: pick('deviceorientation'),
+      deviceorientationabsolute: pick('deviceorientationabsolute')
+    };
+    window.addEventListener('deviceorientation', handlers.deviceorientation);
+    window.addEventListener('deviceorientationabsolute', handlers.deviceorientationabsolute);
+  }
+
+  // На iPhone датчик просит разрешения, и только по нажатию кнопки.
+  function askTilt() {
+    const D = window.DeviceOrientationEvent;
+    if (D && typeof D.requestPermission === 'function') {
+      return D.requestPermission().then(listenTilt).catch(() => {});
+    }
+    listenTilt();
+    return Promise.resolve();
+  }
+
+  const screenAngle = () => {
+    const o = screen.orientation;
+    if (o && typeof o.angle === 'number') return o.angle;
+    return window.orientation || 0;
+  };
+
+  /* Фокус в пикселях экрана. Кадр рисуется с обрезкой краёв, поэтому
+     обзор на экране уже, чем у объектива: считаем от исходного кадра и
+     переводим тем же масштабом, каким его растягивали. */
+  function focal() {
+    const fallback = (W / 2) / Math.tan(SENSOR / 2);
+    if (!vid.videoWidth || !vid.videoHeight) return fallback;
+    const s = Math.max(W / vid.videoWidth, H / vid.videoHeight);
+    return ((vid.videoWidth / 2) / Math.tan(SENSOR / 2)) * s;
+  }
+
+  const dirOf = (az, el) => {
+    const ce = Math.cos(el * RAD);
+    return [Math.sin(az * RAD) * ce, Math.cos(az * RAD) * ce, Math.sin(el * RAD)];
+  };
+
+  /* Направление в комнате → точка на экране. Без учёта сноса: этим же
+     счётом снос и вычисляется, подмешивать его сюда нельзя. */
+  function projectVec(w) {
+    const R = Wd.R;
+    // d = Rᵀ·w — то же направление, но в осях телефона
+    const dx = R[0] * w[0] + R[3] * w[1] + R[6] * w[2];
+    const dy = R[1] * w[0] + R[4] * w[1] + R[7] * w[2];
+    const dz = R[2] * w[0] + R[5] * w[1] + R[8] * w[2];
+    /* Экран мог повернуться вместе с телефоном. Знак здесь обратный, и
+       это не описка: если телефон повернули вокруг своей оси на θ, то
+       Android докручивает содержимое на −θ и сообщает угол θ. Чтобы
+       точка осталась на том же пикселе, обе эти прокрутки должны
+       сложиться в ноль. */
+    const a = -screenAngle() * RAD, c = Math.cos(a), s2 = Math.sin(a);
+    const rx = dx * c + dy * s2, ry = -dx * s2 + dy * c;
+    const depth = (front ? 1 : -1) * dz;
+    const f = focal();
+    // За спиной глубина отрицательная, и точка «улетает» в бесконечность.
+    // Координаты всё равно считаем от прижатой глубины: лучше заведомо
+    // далёкая точка за краем экрана, чем NaN, который расползётся дальше.
+    const d = Math.max(0.12, depth);
+    const k = depth > 0.12 ? 1 : -4;
+    return { on: depth > 0.12,
+             x: W / 2 + (rx / d) * f * k, y: H / 2 - (ry / d) * f * k,
+             depth: depth, dx: rx, dy: ry };
+  }
+
+  function project(az, el) {
+    const p = projectVec(dirOf(az, el));
+    p.x += S.offX; p.y += S.offY;
+    const m = U() * 0.3;
+    p.on = p.on && p.x > -m && p.x < W + m && p.y > -m && p.y < H + m;
+    return p;
+  }
+
+  /* ── монстры ── */
+  function spawnMob(n) {
+    for (let i = 0; i < n; i++) {
+      /* Сажаем вокруг того, куда смотрит телефон, но пошире, чем бабочек:
+         монстра надо ПОИСКАТЬ, в этом половина удовольствия. Совсем за
+         спину не прячем — стрелки по краям есть, но крутиться на 180°
+         ради каждого скучно. */
+      const side = Math.random() < 0.5 ? -1 : 1;
+      // Первых двух в волне — почти перед носом, остальных по всей
+      // комнате. Иначе окошко камеры узкое, в кадре никого, и бой
+      // начинается с пустого экрана.
+      const spread = i < 2 ? 4 + Math.random() * 16 : 12 + Math.random() * 73;
+      S.mobs.push({
+        az: Wd.yaw + side * spread,
+        el: Math.max(-35, Math.min(55, Wd.pitch + (Math.random() - 0.5) * (i < 2 ? 18 : 40))),
+        dist: FAR * (0.75 + Math.random() * 0.5),
+        vaz: (Math.random() - 0.5) * 9,
+        vel: (Math.random() - 0.5) * 6,
+        speed: cfg().speed * (0.7 + Math.random() * 0.6),
+        hp: 1 + (Math.random() < 0.25 ? 1 : 0),
+        t: Math.random() * 6, wob: 1,
+        hue: [276, 198, 96, 12, 330][Math.floor(Math.random() * 5)],
+        eye: 0.6 + Math.random() * 0.5,
+        hurt: 0, dead: 0, on: false, x: 0, y: 0, r: 0
+      });
+    }
+    sndSpawn();
+  }
+
+  /* Видимый размер: чем ближе, тем крупнее. Доля от экрана, а не от
+     ширины, — на маленьком телефоне дальний монстр иначе выходит
+     пятнадцать пикселей, и ребёнок по нему не попадёт. */
+  function mobR(m) {
+    return U() * 0.1 * cfg().size * (FAR * 0.7 / Math.max(NEAR * 0.8, m.dist));
+  }
+
+  function bits(x, y, hue, n, big) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, v = U() * (0.15 + Math.random() * 0.75);
+      S.bits.push({
+        x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - U() * 0.15,
+        t: 0, life: 0.45 + Math.random() * 0.5, hue: hue,
+        s: U() * (big ? 0.016 : 0.009) * (0.6 + Math.random())
+      });
+    }
+  }
+
+  /* ── выстрел ── */
+  function shoot(tx, ty) {
+    if (S.phase !== 'play' || S.fireT > 0) return false;
+    S.fireT = cfg().fireGap;
+    S.shake = Math.min(1, S.shake + 0.35);
+    sndShot();
+    const from = { x: W / 2, y: H + U() * 0.1 };
+    S.shots.push({ x0: from.x, y0: from.y, x1: tx, y1: ty, t: 0 });
+
+    /* Попадание считаем по экрану: монстр нарисован кружком, прицел —
+       точка. Это ровно то, что видит игрок, и никаких расхождений между
+       картинкой и расчётом быть не может. */
+    let best = null, bd = 1e9;
+    S.mobs.forEach(m => {
+      if (m.dead || !m.on) return;
+      const d = Math.hypot(m.x - tx, m.y - ty);
+      if (d < m.r * cfg().hitR && d < bd) { bd = d; best = m; }
+    });
+    if (best) {
+      best.hp--;
+      best.hurt = 0.18;
+      if (best.hp <= 0) {
+        best.dead = 0.0001;
+        S.score += 10 + S.wave * 2;
+        bits(best.x, best.y, best.hue, 22, true);
+        sndHit(S.score / 10);
+        paint();
+      } else {
+        // крепкий монстр с первого раза не лопается — но попадание
+        // должно быть видно и в счёте, иначе кажется, что промазал
+        S.score += 3;
+        bits(best.x, best.y, best.hue, 8, false);
+        sndHit(1);
+        paint();
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /* ── ход игры ── */
+  function begin() {
+    S.phase = 'play';
+    S.mobs = []; S.shots = []; S.bits = [];
+    S.score = 0; S.wave = 0;
+    S.lives = cfg().lives;
+    S.offX = 0; S.offY = 0;
+    S.shake = 0; S.flash = 0; S.hurt = 0;
+    S.fireT = 0; S.holding = false;
+    S.waveT = 0.8;
+    prevGray = null; prevR = null;
+    S.world = !dark && Wd.on;
+    hideVeils();
+    $('fire').classList.add('on');
+    say(S.world ? 'Крутись — они повсюду!' : 'Целься и стреляй!');
+    setTimeout(() => { if (S.phase === 'play') say(''); }, 2400);
+    paint();
+  }
+
+  function nextWave() {
+    S.wave++;
+    spawnMob(cfg().wave0 + (S.wave - 1) * cfg().add);
+    if (S.wave > 1) { sndWave(); say('Волна ' + S.wave);
+      setTimeout(() => { if (S.phase === 'play') say(''); }, 1400); }
+    paint();
+  }
+
+  function hurt(m) {
+    m.dead = 0.0001;
+    S.lives--;
+    S.hurt = 0.6;
+    S.shake = 1;
+    sndHurt();
+    bits(W / 2, H * 0.8, 0, 26, true);
+    paint();
+    if (S.lives <= 0) finish();
+  }
+
+  function finish() {
+    S.phase = 'done';
+    $('fire').classList.remove('on');
+    sndEnd();
+    say('');
+    const b = best();
+    const better = S.score > b;
+    if (better) setBest(S.score);
+    $('sScore').textContent = S.score;
+    $('sWave').textContent = 'Волн отбито: ' + Math.max(0, S.wave - 1);
+    $('sBest').innerHTML = better ? 'Это <b>лучший счёт</b>!' : 'Лучший счёт: <b>' + b + '</b>';
+    $('overHead').textContent = S.score > 0 ? 'Konter!' : 'Ещё разок?';
+    setTimeout(() => show('over'), 800);
+  }
+
+  function best() {
+    try {
+      const v = parseInt(localStorage.getItem(K_BEST + mode) || '0', 10);
+      return isFinite(v) && v > 0 ? v : 0;
+    } catch (e) { return 0; }
+  }
+  function setBest(v) { try { localStorage.setItem(K_BEST + mode, String(v)); } catch (e) {} }
+
+  function paint() {
+    $('score').textContent = S.score;
+    $('hi').textContent = best();
+    const n = Math.max(0, S.lives);
+    $('lifePill').textContent = n <= 5
+      ? '🛡'.repeat(n) || '—'
+      : '🛡×' + n;
+  }
+
+  function say(t) {
+    const el = $('say');
+    el.textContent = t;
+    el.classList.toggle('on', !!t);
+  }
+
+  /* ── шаг ── */
+  let last = 0, auto = true;
+
+  function frame(ts) {
+    if (!auto) return;
+    requestAnimationFrame(frame);
+    const dt = last ? Math.min(0.2, (ts - last) / 1000) : 0;
+    last = ts;
+    step(dt);
+  }
+
+  function step(dt) {
+    if (S.phase === 'play') {
+      if (!dark && sampling) sample();
+
+      S.fireT -= dt;
+      if (S.holding && S.fireT <= 0) shoot(W / 2, H / 2);
+
+      S.waveT -= dt;
+      const alive = S.mobs.filter(m => !m.dead).length;
+      if (S.waveT <= 0 && alive === 0) { nextWave(); S.waveT = 1.2; }
+    }
+
+    S.mobs.forEach(m => {
+      if (m.dead) { m.dead += dt; return; }
+      m.t += dt;
+      m.hurt = Math.max(0, m.hurt - dt);
+      if (S.phase === 'play') {
+        /* Часть пути монстр плывёт по комнате сам по себе, часть —
+           доворачивает на игрока. Чисто прямой полёт в лоб выглядит
+           скучно, чисто случайный — несправедливо: до тебя никто не
+           долетает и стрелять незачем. */
+        const toMe = cfg().aim;
+        m.az += m.vaz * dt * (1 - toMe);
+        m.el += m.vel * dt * (1 - toMe);
+        m.az += Math.sin(m.t * 1.3) * 4 * dt * m.wob;
+        m.dist -= m.speed * dt;
+        if (m.dist <= NEAR) hurt(m);
+      }
+      const p = project(m.az, m.el);
+      m.on = p.on; m.x = p.x; m.y = p.y; m.dx = p.dx; m.dy = p.dy; m.depth = p.depth;
+      m.r = mobR(m);
+    });
+    S.mobs = S.mobs.filter(m => m.dead < 0.4);
+
+    S.shots.forEach(s => { s.t += dt; });
+    S.shots = S.shots.filter(s => s.t < 0.12);
+
+    S.bits.forEach(b => {
+      b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt; b.vy += U() * 1.8 * dt;
+    });
+    S.bits = S.bits.filter(b => b.t < b.life);
+
+    S.shake = Math.max(0, S.shake - dt * 4);
+    S.hurt = Math.max(0, S.hurt - dt);
+    draw();
+  }
+
+  /* ── рисование ── */
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.save();
+    if (S.shake > 0.01) {
+      const k = S.shake * U() * 0.012;
+      ctx.translate((Math.random() - 0.5) * k, (Math.random() - 0.5) * k);
+    }
+
+    if (!dark && stream && vid.readyState >= 2 && vid.videoWidth) {
+      const c = cover(vid.videoWidth, vid.videoHeight, W, H);
+      ctx.save();
+      // зеркалим только переднюю камеру — иначе комната поедет не в ту сторону
+      if (front) { ctx.translate(W, 0); ctx.scale(-1, 1); }
+      ctx.drawImage(vid, c.x, c.y, c.w, c.h);
+      ctx.restore();
+      ctx.fillStyle = 'rgba(20,14,34,.3)';
+      ctx.fillRect(-W, -H, W * 3, H * 3);
+    } else {
+      sky();
+    }
+
+    S.mobs.slice().sort((a, b) => b.dist - a.dist).forEach(m => {
+      if (m.on !== false || m.dead) mob(m);
+    });
+    if (S.phase === 'play' && S.world) arrows();
+
+    S.bits.forEach(b => {
+      ctx.globalAlpha = Math.max(0, 1 - b.t / b.life);
+      ctx.fillStyle = 'hsl(' + b.hue + ',85%,65%)';
+      ctx.fillRect(b.x, b.y, b.s, b.s);
+    });
+    ctx.globalAlpha = 1;
+
+    S.shots.forEach(s => tracer(s));
+    if (S.phase === 'play') { gun(); cross(); }
+    ctx.restore();
+
+    if (S.hurt > 0) {
+      ctx.fillStyle = 'rgba(232,66,46,' + (S.hurt * 0.45).toFixed(3) + ')';
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  // небо, если камеры нет: тоже комната, только звёздная
+  let stars = null;
+  function sky() {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#120C20'); g.addColorStop(1, '#2E2048');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    if (!stars || stars.w !== W) {
+      stars = { w: W, list: [] };
+      for (let i = 0; i < 70; i++) {
+        stars.list.push({ x: Math.random(), y: Math.random(), r: Math.random() });
+      }
+    }
+    ctx.fillStyle = 'rgba(255,255,255,.7)';
+    stars.list.forEach(s => {
+      const x = (s.x * W + S.offX * 0.4) % W, y = (s.y * H + S.offY * 0.4) % H;
+      ctx.globalAlpha = 0.25 + s.r * 0.6;
+      ctx.fillRect((x + W) % W, (y + H) % H, 1 + s.r * 2, 1 + s.r * 2);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  /* Монстр: шар с одним глазом и щупальцами. Своя выдумка — ничьих
+     персонажей тут нет. */
+  function mob(m) {
+    const r = m.r;
+    const k = m.dead ? 1 - Math.min(1, m.dead / 0.4) : 1;
+    ctx.save();
+    ctx.translate(m.x, m.y);
+    ctx.globalAlpha = k;
+    if (m.dead) ctx.scale(1 + (1 - k) * 0.8, 1 + (1 - k) * 0.8);
+
+    const hit = m.hurt > 0;
+    const light = hit ? 'hsl(' + m.hue + ',95%,86%)' : 'hsl(' + m.hue + ',70%,62%)';
+    const dark2 = hit ? 'hsl(' + m.hue + ',90%,66%)' : 'hsl(' + m.hue + ',65%,42%)';
+
+    // щупальца
+    ctx.strokeStyle = dark2;
+    ctx.lineWidth = r * 0.16;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 5; i++) {
+      const a = Math.PI * (0.18 + i * 0.16);
+      const w = Math.sin(m.t * 3 + i) * r * 0.3;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.5);
+      ctx.quadraticCurveTo(Math.cos(a) * r * 1.1 + w, Math.sin(a) * r * 1.2,
+                           Math.cos(a) * r * 0.9 + w * 1.6, Math.sin(a) * r * 1.7);
+      ctx.stroke();
+    }
+
+    // тело
+    const g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.1, 0, 0, r);
+    g.addColorStop(0, light); g.addColorStop(1, dark2);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r, r * 0.92, 0, 0, 6.3);
+    ctx.fill();
+
+    // глаз
+    const ex = Math.sin(m.t * 0.9) * r * 0.1;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.ellipse(ex, -r * 0.05, r * 0.46, r * 0.42, 0, 0, 6.3); ctx.fill();
+    ctx.fillStyle = '#1A1026';
+    ctx.beginPath();
+    ctx.arc(ex + Math.sin(m.t * 1.7) * r * 0.08, -r * 0.05, r * 0.22 * m.eye, 0, 6.3);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.arc(ex - r * 0.1, -r * 0.18, r * 0.07, 0, 6.3); ctx.fill();
+
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  // ствол внизу экрана
+  function gun() {
+    const u = U(), bw = u * 0.3, bh = u * 0.36;
+    const x = W / 2, y = H + bh * 0.42;
+    ctx.save();
+    ctx.translate(x, y);
+    const g = ctx.createLinearGradient(-bw / 2, 0, bw / 2, 0);
+    g.addColorStop(0, '#2A2238'); g.addColorStop(0.45, '#6E6A86');
+    g.addColorStop(0.55, '#8A86A4'); g.addColorStop(1, '#2A2238');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(-bw * 0.5, 0);
+    ctx.lineTo(-bw * 0.22, -bh);
+    ctx.lineTo(bw * 0.22, -bh);
+    ctx.lineTo(bw * 0.5, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#C9C4DC';
+    ctx.fillRect(-bw * 0.26, -bh - u * 0.012, bw * 0.52, u * 0.024);
+    if (S.fireT > cfg().fireGap * 0.55) {
+      const f = u * (0.05 + Math.random() * 0.04);
+      ctx.fillStyle = 'rgba(255,214,120,.95)';
+      ctx.beginPath();
+      ctx.moveTo(-f, -bh); ctx.lineTo(0, -bh - f * 2.2); ctx.lineTo(f, -bh);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function tracer(s) {
+    const k = 1 - s.t / 0.12;
+    ctx.save();
+    ctx.globalAlpha = k;
+    ctx.strokeStyle = 'rgba(255,224,150,.95)';
+    ctx.lineWidth = U() * 0.012 * k;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(s.x0, s.y0);
+    ctx.lineTo(s.x0 + (s.x1 - s.x0) * (1 - k * 0.5), s.y0 + (s.y1 - s.y0) * (1 - k * 0.5));
+    ctx.stroke();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  function cross() {
+    const u = U(), r = u * 0.07;
+    const hot = S.mobs.some(m => !m.dead && m.on &&
+      Math.hypot(m.x - W / 2, m.y - H / 2) < m.r * cfg().hitR);
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.strokeStyle = hot ? 'rgba(255,90,70,.95)' : 'rgba(255,255,255,.75)';
+    ctx.lineWidth = Math.max(1.5, u * 0.006);
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.3); ctx.stroke();
+    ctx.beginPath();
+    [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(d => {
+      ctx.moveTo(d[0] * r * 0.45, d[1] * r * 0.45);
+      ctx.lineTo(d[0] * r * 1.5, d[1] * r * 1.5);
+    });
+    ctx.stroke();
+    if (hot) {
+      ctx.fillStyle = 'rgba(255,90,70,.9)';
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.14, 0, 6.3); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* Стрелки к монстрам за краем окошка — иначе придётся крутиться
+     наугад. */
+  function arrows() {
+    const out = S.mobs.filter(m => !m.dead && m.on === false);
+    if (!out.length) return;
+    const u = U(), m0 = u * 0.09;
+    out.slice(0, 4).forEach(f => {
+      const len = Math.hypot(f.dx, f.dy) || 1;
+      const ax = f.dx / len, ay = f.dy / len;
+      const k = Math.min(
+        Math.abs((W / 2 - m0) / (ax || 1e-6)),
+        Math.abs((H / 2 - m0) / (ay || 1e-6))
+      );
+      const x = W / 2 + ax * k, y = H / 2 - ay * k;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.atan2(-ay, ax));
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = 'hsl(' + f.hue + ',80%,62%)';
+      ctx.strokeStyle = 'rgba(255,255,255,.85)';
+      ctx.lineWidth = Math.max(1.5, u * 0.007);
+      ctx.beginPath();
+      ctx.moveTo(u * 0.05, 0);
+      ctx.lineTo(-u * 0.028, u * 0.03);
+      ctx.lineTo(-u * 0.01, 0);
+      ctx.lineTo(-u * 0.028, -u * 0.03);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  /* ── управление ── */
+  cv.addEventListener('pointerdown', e => {
+    initAudio();
+    if (S.phase !== 'play') return;
+    const r = cv.getBoundingClientRect();
+    shoot(e.clientX - r.left, e.clientY - r.top);
+    e.preventDefault();
+  });
+
+  const fireBtn = $('fire');
+  const hold = on => { S.holding = on; if (on) { initAudio(); shoot(W / 2, H / 2); } };
+  fireBtn.addEventListener('pointerdown', e => { hold(true); e.preventDefault(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev =>
+    fireBtn.addEventListener(ev, () => hold(false)));
+
+  /* ── камера ── */
+  function hideVeils() { ['veil', 'deny', 'over'].forEach(id => $(id).classList.add('hidden')); }
+  function show(id) { hideVeils(); $(id).classList.remove('hidden'); }
+
+  async function openCam() {
+    initAudio();
+    await askTilt();
+    try {
+      stopCam();
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: front ? 'user' : 'environment',
+                 width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      });
+      vid.srcObject = stream;
+      await vid.play().catch(() => {});
+      dark = false;
+      if (!Wd.on) await new Promise(r => setTimeout(r, 260));
+      begin();
+    } catch (err) {
+      denied(err);
+    }
+  }
+
+  function stopCam() {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    vid.srcObject = null;
+    prevGray = null; prevR = null;
+  }
+
+  function denied(err) {
+    S.phase = 'start';
+    const name = err && err.name ? err.name : '';
+    let head = 'Камеру не пустили', why;
+    if (name === 'NotAllowedError') {
+      why = 'Телефон не дал доступ к камере. Разреши его так: ' +
+            '<b>долгое нажатие на значок YEVA → «О приложении» → Разрешения → Камера</b>. ' +
+            'А пока можно пострелять на звёздном небе.';
+    } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+      head = 'Камеры не нашлось';
+      why = 'Устройство не отдало ни одной камеры. Монстры прилетят на звёздном небе.';
+    } else if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      head = 'Нужен защищённый адрес';
+      why = 'Камера работает только по <b>https</b>. Открой игру из установленного приложения YEVA.';
+    } else {
+      why = 'Камера не открылась' + (name ? ' (' + name + ')' : '') +
+            '. Попробуй ещё раз или играй на звёздном небе.';
+    }
+    $('denyHead').textContent = head;
+    $('denyWhy').innerHTML = why;
+    show('deny');
+  }
+
+  /* ── кнопки ── */
+  $('go').addEventListener('click', openCam);
+  $('denyRetry').addEventListener('click', openCam);
+  $('denyDark').addEventListener('click', () => { dark = true; stopCam(); begin(); });
+  $('again').addEventListener('click', () => { dark ? begin() : openCam(); });
+  $('toMenu').addEventListener('click', () => { stopCam(); location.replace('index.html'); });
+
+  $('snd').addEventListener('click', () => {
+    muted = !muted;
+    applyMute();
+    try { localStorage.setItem(K_MUTE, muted ? '1' : '0'); } catch (e) {}
+  });
+
+  function applyMode(m) {
+    if (!MODES[m]) return;
+    mode = m;
+    [].forEach.call($('modes').children, b => b.classList.toggle('on', b.dataset.m === m));
+    $('tipLife').textContent = cfg().tipLife;
+    const b = best();
+    $('bestLine').innerHTML = b ? 'Лучший счёт: <b>' + b + '</b>' : '';
+    S.lives = cfg().lives;
+    paint();
+    try { localStorage.setItem(K_MODE, m); } catch (e) {}
+  }
+  [].forEach.call($('modes').children, b => {
+    b.addEventListener('click', () => applyMode(b.dataset.m));
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) return;
+    stopCam();
+    S.holding = false;
+    if (S.phase === 'play') { S.phase = 'start'; $('fire').classList.remove('on'); show('veil'); }
+  });
+  window.addEventListener('pagehide', stopCam);
+  window.addEventListener('resize', fit);
+  window.addEventListener('orientationchange', () => setTimeout(fit, 120));
+
+  /* ── пуск ── */
+  try { muted = localStorage.getItem(K_MUTE) === '1'; } catch (e) {}
+  try { front = localStorage.getItem(K_FRONT) === '1'; } catch (e) {}
+  applyMute();
+  let saved = 'kind';
+  try { saved = localStorage.getItem(K_MODE) || 'kind'; } catch (e) {}
+  fit();
+  listenTilt();
+  applyMode(MODES[saved] ? saved : 'kind');
+  requestAnimationFrame(frame);
+  draw();
+
+  /* ── ручки для проверки ── */
+  window.YEVA_GLOTZ = {
+    state: () => ({
+      phase: S.phase, mode: mode, score: S.score, lives: S.lives, wave: S.wave,
+      mobs: S.mobs.filter(m => !m.dead).length,
+      seen: S.mobs.filter(m => !m.dead && m.on).length,
+      cam: !!stream, dark: dark, world: S.world, best: best(),
+      W: W, H: H, front: front
+    }),
+    mode: m => { if (m) applyMode(m); return mode; },
+    auto: on => { auto = on; last = 0; if (on) requestAnimationFrame(frame); },
+    step: step,
+    begin: openCam,
+    darkStart: () => { dark = true; stopCam(); begin(); },
+    sampling: on => { sampling = on; },
+    front: v => { front = v; },
+    tilt: (a, b, g) => onTilt({ alpha: a, beta: b, gamma: g }),
+    world: () => ({ on: Wd.on, src: tiltSrc, yaw: +Wd.yaw.toFixed(1),
+                    pitch: +Wd.pitch.toFixed(1), turn: +Wd.turn.toFixed(1),
+                    drift: +Wd.drift.toFixed(2), front: front, world: S.world }),
+    at: (az, el) => project(az, el),
+    off: () => ({ x: Math.round(S.offX), y: Math.round(S.offY) }),
+    mobs: () => S.mobs.filter(m => !m.dead).map(m => ({
+      az: +m.az.toFixed(2), el: +m.el.toFixed(2), dist: +m.dist.toFixed(2),
+      x: Math.round(m.x), y: Math.round(m.y), r: Math.round(m.r), on: m.on, hp: m.hp
+    })),
+    shoot: shoot,
+    freeze: () => S.mobs.forEach(m => { m.vaz = 0; m.vel = 0; m.speed = 0; m.wob = 0; }),
+    bring: d => S.mobs.forEach(m => { m.dist = d; }),
+    calm: () => { Wd.turn = 0; Wd.drift = 0; Wd.hist.length = 0; }
+  };
+})();
+</script>
+<script src="install.js"></script>
+<script src="home.js"></script>
+<script src="console.js"></script>
+</body>
+</html>
